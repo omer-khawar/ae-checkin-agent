@@ -48,9 +48,9 @@ Read with `docs/NOT_BUILT.md` (scope we chose not to build) and `docs/PRD.md` §
 
 **How we would measure it.** Re-run the corroboration rules on the same sessions with a delta-from-baseline variant (e.g. breathing ≥ baseline + 6, pulse ≥ baseline × 1.3) and compare corroboration rates and nurse-adjudicated appropriateness; report precision of "tier bump was warranted" for each rule family.
 
-## 4. The con-med matcher is string distance over about 370 names, and it has both misses and false positives
+## 4. The con-med matcher is string distance over 300 names, and it has both misses and false positives
 
-**What we do.** `packages/rules/interim_rules/conmed.py` normalizes whitespace and case, then tries exact → case-insensitive → Levenshtein ≤ 2 against `packages/rules/data/medlist.json` (372 entries as shipped: 204 generic and 168 brand names, the 43-name hand-curated core from CONTRACTS §1.6 included; `scripts/fetch_public.py --build-medlist` regenerates it from openFDA labels), trying the whole string and then each whitespace token of ≥ 4 characters. Ties at the same distance go to the shortest name, then alphabetical. Brand names normalize to the generic. Unmatched text stays verbatim and is flagged for the coordinator. No other NLP.
+**What we do.** `packages/rules/interim_rules/conmed.py` normalizes whitespace and case, then tries exact → case-insensitive → Levenshtein ≤ 2 against `packages/rules/data/medlist.json` (300 entries as shipped: 194 generic and 106 brand names; 59 are hand-curated core entries from `data/public/medlist_build_config.json`, which include the 43 names CONTRACTS §1.6 requires plus common supplements and Regeneron's dupilumab/Dupixent and cemiplimab/Libtayo; the other 241 are the most frequent openFDA label generics and their brands, built by `scripts/fetch_public.py --build-medlist`), trying the whole string and then each whitespace token of ≥ 4 characters. A Levenshtein proposal below confidence 0.7 is demoted to unmatched. Ties at the same distance go to the shortest name, then alphabetical. Brand names normalize to the generic. Unmatched text stays verbatim and is flagged for the coordinator. No other NLP.
 
 **Where it breaks** (every row below was computed on 2026-10-10 with `interim_rules.conmed.match_conmed` against the shipped `medlist.json`; re-run them after regenerating the list, because adding a name can turn a documented miss into a hit):
 
@@ -58,17 +58,17 @@ Read with `docs/NOT_BUILT.md` (scope we chose not to build) and `docs/PRD.md` §
 |---|---|---|
 | `loritidene` | **unmatched** (nearest `loratadine`, distance 3) | Three edits is one too many; the coordinator codes it by hand. |
 | `lorotadinee` | `loratadine`, confidence 0.82 | Correct, but only because the distance happens to be 2; the boundary is arbitrary. |
-| `vitamin e` | `vitamin c`, confidence 0.89 | **False positive**: one letter turns one supplement into another. `vitamin d` is equally close; the tie-break (shortest, then alphabetical) picks `vitamin c`, which is not a clinical reason. |
+| `vitamin k` | `vitamin c`, confidence 0.89 | **False positive**: one letter turns one supplement into another. `vitamin d` and `vitamin e` are equally close; the tie-break (shortest, then alphabetical) picks `vitamin c`, which is not a clinical reason. |
 | `lasik` | `furosemide`, confidence 0.80 | **False positive**: eye surgery becomes a diuretic via the brand `lasix`. |
-| `irony` | `iron`, confidence 0.80 | A non-drug word matches a supplement. |
+| `irony`, `icon` | `iron`, confidence 0.80 / 0.75 | Non-drug words match a 4-letter supplement name. The openFDA build excludes names shorter than 5 letters for this reason, but `iron` is a hand-curated core entry and core entries are exempt. |
 | `alive` | `naproxen`, confidence 0.80 | A non-drug word matches the brand `aleve` and is normalized to its generic. |
-| `pepsi` | `famotidine`, confidence 0.67 | Two edits from `pepcid`; a soft drink becomes an antacid, at a confidence a coordinator might still accept. |
-| `vit d`, `d3` | **unmatched** | Common abbreviations miss: tokens shorter than 4 characters are never tried alone, and the whole string is more than 2 edits from `vitamin d`. |
+| `pepsi` | **unmatched** (nearest `pepcid`, distance 2, confidence 0.67) | Caught by the 0.7 confidence floor: a 6-letter name two edits away is never proposed. The floor is a blunt instrument; it also blocks genuine two-edit typos of six-letter drug names. |
+| `vit d`, `d3`, `zinc`, `tums`, `sudafed`, `flonase` | **unmatched** | Abbreviations miss (tokens shorter than 4 characters are never tried alone), and names simply absent from a 300-entry list miss too. |
 | `Advil PM` | `ibuprofen`, 1.0 (case-insensitive hit on the `advil` token) | **Loses the diphenhydramine** in the combination product. |
 | `Tylenol Extra Strength 500 mg` | `acetaminophen`, 1.0 (via the `tylenol` token) | Dose, strength and formulation are discarded; `CMDOSE`/`CMDOSU` are not drafted. |
 | `my blood pressure pill` | **unmatched** (nearest `lopressor`, distance 14) | Correct behavior, but the coordinator learns nothing. |
 
-What the shipped list happens to get right is also luck of the list: `vitamin c`, `vitamin b12`, `amoxicillin-clavulanate` and `dupixent` (→ `dupilumab`) are exact matches today only because those names were included; a regenerated list without them would turn each into a near-miss or a false positive.
+What the shipped list happens to get right is also luck of the list: `vitamin c`, `vitamin b12`, `fish oil`, `augmentin` (→ `amoxicillin-clavulanate`) and `dupixent` (→ `dupilumab`) are exact matches today only because we hand-added them to the core list after the first openFDA build turned `vitamin b12` into `methylphenidate` (the token `vitamin` is two edits from the brand `ritalin`, at exactly the 0.71 confidence the floor allows). A regenerated list without those core entries would reproduce that mistake.
 
 **Why we accepted it.** The verbatim text is always stored unchanged (`CMTRT`), the match is a *suggestion* with a confidence and a match kind the coordinator sees, unmatched is a first-class state, and the alternative (an LLM) was ruled out on purpose. The list is labeled "NOT RxNorm" in its own `rationale`.
 

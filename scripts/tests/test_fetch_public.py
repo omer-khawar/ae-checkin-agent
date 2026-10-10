@@ -49,6 +49,18 @@ CORE_BRAND_TO_GENERIC = {
 }
 
 
+def _n_core() -> int:
+    """Number of hand-curated core entries in data/public/medlist_build_config.json."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    cfg_path = (
+        _Path(__file__).resolve().parents[2] / "data" / "public" / "medlist_build_config.json"
+    )
+    cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+    return len(cfg["core_entries"])
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """Any attempt to open a socket fails the test."""
@@ -626,7 +638,7 @@ def test_medlist_uses_openfda_data_when_the_cache_was_fetched(
 ) -> None:
     raw = _load(fp.MEDLIST_RAW_FILE)
     info = built_medlist["build_info"]
-    assert info["n_core"] == 43
+    assert info["n_core"] == _n_core()
     if raw["fetched"]:
         assert info["n_openfda_generic"] >= 100
         assert len(built_medlist["entries"]) >= 200
@@ -965,7 +977,7 @@ def test_build_medlist_with_fallback_raw_yields_core_only(tmp_path: Path) -> Non
     rc = fp.main(["--offline", "--public-dir", str(empty), "--build-medlist", "--out", str(out)])
     assert rc == 0
     doc = json.loads(out.read_text(encoding="utf-8"))
-    assert len(doc["entries"]) == 43
+    assert len(doc["entries"]) == _n_core()
     assert doc["build_info"]["openfda_raw_fetched"] is False
 
 

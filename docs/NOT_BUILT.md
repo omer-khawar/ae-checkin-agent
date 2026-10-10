@@ -16,7 +16,7 @@ Two rules shaped every cut:
 | 3 | Multilingual items | Deliberate product choice | Schema-ready | Our items are hand-written; translations would not be validated |
 | 4 | Real EDC integration (Medidata Rave, Veeva Vault CDMS) | Time / access | Mock EDC endpoint | Needs sponsor credentials and eCRF mapping; SDTM-shaped exports + `POST /mock-edc/{domain}` show the seam |
 | 5 | SSO and per-user identity | Time | Auth layer isolated | Demo auth with three seeded users; audit schema already has `actor_id` |
-| 6 | Real MedDRA and RxNorm coding | Licensing | Mock codes, bundled list | MedDRA is subscription-licensed; RxNorm needs a UMLS license; we ship a ~370-name openFDA-derived list labeled "not RxNorm" |
+| 6 | Real MedDRA and RxNorm coding | Licensing | Mock codes, bundled list | MedDRA is subscription-licensed; RxNorm needs a UMLS license; we ship a 300-name openFDA-derived list labeled "not RxNorm" |
 | 7 | Mobile app | Deliberate product choice | No | The kiosk is the point: a site-controlled webcam and a consistent capture environment |
 | 8 | **Presage SmartSpectra integration** (real contactless vitals) | Deliberate deferral | **Yes: `apps/vitals-bridge/src/sources/presage.ts`** | Large native install and an API key; the plugin contract and notes make it a one-file job |
 | 9 | **Arduino / serial sensor source** | Deliberate deferral | **Yes: `apps/vitals-bridge/src/sources/arduino.ts`** | Needs hardware on the demo machine; line format documented |
@@ -66,7 +66,7 @@ Two rules shaped every cut:
 
 ## 6. Real MedDRA and RxNorm coding
 
-**Why not:** MedDRA is licensed through the MSSO by subscription; RxNorm is free from NLM but requires a UMLS license agreement. Neither can be bundled in an MIT repo. We ship `meddra_code_mock` values clearly labeled mock in `packages/rules/data/ctcae_terms.json`, and a drug list of about 370 brand and generic names (372 entries as shipped) built from openFDA label data in `packages/rules/data/medlist.json` whose top-level `rationale` says "NOT RxNorm. Not a formulary."
+**Why not:** MedDRA is licensed through the MSSO by subscription; RxNorm is free from NLM but requires a UMLS license agreement. Neither can be bundled in an MIT repo. We ship `meddra_code_mock` values clearly labeled mock in `packages/rules/data/ctcae_terms.json`, and a drug list of 300 brand and generic names (59 hand-curated core entries, the rest built from openFDA label data) in `packages/rules/data/medlist.json` whose top-level `rationale` says "NOT RxNorm. Not a formulary."
 
 **What it would take:** a licensed MedDRA lookup for `AEDECOD` (LLT → PT) and an RxNorm lookup (RxNav API or a local RxNorm release) for `CMDECOD`, both behind the existing `conmed.py` / `drafting.py` interfaces; the match-kind and confidence fields already exist to carry the result.
 

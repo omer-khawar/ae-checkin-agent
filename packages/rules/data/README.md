@@ -36,9 +36,10 @@ where the two tables derived from public reference data came from and how to reg
 
 ## `medlist.json`
 
-Hand-seeded brand/generic names (lowercase). `scripts/fetch_public.py --build-medlist`
-regenerates it in the same schema from the openFDA drug label API and must merge the
-`core_names` list back in. It is **not** RxNorm. Matcher parameters live separately in
+Generated brand/generic names (lowercase), 300 as shipped: `scripts/fetch_public.py --build-medlist`
+builds it from the cached openFDA drug-label name counts plus the hand-curated `core_entries` in
+`data/public/medlist_build_config.json` (always present, exempt from the length rules). It is
+**not** RxNorm. Matcher parameters live separately in
 `conmed_matching.json` so a regeneration cannot change matching behavior.
 
 ## Everything else

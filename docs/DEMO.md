@@ -157,8 +157,9 @@ Say first: "Every clinical number is a table, so I can tell you in advance." The
 | Toggle "simulated as measured" **OFF** with a mock session | `vitals.simulated_ignored`; no bump regardless of values | `RuleSettings.simulated_as_measured` |
 | Con-med `loratadine` → **`Claritin`** | `CMDECOD = loratadine` (brand → generic), `case_insensitive`, 1.0 | `medlist.json` · `conmed.case_insensitive` |
 | Con-med → **`loritidene`** (3 edits) | Unmatched; verbatim kept; flagged for the coordinator | `conmed.unmatched` |
-| Con-med → **`vitamin e`** | Matches `vitamin c` at 0.89 (one-letter edit; `vitamin d` is equally close and loses the alphabetical tie-break): a documented false positive, `docs/WHAT_IT_GETS_WRONG.md` §4. (`vitamin c`, `vitamin d` and `vitamin b12` themselves are exact matches.) | `conmed.levenshtein` |
+| Con-med → **`vitamin k`** | Matches `vitamin c` at 0.89 (one-letter edit; `vitamin d` and `vitamin e` are equally close and lose the alphabetical tie-break): a documented false positive, `docs/WHAT_IT_GETS_WRONG.md` §4. (`vitamin c`, `vitamin d`, `vitamin e` and `vitamin b12` themselves are exact matches.) | `conmed.levenshtein` |
 | Con-med → **`lasik`** | Matches `furosemide` at 0.80 via the brand `lasix`: a non-drug word becomes a diuretic; the coordinator sees the 0.80 and the verbatim text | `conmed.levenshtein` |
+| Con-med → **`Dupixent`** or **`Libtayo`** | `CMDECOD = dupilumab` / `cemiplimab`, `case_insensitive`, 1.0: Regeneron's own products are in the hand-curated core list | `medlist.json` · `conmed.case_insensitive` |
 | Same symptom reported again **tomorrow** | Follow-up linked to the open AE, no new AE | `dedup.json` · `dedup.followup_linked` |
 | Same symptom reported again in **8 days** | New AE | `dedup.new_ae` |
 | Fever = Yes **and** any item Severe | Tier floor 2 | `redflag.fever_with_severe` |

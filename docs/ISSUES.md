@@ -23,4 +23,4 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 17 | Seed: 12 participants with backdated check-ins; ingest the 8 synthetic chart notes mapped to P-xxx | open | api | CONTRACTS §5, R2.4 |
 | 18 | Dashboard: Notes page + chart-note evidence highlighting (span offsets) | open | web | Wave 3 |
 | 19 | Clean-clone rehearsal of `docs/DEMO.md` on a second machine | open | build | Judge criterion: cold start on a laptop that is not the build laptop |
-| 20 | Con-med matcher: 4-letter tokens can match short drug names (`from` → `iron`, confidence 0.5) | open | rules | Documented in WHAT_IT_GETS_WRONG; consider min token length 5 or a stop-word list |
+| 20 | Con-med matcher: short tokens vs short names (`from` → `iron` at 0.5; `icon` → `iron` at 0.75) | partially done | rules | 0.7 confidence floor blocks the first; the openFDA build drops names < 5 letters, but core entries (`iron`) are exempt, so the second remains and is documented in WHAT_IT_GETS_WRONG §4 |

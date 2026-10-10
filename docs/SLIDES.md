@@ -134,7 +134,7 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 **Content**
 - Composite → grade crosswalk is an approximation, not validated (presence-only rash is always G1)
 - Camera vitals confounded by talking, motion, light; thresholds fixed, not baseline-adjusted
-- Con-med matcher: string distance over ~370 names ("vitamin e" → vitamin c, "lasik" → furosemide)
+- Con-med matcher: string distance over 300 names ("vitamin k" → vitamin c, "lasik" → furosemide)
 - 7-day dedup heuristic; demo auth
 - Deliberately not built: chart-note scanning (needs an LLM), voice, multilingual, real EDC/MedDRA/RxNorm; Presage and Arduino are documented slots
 - `docs/WHAT_IT_GETS_WRONG.md` · `docs/NOT_BUILT.md`

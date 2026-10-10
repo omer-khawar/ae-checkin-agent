@@ -71,11 +71,20 @@ def test_short_tokens_are_not_tried_on_their_own() -> None:
     assert match_conmed("took b12").match_kind == "unmatched"
 
 
+SHORT_NAME_LIST = MedList(
+    entries=(MedEntry("iron", "generic", "iron"),), is_rxnorm=False, built_at=T0, source="t"
+)
+
+
 @pytest.mark.parametrize("text", ["from", "the blue pill from the pharmacy"])
 def test_near_misses_below_the_confidence_floor_are_unmatched(text: str) -> None:
-    """'from' is two edits from the 4-letter entry 'iron' (confidence 0.5): never proposed."""
+    """'from' is two edits from a 4-letter entry 'iron' (confidence 0.5): never proposed.
+
+    Uses an explicit list: the shipped medlist.json excludes names shorter than 5 letters
+    (data/public/medlist_build_config.json), so the floor is exercised here independently.
+    """
     cfg = conmed_matching_config()
-    match = match_conmed(text)
+    match = match_conmed(text, SHORT_NAME_LIST)
     assert match.match_kind == "unmatched" and match.matched_name is None
     assert match.confidence == 0.0 and match.distance is None
     # The coordinator still sees the nearest names, taken from the closest token.
@@ -102,10 +111,13 @@ def test_confidence_floor_boundary() -> None:
     assert match_conmed("abcdexx", seven).confidence == 0.71
     assert match_conmed("abcdxx", six).match_kind == "unmatched"
     assert match_conmed("abcdxx", six).candidates == (("abcdef", 2),)
-    # A one-edit slip on a 4-letter name (0.75) still clears the floor: a known limitation
-    # recorded in docs/WHAT_IT_GETS_WRONG.md ('icon' -> iron).
+    # A one-edit slip on a 4-letter name (0.75) still clears the floor ('icon' -> iron): a known
+    # limitation recorded in docs/WHAT_IT_GETS_WRONG.md. The openFDA build excludes names
+    # shorter than 5 letters, but hand-curated core entries such as 'iron' are exempt, so the
+    # shipped list reproduces it too.
+    assert match_conmed("icon", SHORT_NAME_LIST).matched_name == "iron"
+    assert match_conmed("icon", SHORT_NAME_LIST).confidence == 0.75
     assert match_conmed("icon").matched_name == "iron"
-    assert match_conmed("icon").confidence == 0.75
 
 
 def test_levenshtein_ties_prefer_shortest_then_alphabetical() -> None:
