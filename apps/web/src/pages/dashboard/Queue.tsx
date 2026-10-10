@@ -1,11 +1,280 @@
-import { Stub } from "./Stub";
+/**
+ * /dashboard — the coordinator queue (CLAUDE.md §3.7.1, CONTRACTS §2.2 + R2.4).
+ *
+ * - Rows come from GET /queue in server order (tier desc, completed_at desc) and
+ *   are never re-sorted here; the heading says so.
+ * - Filters live in the URL search params so the back button and a shared link
+ *   restore them. Participant text is resolved to a USUBJID through
+ *   GET /participants when it matches a display label.
+ * - Auto-refreshes every 15 s (visible "updated hh:mm:ss"), and raises a toast
+ *   when a Tier 3 item that was not in the previous fetch appears: that is the
+ *   dashboard half of the mock pager.
+ * - Every countdown chip ticks from one shared clock (`useNow`).
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-/** /dashboard — check-ins sorted by tier desc then time (CLAUDE.md §3.7.1). */
-export function Queue() {
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
+import { ErrorBanner } from "../../components/ErrorBanner";
+import { MeasuredBadge } from "../../components/MeasuredBadge";
+import { Pagination } from "../../components/Pagination";
+import { TierChip } from "../../components/TierChip";
+import { useToast } from "../../components/Toast";
+import { DEFAULT_PAGE_SIZE, fetchAllPages, listParticipants } from "../../lib/api";
+import { cx, formatLocal, formatUtc } from "../../lib/format";
+import type { Participant } from "../../lib/types";
+import { buildQueueQuery, hasNarrowingFilter } from "./queue/normalize";
+import { QueueFilters } from "./queue/QueueFilters";
+import { QueueTable } from "./queue/QueueTable";
+import type { QueueFilterState, QueueRow } from "./queue/types";
+import { useNow } from "./queue/useNow";
+import { DEFAULT_REFRESH_MS, useQueuePolling } from "./queue/useQueuePolling";
+
+export interface QueueProps {
+  /** Auto-refresh period; tests pass a short one. */
+  refreshIntervalMs?: number;
+  pageSize?: number;
+}
+
+// ---------------------------------------------------------------------------
+// URL ⇄ filter state
+// ---------------------------------------------------------------------------
+
+function readFilters(sp: URLSearchParams): QueueFilterState {
+  const minTier = Number.parseInt(sp.get("min_tier") ?? "0", 10);
+  const offset = Number.parseInt(sp.get("offset") ?? "0", 10);
+  return {
+    participant: sp.get("participant") ?? "",
+    minTier: Number.isFinite(minTier) && minTier >= 1 && minTier <= 3 ? minTier : 0,
+    status: sp.get("status") === "all" ? "all" : "open",
+    includeEval: sp.get("include_eval") === "true",
+    offset: Number.isFinite(offset) && offset > 0 ? offset : 0,
+  };
+}
+
+/** Only non-default values are written, so the default queue URL stays clean. */
+function writeFilters(f: QueueFilterState): URLSearchParams {
+  const sp = new URLSearchParams();
+  if (f.participant) sp.set("participant", f.participant);
+  if (f.minTier > 0) sp.set("min_tier", String(f.minTier));
+  if (f.status !== "open") sp.set("status", f.status);
+  if (f.includeEval) sp.set("include_eval", "true");
+  if (f.offset > 0) sp.set("offset", String(f.offset));
+  return sp;
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export function Queue({
+  refreshIntervalMs = DEFAULT_REFRESH_MS,
+  pageSize = DEFAULT_PAGE_SIZE,
+}: QueueProps = {}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  const toast = useToast();
+
+  const patchFilters = useCallback(
+    (patch: Partial<QueueFilterState>) => {
+      setSearchParams(writeFilters({ ...readFilters(searchParams), ...patch }), {
+        replace: true,
+      });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Participants feed the filter datalist and the label → USUBJID resolution.
+  // A failure here only degrades the datalist; the queue still loads.
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  // Settled (ok or failed) once; see `queueEnabled` below.
+  const [participantsReady, setParticipantsReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllPages((limit, offset) => listParticipants({ limit, offset }), 100, 5)
+      .then((list) => {
+        if (!cancelled) setParticipants(list);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setParticipantsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // CONTRACTS R2.3 only promises display-label resolution for POST /sessions,
+  // so GET /queue must receive a USUBJID. A deep link such as
+  // ?participant=P-007 therefore waits for the participants list before the
+  // first fetch, instead of sending usubjid=P-007 and flashing an empty result.
+  // With no participant filter there is nothing to resolve and the fetch starts
+  // immediately; if the list fails to load, the typed text is sent as-is.
+  const queueEnabled = participantsReady || !filters.participant.trim();
+
+  const query = useMemo(
+    () => buildQueueQuery(filters, participants, pageSize),
+    [filters, participants, pageSize],
+  );
+
+  // Mock pager, dashboard side: a Tier 3 row that was not in the previous fetch
+  // of the same query is a new urgent check-in (the API already wrote the page
+  // event and the kiosk showed the stop screen).
+  const onRefresh = useCallback(
+    (next: QueueRow[], prev: QueueRow[]) => {
+      const seen = new Set(prev.map((r) => r.key));
+      for (const row of next) {
+        if (row.tier === 3 && !seen.has(row.key)) {
+          toast.push({
+            kind: "warning",
+            title: "Page: Tier 3 urgent check-in",
+            message: `${row.display_label} · ${row.source === "chart_note" ? "chart note" : "check-in"} completed ${formatLocal(row.completed_at, "time") || "just now"}. Open the queue row to acknowledge.`,
+            durationMs: 15_000,
+          });
+        }
+      }
+    },
+    [toast],
+  );
+
+  const { data, error, loading, refreshing, updatedAt, refresh } = useQueuePolling(query, {
+    intervalMs: refreshIntervalMs,
+    onRefresh,
+    enabled: queueEnabled,
+  });
+
+  const anyClock = Boolean(data?.items.some((r) => r.has_sae_clock && !r.sae_stopped));
+  const now = useNow(anyClock);
+
+  const rows = data?.items ?? [];
+
   return (
-    <Stub
-      title="Queue"
-      description="Check-ins sorted by tier, with tier chips, SAE countdowns and measured/simulated badges."
-    />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Queue</h1>
+          <p className="mt-0.5 text-sm text-slate-600">
+            Sorted by escalation tier (highest first), then most recent. Server order; nothing is
+            re-ranked in the browser.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-sm text-slate-600">
+          <span
+            className="tnum"
+            title={
+              updatedAt
+                ? `Last successful fetch ${formatUtc(updatedAt)} (UTC). Auto-refreshes every ${Math.round(refreshIntervalMs / 1000)} s.`
+                : "Waiting for the first fetch"
+            }
+            // Deliberately NOT aria-live: it changes every 15 s and would
+            // interrupt a screen-reader user for as long as the page is open.
+          >
+            {updatedAt ? `updated ${formatLocal(updatedAt, "time")}` : "not yet updated"}
+            {refreshing && <span className="ml-1 text-slate-400">· refreshing…</span>}
+          </span>
+          <Button size="sm" variant="secondary" onClick={refresh} busy={loading}>
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <QueueFilters value={filters} participants={participants} onChange={patchFilters} />
+      </Card>
+
+      {error ? (
+        <ErrorBanner
+          error={error}
+          message={
+            data
+              ? "Could not refresh the queue; showing the last result"
+              : "Could not load the queue"
+          }
+          onRetry={refresh}
+        />
+      ) : null}
+
+      <Card flush>
+        {loading ? (
+          <div className="px-4 py-12 text-center text-slate-600" role="status">
+            <span
+              aria-hidden="true"
+              className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent align-middle"
+            />
+            Loading queue…
+          </div>
+        ) : data && rows.length === 0 ? (
+          <EmptyState filters={filters} />
+        ) : data ? (
+          <>
+            <QueueTable rows={rows} now={now} refreshing={refreshing} />
+            <div className="border-t border-slate-200 px-4 py-3">
+              <Pagination
+                total={data.total}
+                limit={data.limit || pageSize}
+                offset={data.offset}
+                onChange={({ offset }) => patchFilters({ offset })}
+              />
+            </div>
+          </>
+        ) : null}
+      </Card>
+
+      <Legend />
+    </div>
+  );
+}
+
+/**
+ * Empty result, explained. The copy names the actual cause: a narrowing filter
+ * (participant / minimum tier), the default "open only" view, or a queue that
+ * really has nothing in it. Saying "nothing recorded" under an active filter
+ * would be false.
+ */
+function EmptyState({ filters }: { filters: QueueFilterState }) {
+  const narrowed = hasNarrowingFilter(filters);
+  let detail: string;
+  if (narrowed) {
+    detail =
+      filters.status === "open"
+        ? "No open items for this participant / minimum tier. Switch Status to All to include confirmed and rejected ones, or Clear filters to see everything."
+        : "No items for this participant / minimum tier. Clear filters to see everything.";
+  } else if (filters.status === "open") {
+    detail =
+      "Open items are check-ins and chart notes with drafts still awaiting review. Switch Status to All to see confirmed and rejected ones.";
+  } else {
+    detail = "Nothing has been recorded yet. Start a check-in from the kiosk.";
+  }
+  return (
+    <div className="px-4 py-12 text-center text-slate-600" role="status">
+      <p className="font-medium text-slate-800">
+        {narrowed || filters.status === "open"
+          ? "No items match these filters."
+          : "The queue is empty."}
+      </p>
+      <p className="mt-1 text-sm">{detail}</p>
+    </div>
+  );
+}
+
+/** What the chips mean, so a first-time reader never has to guess. */
+function Legend() {
+  return (
+    <div className={cx("flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600")}>
+      <span className="font-medium text-slate-700">Legend</span>
+      <span className="inline-flex items-center gap-1.5">
+        <TierChip tier={0} short /> <TierChip tier={1} short /> <TierChip tier={2} short />{" "}
+        <TierChip tier={3} short />
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <MeasuredBadge isMeasured /> real sensor
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <MeasuredBadge isMeasured={false} /> mock source; never used for rules unless the admin demo
+        toggle is on
+      </span>
+      <span>Grades are provisional (participant answers only); vitals never change a grade.</span>
+    </div>
   );
 }

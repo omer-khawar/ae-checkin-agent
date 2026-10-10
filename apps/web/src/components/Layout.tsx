@@ -16,6 +16,7 @@ import { Disclaimer } from "./Disclaimer";
 const NAV: Array<{ to: string; label: string; end?: boolean }> = [
   { to: "/dashboard", label: "Queue", end: true },
   { to: "/dashboard/escalations", label: "Escalations" },
+  { to: "/dashboard/notes", label: "Notes" },
   { to: "/dashboard/audit", label: "Audit" },
   { to: "/dashboard/eval", label: "Eval" },
 ];
