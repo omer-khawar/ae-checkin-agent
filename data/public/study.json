@@ -1,0 +1,267 @@
+{
+  "source_url": "https://clinicaltrials.gov/api/v2/studies/NCT03088540",
+  "fetched_at": "2026-10-10T19:35:18.465Z",
+  "fetched": true,
+  "license_note": "ClinicalTrials.gov is a service of the U.S. National Library of Medicine; registry records are U.S. government works in the public domain. Cite the NCT number. Terms: https://clinicaltrials.gov/about-site/terms-conditions",
+  "note": "Demo study (public registry record). All Interim participants are synthetic; nothing in this file is participant data.",
+  "reader_note": "Read this file as UTF-8 (conditions contain the fullwidth comma U+FF0C exactly as the registry prints it). Study.title in the data model = title_display (the brief title); show title.official on hover. Study.interventions[] = intervention_names.",
+  "resolved_via": "direct:NCT03088540",
+  "nct_id": "NCT03088540",
+  "study_id": "R2810-ONC-1624",
+  "title": {
+    "official": "A Global, Randomised, Phase 3, Open-label Study of REGN2810 (ANTI-PD 1 Antibody) Versus Platinum Based Chemotherapy in First Line Treatment of Patients With Advanced or Metastatic PD L1+Non-small Cell Lung Cancer",
+    "brief": "Study of REGN 2810 Compared to Platinum-Based Chemotherapies in Participants With Metastatic Non-Small Cell Lung Cancer (NSCLC)"
+  },
+  "title_display": "Study of REGN 2810 Compared to Platinum-Based Chemotherapies in Participants With Metastatic Non-Small Cell Lung Cancer (NSCLC)",
+  "sponsor": "Regeneron Pharmaceuticals",
+  "sponsor_class": "INDUSTRY",
+  "collaborators": [
+    "Sanofi"
+  ],
+  "phase": "Phase 3",
+  "phases_raw": [
+    "PHASE3"
+  ],
+  "status": "COMPLETED",
+  "study_type": "INTERVENTIONAL",
+  "conditions": [
+    "Carcinoma，Non-Small-Cell Lung",
+    "Lung Carcinomas, Non-Small-Cell",
+    "Non-small-cell Lung Carcinoma",
+    "Nonsmall Cell Lung Cancer"
+  ],
+  "keywords": [
+    "Previous Smoker",
+    "Current Smoker",
+    "Stage IIIB",
+    "Stage IIIC",
+    "Stage IV",
+    "PD-L1"
+  ],
+  "interventions": [
+    {
+      "name": "Pemetrexed",
+      "type": "DRUG",
+      "other_names": []
+    },
+    {
+      "name": "Paclitaxel",
+      "type": "DRUG",
+      "other_names": []
+    },
+    {
+      "name": "Gemcitabine",
+      "type": "DRUG",
+      "other_names": []
+    },
+    {
+      "name": "Cisplatin",
+      "type": "DRUG",
+      "other_names": []
+    },
+    {
+      "name": "Carboplatin",
+      "type": "DRUG",
+      "other_names": []
+    },
+    {
+      "name": "cemiplimab",
+      "type": "DRUG",
+      "other_names": [
+        "REGN2810",
+        "Libtayo"
+      ]
+    }
+  ],
+  "intervention_names": [
+    "Pemetrexed",
+    "Paclitaxel",
+    "Gemcitabine",
+    "Cisplatin",
+    "Carboplatin",
+    "cemiplimab"
+  ],
+  "start_date": "2017-05-29",
+  "primary_completion_date": "2025-04-18",
+  "completion_date": "2025-04-18",
+  "enrollment": {
+    "count": 712,
+    "type": "ACTUAL"
+  },
+  "brief_summary": "The primary objectives of the study are:\n\n* To compare the overall survival (OS) of cemiplimab versus standard-of-care platinum-based chemotherapies in the first-line treatment of patients with advanced or metastatic non-small cell lung cancer (NSCLC) whose tumors express PD-L1 in ≥50% of tumor cells\n* To compare the progression-free survival (PFS) of cemiplimab versus standard-of-care platinum-based chemotherapies in the first-line treatment of patients with advanced or metastatic NSCLC whose tumors express PD-L1 in ≥50% of tumor cells\n\nThe key secondary objective of the study is to compare the objective response rate (ORR) of cemiplimab versus platinum-based chemotherapies",
+  "official_url": "https://clinicaltrials.gov/study/NCT03088540",
+  "registry_last_update_posted": "2026-06-25",
+  "raw": {
+    "protocolSection": {
+      "identificationModule": {
+        "nctId": "NCT03088540",
+        "orgStudyIdInfo": {
+          "id": "R2810-ONC-1624"
+        },
+        "secondaryIdInfos": [
+          {
+            "id": "2016-004407-31",
+            "type": "EUDRACT_NUMBER"
+          },
+          {
+            "id": "2024-515052-20-00",
+            "type": "REGISTRY",
+            "domain": "EUCT Number"
+          },
+          {
+            "id": "2016",
+            "type": "NIH",
+            "link": "https://reporter.nih.gov/quickSearch/2016"
+          }
+        ],
+        "organization": {
+          "fullName": "Regeneron Pharmaceuticals",
+          "class": "INDUSTRY"
+        },
+        "briefTitle": "Study of REGN 2810 Compared to Platinum-Based Chemotherapies in Participants With Metastatic Non-Small Cell Lung Cancer (NSCLC)",
+        "officialTitle": "A Global, Randomised, Phase 3, Open-label Study of REGN2810 (ANTI-PD 1 Antibody) Versus Platinum Based Chemotherapy in First Line Treatment of Patients With Advanced or Metastatic PD L1+Non-small Cell Lung Cancer"
+      },
+      "statusModule": {
+        "statusVerifiedDate": "2026-05",
+        "overallStatus": "COMPLETED",
+        "expandedAccessInfo": {
+          "hasExpandedAccess": false
+        },
+        "startDateStruct": {
+          "date": "2017-05-29",
+          "type": "ACTUAL"
+        },
+        "primaryCompletionDateStruct": {
+          "date": "2025-04-18",
+          "type": "ACTUAL"
+        },
+        "completionDateStruct": {
+          "date": "2025-04-18",
+          "type": "ACTUAL"
+        },
+        "studyFirstSubmitDate": "2017-03-03",
+        "studyFirstSubmitQcDate": "2017-03-16",
+        "studyFirstPostDateStruct": {
+          "date": "2017-03-23",
+          "type": "ACTUAL"
+        },
+        "resultsFirstSubmitDate": "2026-04-16",
+        "resultsFirstSubmitQcDate": "2026-05-29",
+        "resultsFirstPostDateStruct": {
+          "date": "2026-06-25",
+          "type": "ACTUAL"
+        },
+        "lastUpdateSubmitDate": "2026-05-29",
+        "lastUpdatePostDateStruct": {
+          "date": "2026-06-25",
+          "type": "ACTUAL"
+        }
+      },
+      "sponsorCollaboratorsModule": {
+        "responsibleParty": {
+          "type": "SPONSOR"
+        },
+        "leadSponsor": {
+          "name": "Regeneron Pharmaceuticals",
+          "class": "INDUSTRY"
+        },
+        "collaborators": [
+          {
+            "name": "Sanofi",
+            "class": "INDUSTRY"
+          }
+        ]
+      },
+      "designModule": {
+        "studyType": "INTERVENTIONAL",
+        "phases": [
+          "PHASE3"
+        ],
+        "designInfo": {
+          "allocation": "RANDOMIZED",
+          "interventionModel": "CROSSOVER",
+          "primaryPurpose": "TREATMENT",
+          "maskingInfo": {
+            "masking": "NONE"
+          }
+        },
+        "enrollmentInfo": {
+          "count": 712,
+          "type": "ACTUAL"
+        }
+      },
+      "conditionsModule": {
+        "conditions": [
+          "Carcinoma，Non-Small-Cell Lung",
+          "Lung Carcinomas, Non-Small-Cell",
+          "Non-small-cell Lung Carcinoma",
+          "Nonsmall Cell Lung Cancer"
+        ],
+        "keywords": [
+          "Previous Smoker",
+          "Current Smoker",
+          "Stage IIIB",
+          "Stage IIIC",
+          "Stage IV",
+          "PD-L1"
+        ]
+      },
+      "armsInterventionsModule": {
+        "interventions": [
+          {
+            "type": "DRUG",
+            "name": "Pemetrexed",
+            "description": "Patients will be administered pemetrexed chemotherapy as per protocol with either cisplatin or carboplatin",
+            "armGroupLabels": [
+              "Standard-of-care chemotherapy"
+            ]
+          },
+          {
+            "type": "DRUG",
+            "name": "Paclitaxel",
+            "description": "Patients will be administered paclitaxel chemotherapy as per protocol with either cisplatin or carboplatin",
+            "armGroupLabels": [
+              "Standard-of-care chemotherapy"
+            ]
+          },
+          {
+            "type": "DRUG",
+            "name": "Gemcitabine",
+            "description": "Patients will be administered gemcitabine chemotherapy as per protocol with either cisplatin or carboplatin",
+            "armGroupLabels": [
+              "Standard-of-care chemotherapy"
+            ]
+          },
+          {
+            "type": "DRUG",
+            "name": "Cisplatin",
+            "description": "Administered with either Pemetrexed, Paclitaxel or gemcitabine.",
+            "armGroupLabels": [
+              "Standard-of-care chemotherapy"
+            ]
+          },
+          {
+            "type": "DRUG",
+            "name": "Carboplatin",
+            "description": "Administered with either Pemetrexed, Paclitaxel or gemcitabine.",
+            "armGroupLabels": [
+              "Standard-of-care chemotherapy"
+            ]
+          },
+          {
+            "type": "DRUG",
+            "name": "cemiplimab",
+            "description": "Patients will be administered cemiplimab as per protocol.",
+            "armGroupLabels": [
+              "cemiplimab"
+            ],
+            "otherNames": [
+              "REGN2810",
+              "Libtayo"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

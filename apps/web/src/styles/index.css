@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Base layer: light theme only, high contrast (see README.md in this folder).
+ * We keep custom CSS to a minimum; components use Tailwind utilities.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    @apply bg-slate-50 text-slate-900;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply min-h-screen font-sans;
+  }
+
+  /* Visible, consistent focus rings for keyboard users (kiosk is keyboard accessible). */
+  :focus-visible {
+    @apply outline-none ring-4 ring-brand-500/60 ring-offset-2 ring-offset-white;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-slate-900;
+  }
+}
+
+@layer utilities {
+  /* Tabular numerals for vitals and timers so values do not jitter as they change. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    @apply sr-only;
+  }
+}
+
+/* Respect reduced-motion preferences for the pleth sparkline and progress bar. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

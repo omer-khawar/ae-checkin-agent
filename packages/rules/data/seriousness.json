@@ -1,0 +1,26 @@
+{
+  "source": "ICH E2A 'Clinical Safety Data Management: Definitions and Standards for Expedited Reporting' (1994) §II.B for the seriousness criteria; 21 CFR 312.32(c) for the sponsor's 7-day (fatal or life-threatening unexpected suspected adverse reactions) and 15-day (other serious unexpected) IND safety reporting clocks. The 24-hour site-to-sponsor window is the common protocol-level obligation ('within 24 hours of the site becoming aware') and is configurable here.",
+  "rationale": "A 'yes' to the hospital/ER gate meets the ICH E2A seriousness criterion 'requires inpatient hospitalisation or prolongation of existing hospitalisation', so Interim marks seriousness as SUSPECTED (never decided; the investigator decides) and starts the site clock at the moment the site became aware, which is the check-in completion time. The sponsor-side clocks are shown as informational downstream deadlines; they are owned by the sponsor's pharmacovigilance process, not by this system. The clock stops only when an investigator records a seriousness decision.",
+  "criteria": [
+    "results in death",
+    "is life-threatening",
+    "requires inpatient hospitalisation or prolongation of existing hospitalisation",
+    "results in persistent or significant disability/incapacity",
+    "is a congenital anomaly/birth defect",
+    "is otherwise medically important"
+  ],
+  "triggers": [
+    {
+      "gate": "hospitalization",
+      "criterion": "requires inpatient hospitalisation or prolongation of existing hospitalisation",
+      "rule_id": "sae.clock_started"
+    }
+  ],
+  "site_to_sponsor_hours": 24,
+  "informational_sponsor_clocks": {
+    "fatal_or_life_threatening_days": 7,
+    "other_serious_days": 15,
+    "source": "21 CFR 312.32(c)",
+    "note": "Informational only. Computed from site awareness; owned by the sponsor, not by Interim."
+  }
+}

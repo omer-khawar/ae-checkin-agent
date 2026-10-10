@@ -1,0 +1,51 @@
+# Tooling and pinned runtime extras for the repo-level scripts (fetch_public.py, and later
+# seed.py / run_eval.py).  Nothing here is installed as a package; the pins document what the
+# scripts import beyond the standard library and what CI should install into the venv:
+#
+#   uv pip install --python .venv/Scripts/python.exe openpyxl==3.1.5
+#
+# ruff / mypy / pytest pick this file up automatically when pointed at scripts/.
+
+[project]
+name = "interim-scripts"
+version = "0.1.0"
+description = "Operational scripts for Interim (public data fetch, seed, eval harness)"
+requires-python = ">=3.12"
+dependencies = [
+  # Optional import in fetch_public.py: only needed to parse the NCI CTCAE workbook.
+  "openpyxl==3.1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+  "ruff==0.17.0",
+  "mypy==2.4.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "C4", "PTH", "RUF", "ARG", "PIE", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests read fixtures by absolute path and use asserts freely.
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["fetch_public.py", "tests"]
+
+[[tool.mypy.overrides]]
+# openpyxl ships no type information; it is used behind an optional import.
+module = ["openpyxl", "openpyxl.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

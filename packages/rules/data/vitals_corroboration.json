@@ -1,0 +1,55 @@
+{
+  "source": "CLAUDE.md §3.4(d); CONTRACTS.md §1.4. Thresholds: adult tachypnea commonly defined as respiratory rate > 20-24 breaths/min and tachycardia as pulse > 100-110 beats/min (general physiology references); the conservative ends (24, 110) are used. Plausibility bounds are deliberately wide (pulse 35-180 beats/min, breathing 5-45 breaths/min) so that only sensor nonsense is excluded, not unusual physiology. min_window_s are the timing gates of CLAUDE.md §3.3 / §7.1 (pulse 12 s, breathing 30 s, HRV 60 s), which are the averaging windows of the Presage SmartSpectra metrics (docs/VITALS_SOURCES.md). simulated_sources: CLAUDE.md §7.1 ('isMeasured: false for mock').",
+  "rationale": "Contactless camera vitals are context attached to the record. They NEVER change a provisional grade. They can raise the escalation tier by at most one step, and only when every eligibility gate holds: the sample is measured (or the admin demo toggle 'treat simulated as measured' is ON), its confidence is at or above min_confidence, its averaging window is at least min_window_s for that metric, its value is inside the plausibility bounds, and a documented rule below matches. Eligibility is decided per sample AND per metric (a sample can have a usable pulse and an unusable breathing rate). The bridge is the primary timing gate; the engine re-checks window_s so that a sample posted straight to the API (an eval persona, a hand-built request) cannot corroborate from a 0-second window, and so the record can say 'window too short' instead of silently trusting it. A confidence that is missing, not a finite number, or outside 0..1 is treated as low confidence. A sample whose source is listed in simulated_sources is SIMULATED whatever its is_measured flag says (the source label wins, in the conservative direction), so a mis-set flag can never remove the 'simulated' label from a VS row or make a mock sample corroboration-eligible with the demo toggle OFF. Corroboration compares against the MAXIMUM eligible value of the session, because the question the rule asks is 'was the participant tachypneic/tachycardic at any point while reporting this symptom', and a maximum cannot be averaged away. Implausible values (outside the bounds, or not a finite number) are ignored for rules with a logged reason; this is also what catches the mock 'post_exercise' scenario in the demo when it drifts past the bounds. Thresholds are fixed, not personalized to the participant's baseline (see docs/WHAT_IT_GETS_WRONG.md).",
+  "min_confidence": 0.6,
+  "plausibility": {
+    "pulse_bpm": { "min": 35, "max": 180, "unit": "beats/min" },
+    "breathing_bpm": { "min": 5, "max": 45, "unit": "breaths/min" }
+  },
+  "min_window_s": { "pulse": 12, "breathing": 30, "hrv": 60 },
+  "simulated_sources": ["mock"],
+  "max_tier_bump": 1,
+  "aggregation": "max",
+  "method_labels": {
+    "measured": "Contactless optical, camera-based",
+    "simulated": "Simulated"
+  },
+  "rules": [
+    {
+      "id": "corr.tachypnea_dyspnea",
+      "description": "Reported shortness of breath (composite >= 2) with a breathing rate of 24 breaths/min or more",
+      "condition": {
+        "all": [
+          { "kind": "item_composite", "item": "shortness_of_breath", "op": ">=", "value": 2 },
+          { "kind": "vital", "metric": "breathing", "op": ">=", "value": 24 }
+        ]
+      },
+      "reason": "tachypnea corroborates reported dyspnea",
+      "tier_bump": 1
+    },
+    {
+      "id": "corr.tachycardia_dyspnea",
+      "description": "Reported shortness of breath (composite >= 2) with a pulse of 110 beats/min or more",
+      "condition": {
+        "all": [
+          { "kind": "item_composite", "item": "shortness_of_breath", "op": ">=", "value": 2 },
+          { "kind": "vital", "metric": "pulse", "op": ">=", "value": 110 }
+        ]
+      },
+      "reason": "tachycardia with reported dyspnea",
+      "tier_bump": 1
+    },
+    {
+      "id": "corr.tachycardia_fever",
+      "description": "Reported fever or chills with a pulse of 110 beats/min or more",
+      "condition": {
+        "all": [
+          { "kind": "item_attribute", "item": "fever_or_chills", "attribute": "presence", "op": ">=", "value": 1 },
+          { "kind": "vital", "metric": "pulse", "op": ">=", "value": 110 }
+        ]
+      },
+      "reason": "tachycardia with reported fever or chills",
+      "tier_bump": 1
+    }
+  ]
+}

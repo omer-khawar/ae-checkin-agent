@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interim-rules"
+version = "0.1.0"
+description = "Interim deterministic rules engine: PRO-CTCAE composite scoring, provisional CTCAE grading, red flags, vitals corroboration, escalation ladder, SAE clock, con-med matching, de-duplication and SDTM-shaped draft generation. No LLM, no I/O."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = []
+keywords = ["clinical-trials", "PRO-CTCAE", "CTCAE", "SDTM", "adverse-events", "rules-engine"]
+classifiers = [
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.1,<10",
+  "pytest-cov>=7.1,<8",
+  "hypothesis>=6.168,<7",
+  "ruff>=0.17,<0.18",
+  "mypy>=2.4,<3",
+]
+
+# The JSON rule tables live at the canonical path packages/rules/data/ (CONTRACTS.md §1.1).
+# They are mapped into the distribution as the `interim_rules.data` package so that a wheel
+# or a non-editable install (`pip install ./packages/rules`, a Docker multi-stage COPY+install)
+# ships them inside the package; `interim_rules.tables.data_dir()` falls back to
+# `<package>/data` in that layout. The editable install keeps reading `../data` directly.
+[tool.setuptools]
+packages = ["interim_rules", "interim_rules.data"]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+"interim_rules.data" = "data"
+
+[tool.setuptools.package-data]
+interim_rules = ["py.typed"]
+"interim_rules.data" = ["*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["hypothesis", "hypothesis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["interim_rules"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 95
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]

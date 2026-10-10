@@ -1,22 +1,45 @@
 # Python
+__pycache__/
+*.py[cod]
 .venv/
 venv/
-__pycache__/
-*.pyc
+*.egg-info/
 .pytest_cache/
+.mypy_cache/
 .ruff_cache/
-*.db
-*.sqlite3
+.hypothesis/
+.coverage
+coverage.xml
+dist/
+build/
 
 # Node
 node_modules/
+apps/web/dist/
+apps/vitals-bridge/dist/
+*.tsbuildinfo
+.eslintcache
 
-# Secrets / local config
+# Runtime data (SQLite lives in a volume / local file; never commit it)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/runtime/
+exports/
+
+# Env / secrets
 .env
+.env.local
+.env.*.local
 !.env.example
 
-# OS / editors
+# OS / editor
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
+.vscode/
+*.swp
+
+# Scratch
+tmp/

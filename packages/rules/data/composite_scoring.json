@@ -1,0 +1,1002 @@
+{
+  "source": "Basch E, Becker C, Rogak LJ, Schrag D, Reeve BB, Spears P, Smith ML, Gounder MM, Mahoney MR, Schwartz GK, Bennett AV, Mendoza TR, Cleeland CS, Sloan JA, Bruner DW, Schwab G, Atkinson TM, Thanarajasingam G, Bhatnagar V, Dueck AC. Composite grading algorithm for the National Cancer Institute's Patient-Reported Outcomes version of the Common Terminology Criteria for Adverse Events (PRO-CTCAE). Clin Trials. 2021;18(1):104-114. doi:10.1177/1740774520975120. PMID 33258687. Lookup rows reproduced row-for-row from the reference implementation of that algorithm shipped in the ProAE R package (Langlais B, Noble B, Truman M, Voss M, Dueck A; CRAN, v1.0.4; internal object comp_tab, 179 rows = the 179 score combinations named in the paper's abstract), retrieved 2026-10-10.",
+  "rationale": "PRO-CTCAE items report up to three attributes (frequency, severity, interference) on 0-4 scales. The published composite grading algorithm maps each attribute combination to a single 0-3 grade so that patient-reported symptoms can sit beside clinician CTCAE grades. The tables below are the published lookup reproduced verbatim (reproduced_verbatim = true); nothing was approximated. The published algorithm also carries an explicit zero rule: when the gating attribute (frequency for items that ask frequency, otherwise severity) is 0, the composite is 0 regardless of the other attributes; the lookup tables therefore list the gating attribute only from 1 upward plus the all-zero row. Items with a single attribute use the attribute-specific published mapping; note that the frequency-only mapping (used by our diarrhea item) differs from the severity-only mapping. The 'presence' mapping (yes/no items such as rash and fever/chills) is NOT part of the published algorithm, which does not composite-grade yes/no items; Interim's convention is present -> composite 1 (provisional grade 1, investigator to confirm). Interim maps composite -> provisional CTCAE grade in composite_to_grade.json; that crosswalk is an approximation and is listed in docs/WHAT_IT_GETS_WRONG.md.",
+  "reproduced_verbatim": true,
+  "retrieved_at": "2026-10-10",
+  "scales": {
+    "frequency": {
+      "0": "Never",
+      "1": "Rarely",
+      "2": "Occasionally",
+      "3": "Frequently",
+      "4": "Almost constantly"
+    },
+    "severity": {
+      "0": "None",
+      "1": "Mild",
+      "2": "Moderate",
+      "3": "Severe",
+      "4": "Very severe"
+    },
+    "interference": {
+      "0": "Not at all",
+      "1": "A little bit",
+      "2": "Somewhat",
+      "3": "Quite a bit",
+      "4": "Very much"
+    },
+    "presence": {
+      "0": "No",
+      "1": "Yes"
+    }
+  },
+  "zero_gate": {
+    "three_attribute": "frequency",
+    "two_attribute_freq_sev": "frequency",
+    "two_attribute_sev_int": "severity",
+    "two_attribute_freq_int": "frequency"
+  },
+  "three_attribute": [
+    {
+      "frequency": 0,
+      "severity": 0,
+      "interference": 0,
+      "composite": 0
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "interference": 0,
+      "composite": 0
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "interference": 0,
+      "composite": 0
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "interference": 2,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "interference": 4,
+      "composite": 3
+    }
+  ],
+  "two_attribute_freq_sev": [
+    {
+      "frequency": 0,
+      "severity": 0,
+      "composite": 0
+    },
+    {
+      "frequency": 1,
+      "severity": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "severity": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "severity": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "severity": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "severity": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "severity": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "severity": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "severity": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "severity": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "severity": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "severity": 4,
+      "composite": 3
+    }
+  ],
+  "two_attribute_sev_int": [
+    {
+      "severity": 0,
+      "interference": 0,
+      "composite": 0
+    },
+    {
+      "severity": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "severity": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "severity": 1,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "severity": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "severity": 1,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "severity": 2,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "severity": 2,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "severity": 2,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "severity": 2,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "severity": 2,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "severity": 3,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "severity": 3,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "severity": 3,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "severity": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "severity": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "severity": 4,
+      "interference": 0,
+      "composite": 2
+    },
+    {
+      "severity": 4,
+      "interference": 1,
+      "composite": 2
+    },
+    {
+      "severity": 4,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "severity": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "severity": 4,
+      "interference": 4,
+      "composite": 3
+    }
+  ],
+  "two_attribute_freq_int": [
+    {
+      "frequency": 0,
+      "interference": 0,
+      "composite": 0
+    },
+    {
+      "frequency": 1,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 1,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 1,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "interference": 2,
+      "composite": 1
+    },
+    {
+      "frequency": 2,
+      "interference": 3,
+      "composite": 2
+    },
+    {
+      "frequency": 2,
+      "interference": 4,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 3,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 3,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 3,
+      "interference": 4,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "interference": 0,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "interference": 1,
+      "composite": 1
+    },
+    {
+      "frequency": 4,
+      "interference": 2,
+      "composite": 2
+    },
+    {
+      "frequency": 4,
+      "interference": 3,
+      "composite": 3
+    },
+    {
+      "frequency": 4,
+      "interference": 4,
+      "composite": 3
+    }
+  ],
+  "single_attribute": {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 3
+  },
+  "single_attribute_by_attribute": {
+    "frequency": {
+      "0": 0,
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 3
+    },
+    "severity": {
+      "0": 0,
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 3
+    },
+    "interference": {
+      "0": 0,
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2
+    }
+  },
+  "presence": {
+    "0": 0,
+    "1": 1
+  }
+}
