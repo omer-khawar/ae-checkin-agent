@@ -1,0 +1,9 @@
+# Keep the build context to sources + lockfile; everything else is rebuilt inside the image.
+node_modules
+dist
+coverage
+test
+*.log
+.eslintcache
+*.tsbuildinfo
+README.md

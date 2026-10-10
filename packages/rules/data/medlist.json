@@ -1,0 +1,1913 @@
+{
+  "source": "Hand-seeded by the Interim team from common U.S. prescription and over-the-counter medication names (brand and generic). scripts/fetch_public.py --build-medlist regenerates this file in the same schema from the openFDA drug label API (api.fda.gov/drug/label.json, openfda.brand_name / openfda.generic_name) and merges this hand-curated core list back in. NOT RxNorm.",
+  "rationale": "A small bundled list is enough for deterministic string matching of what a participant types at the kiosk (exact, case-insensitive, Levenshtein <= 2). It is not a formulary, not a drug dictionary and not RxNorm; a production deployment would code CMDECOD against a licensed dictionary (WHODrug) with RxNorm as a free alternative. Names are lowercase; matching returns the entry's `generic` so brand names normalize to their generic.",
+  "built_at": "2026-10-10T00:00:00Z",
+  "is_rxnorm": false,
+  "core_names": [
+    "acetaminophen",
+    "tylenol",
+    "ibuprofen",
+    "advil",
+    "motrin",
+    "naproxen",
+    "aleve",
+    "aspirin",
+    "loratadine",
+    "claritin",
+    "cetirizine",
+    "zyrtec",
+    "diphenhydramine",
+    "benadryl",
+    "loperamide",
+    "imodium",
+    "omeprazole",
+    "prilosec",
+    "pantoprazole",
+    "famotidine",
+    "pepcid",
+    "ondansetron",
+    "zofran",
+    "prednisone",
+    "dexamethasone",
+    "amoxicillin",
+    "azithromycin",
+    "ciprofloxacin",
+    "doxycycline",
+    "metformin",
+    "lisinopril",
+    "amlodipine",
+    "atorvastatin",
+    "levothyroxine",
+    "metoprolol",
+    "hydrocortisone",
+    "triamcinolone",
+    "gabapentin",
+    "sertraline",
+    "albuterol",
+    "melatonin",
+    "vitamin d",
+    "multivitamin"
+  ],
+  "entries": [
+    {
+      "name": "acetaminophen",
+      "kind": "generic",
+      "generic": "acetaminophen"
+    },
+    {
+      "name": "acyclovir",
+      "kind": "generic",
+      "generic": "acyclovir"
+    },
+    {
+      "name": "adalimumab",
+      "kind": "generic",
+      "generic": "adalimumab"
+    },
+    {
+      "name": "advair",
+      "kind": "brand",
+      "generic": "fluticasone-salmeterol"
+    },
+    {
+      "name": "advil",
+      "kind": "brand",
+      "generic": "ibuprofen"
+    },
+    {
+      "name": "albuterol",
+      "kind": "generic",
+      "generic": "albuterol"
+    },
+    {
+      "name": "aldactone",
+      "kind": "brand",
+      "generic": "spironolactone"
+    },
+    {
+      "name": "alendronate",
+      "kind": "generic",
+      "generic": "alendronate"
+    },
+    {
+      "name": "aleve",
+      "kind": "brand",
+      "generic": "naproxen"
+    },
+    {
+      "name": "allegra",
+      "kind": "brand",
+      "generic": "fexofenadine"
+    },
+    {
+      "name": "allopurinol",
+      "kind": "generic",
+      "generic": "allopurinol"
+    },
+    {
+      "name": "aloxi",
+      "kind": "brand",
+      "generic": "palonosetron"
+    },
+    {
+      "name": "alprazolam",
+      "kind": "generic",
+      "generic": "alprazolam"
+    },
+    {
+      "name": "ambien",
+      "kind": "brand",
+      "generic": "zolpidem"
+    },
+    {
+      "name": "amiodarone",
+      "kind": "generic",
+      "generic": "amiodarone"
+    },
+    {
+      "name": "amitriptyline",
+      "kind": "generic",
+      "generic": "amitriptyline"
+    },
+    {
+      "name": "amlodipine",
+      "kind": "generic",
+      "generic": "amlodipine"
+    },
+    {
+      "name": "amoxicillin",
+      "kind": "generic",
+      "generic": "amoxicillin"
+    },
+    {
+      "name": "amoxicillin-clavulanate",
+      "kind": "generic",
+      "generic": "amoxicillin-clavulanate"
+    },
+    {
+      "name": "amoxil",
+      "kind": "brand",
+      "generic": "amoxicillin"
+    },
+    {
+      "name": "apixaban",
+      "kind": "generic",
+      "generic": "apixaban"
+    },
+    {
+      "name": "apremilast",
+      "kind": "generic",
+      "generic": "apremilast"
+    },
+    {
+      "name": "aprepitant",
+      "kind": "generic",
+      "generic": "aprepitant"
+    },
+    {
+      "name": "arava",
+      "kind": "brand",
+      "generic": "leflunomide"
+    },
+    {
+      "name": "aricept",
+      "kind": "brand",
+      "generic": "donepezil"
+    },
+    {
+      "name": "artificial tears",
+      "kind": "generic",
+      "generic": "artificial tears"
+    },
+    {
+      "name": "aspirin",
+      "kind": "generic",
+      "generic": "aspirin"
+    },
+    {
+      "name": "atarax",
+      "kind": "brand",
+      "generic": "hydroxyzine"
+    },
+    {
+      "name": "atenolol",
+      "kind": "generic",
+      "generic": "atenolol"
+    },
+    {
+      "name": "ativan",
+      "kind": "brand",
+      "generic": "lorazepam"
+    },
+    {
+      "name": "atorvastatin",
+      "kind": "generic",
+      "generic": "atorvastatin"
+    },
+    {
+      "name": "atrovent",
+      "kind": "brand",
+      "generic": "ipratropium"
+    },
+    {
+      "name": "augmentin",
+      "kind": "brand",
+      "generic": "amoxicillin-clavulanate"
+    },
+    {
+      "name": "azithromycin",
+      "kind": "generic",
+      "generic": "azithromycin"
+    },
+    {
+      "name": "baclofen",
+      "kind": "generic",
+      "generic": "baclofen"
+    },
+    {
+      "name": "bactrim",
+      "kind": "brand",
+      "generic": "sulfamethoxazole-trimethoprim"
+    },
+    {
+      "name": "bactroban",
+      "kind": "brand",
+      "generic": "mupirocin"
+    },
+    {
+      "name": "benadryl",
+      "kind": "brand",
+      "generic": "diphenhydramine"
+    },
+    {
+      "name": "bentyl",
+      "kind": "brand",
+      "generic": "dicyclomine"
+    },
+    {
+      "name": "benzonatate",
+      "kind": "generic",
+      "generic": "benzonatate"
+    },
+    {
+      "name": "benzoyl peroxide",
+      "kind": "generic",
+      "generic": "benzoyl peroxide"
+    },
+    {
+      "name": "betamethasone",
+      "kind": "generic",
+      "generic": "betamethasone"
+    },
+    {
+      "name": "biotin",
+      "kind": "generic",
+      "generic": "biotin"
+    },
+    {
+      "name": "bismuth subsalicylate",
+      "kind": "generic",
+      "generic": "bismuth subsalicylate"
+    },
+    {
+      "name": "budesonide",
+      "kind": "generic",
+      "generic": "budesonide"
+    },
+    {
+      "name": "budesonide-formoterol",
+      "kind": "generic",
+      "generic": "budesonide-formoterol"
+    },
+    {
+      "name": "bupropion",
+      "kind": "generic",
+      "generic": "bupropion"
+    },
+    {
+      "name": "calcium",
+      "kind": "generic",
+      "generic": "calcium"
+    },
+    {
+      "name": "calcium carbonate",
+      "kind": "generic",
+      "generic": "calcium carbonate"
+    },
+    {
+      "name": "carafate",
+      "kind": "brand",
+      "generic": "sucralfate"
+    },
+    {
+      "name": "cardizem",
+      "kind": "brand",
+      "generic": "diltiazem"
+    },
+    {
+      "name": "carvedilol",
+      "kind": "generic",
+      "generic": "carvedilol"
+    },
+    {
+      "name": "celebrex",
+      "kind": "brand",
+      "generic": "celecoxib"
+    },
+    {
+      "name": "celecoxib",
+      "kind": "generic",
+      "generic": "celecoxib"
+    },
+    {
+      "name": "celexa",
+      "kind": "brand",
+      "generic": "citalopram"
+    },
+    {
+      "name": "cephalexin",
+      "kind": "generic",
+      "generic": "cephalexin"
+    },
+    {
+      "name": "cetirizine",
+      "kind": "generic",
+      "generic": "cetirizine"
+    },
+    {
+      "name": "chantix",
+      "kind": "brand",
+      "generic": "varenicline"
+    },
+    {
+      "name": "cholestyramine",
+      "kind": "generic",
+      "generic": "cholestyramine"
+    },
+    {
+      "name": "cialis",
+      "kind": "brand",
+      "generic": "tadalafil"
+    },
+    {
+      "name": "cipro",
+      "kind": "brand",
+      "generic": "ciprofloxacin"
+    },
+    {
+      "name": "ciprofloxacin",
+      "kind": "generic",
+      "generic": "ciprofloxacin"
+    },
+    {
+      "name": "citalopram",
+      "kind": "generic",
+      "generic": "citalopram"
+    },
+    {
+      "name": "claritin",
+      "kind": "brand",
+      "generic": "loratadine"
+    },
+    {
+      "name": "cleocin",
+      "kind": "brand",
+      "generic": "clindamycin"
+    },
+    {
+      "name": "clindamycin",
+      "kind": "generic",
+      "generic": "clindamycin"
+    },
+    {
+      "name": "clobetasol",
+      "kind": "generic",
+      "generic": "clobetasol"
+    },
+    {
+      "name": "clonazepam",
+      "kind": "generic",
+      "generic": "clonazepam"
+    },
+    {
+      "name": "clopidogrel",
+      "kind": "generic",
+      "generic": "clopidogrel"
+    },
+    {
+      "name": "clotrimazole",
+      "kind": "generic",
+      "generic": "clotrimazole"
+    },
+    {
+      "name": "codeine",
+      "kind": "generic",
+      "generic": "codeine"
+    },
+    {
+      "name": "colace",
+      "kind": "brand",
+      "generic": "docusate"
+    },
+    {
+      "name": "colchicine",
+      "kind": "generic",
+      "generic": "colchicine"
+    },
+    {
+      "name": "compazine",
+      "kind": "brand",
+      "generic": "prochlorperazine"
+    },
+    {
+      "name": "coreg",
+      "kind": "brand",
+      "generic": "carvedilol"
+    },
+    {
+      "name": "cortizone",
+      "kind": "brand",
+      "generic": "hydrocortisone"
+    },
+    {
+      "name": "coumadin",
+      "kind": "brand",
+      "generic": "warfarin"
+    },
+    {
+      "name": "cozaar",
+      "kind": "brand",
+      "generic": "losartan"
+    },
+    {
+      "name": "crestor",
+      "kind": "brand",
+      "generic": "rosuvastatin"
+    },
+    {
+      "name": "cyclobenzaprine",
+      "kind": "generic",
+      "generic": "cyclobenzaprine"
+    },
+    {
+      "name": "cymbalta",
+      "kind": "brand",
+      "generic": "duloxetine"
+    },
+    {
+      "name": "decadron",
+      "kind": "brand",
+      "generic": "dexamethasone"
+    },
+    {
+      "name": "delsym",
+      "kind": "brand",
+      "generic": "dextromethorphan"
+    },
+    {
+      "name": "deltasone",
+      "kind": "brand",
+      "generic": "prednisone"
+    },
+    {
+      "name": "denosumab",
+      "kind": "generic",
+      "generic": "denosumab"
+    },
+    {
+      "name": "desyrel",
+      "kind": "brand",
+      "generic": "trazodone"
+    },
+    {
+      "name": "dexamethasone",
+      "kind": "generic",
+      "generic": "dexamethasone"
+    },
+    {
+      "name": "dextromethorphan",
+      "kind": "generic",
+      "generic": "dextromethorphan"
+    },
+    {
+      "name": "diclofenac",
+      "kind": "generic",
+      "generic": "diclofenac"
+    },
+    {
+      "name": "dicyclomine",
+      "kind": "generic",
+      "generic": "dicyclomine"
+    },
+    {
+      "name": "diflucan",
+      "kind": "brand",
+      "generic": "fluconazole"
+    },
+    {
+      "name": "digoxin",
+      "kind": "generic",
+      "generic": "digoxin"
+    },
+    {
+      "name": "diltiazem",
+      "kind": "generic",
+      "generic": "diltiazem"
+    },
+    {
+      "name": "diovan",
+      "kind": "brand",
+      "generic": "valsartan"
+    },
+    {
+      "name": "diphenhydramine",
+      "kind": "generic",
+      "generic": "diphenhydramine"
+    },
+    {
+      "name": "ditropan",
+      "kind": "brand",
+      "generic": "oxybutynin"
+    },
+    {
+      "name": "docusate",
+      "kind": "generic",
+      "generic": "docusate"
+    },
+    {
+      "name": "donepezil",
+      "kind": "generic",
+      "generic": "donepezil"
+    },
+    {
+      "name": "doxycycline",
+      "kind": "generic",
+      "generic": "doxycycline"
+    },
+    {
+      "name": "dronabinol",
+      "kind": "generic",
+      "generic": "dronabinol"
+    },
+    {
+      "name": "duloxetine",
+      "kind": "generic",
+      "generic": "duloxetine"
+    },
+    {
+      "name": "dupilumab",
+      "kind": "generic",
+      "generic": "dupilumab"
+    },
+    {
+      "name": "dupixent",
+      "kind": "brand",
+      "generic": "dupilumab"
+    },
+    {
+      "name": "effexor",
+      "kind": "brand",
+      "generic": "venlafaxine"
+    },
+    {
+      "name": "elavil",
+      "kind": "brand",
+      "generic": "amitriptyline"
+    },
+    {
+      "name": "eliquis",
+      "kind": "brand",
+      "generic": "apixaban"
+    },
+    {
+      "name": "elocon",
+      "kind": "brand",
+      "generic": "mometasone"
+    },
+    {
+      "name": "emend",
+      "kind": "brand",
+      "generic": "aprepitant"
+    },
+    {
+      "name": "empagliflozin",
+      "kind": "generic",
+      "generic": "empagliflozin"
+    },
+    {
+      "name": "emtricitabine-tenofovir",
+      "kind": "generic",
+      "generic": "emtricitabine-tenofovir"
+    },
+    {
+      "name": "enbrel",
+      "kind": "brand",
+      "generic": "etanercept"
+    },
+    {
+      "name": "enoxaparin",
+      "kind": "generic",
+      "generic": "enoxaparin"
+    },
+    {
+      "name": "entocort",
+      "kind": "brand",
+      "generic": "budesonide"
+    },
+    {
+      "name": "epinephrine",
+      "kind": "generic",
+      "generic": "epinephrine"
+    },
+    {
+      "name": "epipen",
+      "kind": "brand",
+      "generic": "epinephrine"
+    },
+    {
+      "name": "epoetin alfa",
+      "kind": "generic",
+      "generic": "epoetin alfa"
+    },
+    {
+      "name": "epogen",
+      "kind": "brand",
+      "generic": "epoetin alfa"
+    },
+    {
+      "name": "escitalopram",
+      "kind": "generic",
+      "generic": "escitalopram"
+    },
+    {
+      "name": "esomeprazole",
+      "kind": "generic",
+      "generic": "esomeprazole"
+    },
+    {
+      "name": "estradiol",
+      "kind": "generic",
+      "generic": "estradiol"
+    },
+    {
+      "name": "etanercept",
+      "kind": "generic",
+      "generic": "etanercept"
+    },
+    {
+      "name": "famciclovir",
+      "kind": "generic",
+      "generic": "famciclovir"
+    },
+    {
+      "name": "famotidine",
+      "kind": "generic",
+      "generic": "famotidine"
+    },
+    {
+      "name": "ferrous sulfate",
+      "kind": "generic",
+      "generic": "ferrous sulfate"
+    },
+    {
+      "name": "fexofenadine",
+      "kind": "generic",
+      "generic": "fexofenadine"
+    },
+    {
+      "name": "filgrastim",
+      "kind": "generic",
+      "generic": "filgrastim"
+    },
+    {
+      "name": "finasteride",
+      "kind": "generic",
+      "generic": "finasteride"
+    },
+    {
+      "name": "fish oil",
+      "kind": "generic",
+      "generic": "fish oil"
+    },
+    {
+      "name": "flagyl",
+      "kind": "brand",
+      "generic": "metronidazole"
+    },
+    {
+      "name": "flexeril",
+      "kind": "brand",
+      "generic": "cyclobenzaprine"
+    },
+    {
+      "name": "flomax",
+      "kind": "brand",
+      "generic": "tamsulosin"
+    },
+    {
+      "name": "flonase",
+      "kind": "brand",
+      "generic": "fluticasone"
+    },
+    {
+      "name": "fluconazole",
+      "kind": "generic",
+      "generic": "fluconazole"
+    },
+    {
+      "name": "fluoxetine",
+      "kind": "generic",
+      "generic": "fluoxetine"
+    },
+    {
+      "name": "fluticasone",
+      "kind": "generic",
+      "generic": "fluticasone"
+    },
+    {
+      "name": "fluticasone-salmeterol",
+      "kind": "generic",
+      "generic": "fluticasone-salmeterol"
+    },
+    {
+      "name": "folic acid",
+      "kind": "generic",
+      "generic": "folic acid"
+    },
+    {
+      "name": "fosamax",
+      "kind": "brand",
+      "generic": "alendronate"
+    },
+    {
+      "name": "furosemide",
+      "kind": "generic",
+      "generic": "furosemide"
+    },
+    {
+      "name": "gabapentin",
+      "kind": "generic",
+      "generic": "gabapentin"
+    },
+    {
+      "name": "gas-x",
+      "kind": "brand",
+      "generic": "simethicone"
+    },
+    {
+      "name": "glipizide",
+      "kind": "generic",
+      "generic": "glipizide"
+    },
+    {
+      "name": "glucophage",
+      "kind": "brand",
+      "generic": "metformin"
+    },
+    {
+      "name": "glucosamine",
+      "kind": "generic",
+      "generic": "glucosamine"
+    },
+    {
+      "name": "glucotrol",
+      "kind": "brand",
+      "generic": "glipizide"
+    },
+    {
+      "name": "granisetron",
+      "kind": "generic",
+      "generic": "granisetron"
+    },
+    {
+      "name": "guaifenesin",
+      "kind": "generic",
+      "generic": "guaifenesin"
+    },
+    {
+      "name": "humalog",
+      "kind": "brand",
+      "generic": "insulin lispro"
+    },
+    {
+      "name": "humira",
+      "kind": "brand",
+      "generic": "adalimumab"
+    },
+    {
+      "name": "hydrochlorothiazide",
+      "kind": "generic",
+      "generic": "hydrochlorothiazide"
+    },
+    {
+      "name": "hydrocodone",
+      "kind": "generic",
+      "generic": "hydrocodone"
+    },
+    {
+      "name": "hydrocortisone",
+      "kind": "generic",
+      "generic": "hydrocortisone"
+    },
+    {
+      "name": "hydroxychloroquine",
+      "kind": "generic",
+      "generic": "hydroxychloroquine"
+    },
+    {
+      "name": "hydroxyzine",
+      "kind": "generic",
+      "generic": "hydroxyzine"
+    },
+    {
+      "name": "ibuprofen",
+      "kind": "generic",
+      "generic": "ibuprofen"
+    },
+    {
+      "name": "imitrex",
+      "kind": "brand",
+      "generic": "sumatriptan"
+    },
+    {
+      "name": "imodium",
+      "kind": "brand",
+      "generic": "loperamide"
+    },
+    {
+      "name": "insulin glargine",
+      "kind": "generic",
+      "generic": "insulin glargine"
+    },
+    {
+      "name": "insulin lispro",
+      "kind": "generic",
+      "generic": "insulin lispro"
+    },
+    {
+      "name": "ipratropium",
+      "kind": "generic",
+      "generic": "ipratropium"
+    },
+    {
+      "name": "iron",
+      "kind": "generic",
+      "generic": "iron"
+    },
+    {
+      "name": "januvia",
+      "kind": "brand",
+      "generic": "sitagliptin"
+    },
+    {
+      "name": "jardiance",
+      "kind": "brand",
+      "generic": "empagliflozin"
+    },
+    {
+      "name": "keflex",
+      "kind": "brand",
+      "generic": "cephalexin"
+    },
+    {
+      "name": "kenalog",
+      "kind": "brand",
+      "generic": "triamcinolone"
+    },
+    {
+      "name": "keppra",
+      "kind": "brand",
+      "generic": "levetiracetam"
+    },
+    {
+      "name": "ketoconazole",
+      "kind": "generic",
+      "generic": "ketoconazole"
+    },
+    {
+      "name": "kevzara",
+      "kind": "brand",
+      "generic": "sarilumab"
+    },
+    {
+      "name": "klonopin",
+      "kind": "brand",
+      "generic": "clonazepam"
+    },
+    {
+      "name": "klor-con",
+      "kind": "brand",
+      "generic": "potassium chloride"
+    },
+    {
+      "name": "lactulose",
+      "kind": "generic",
+      "generic": "lactulose"
+    },
+    {
+      "name": "lamisil",
+      "kind": "brand",
+      "generic": "terbinafine"
+    },
+    {
+      "name": "lansoprazole",
+      "kind": "generic",
+      "generic": "lansoprazole"
+    },
+    {
+      "name": "lantus",
+      "kind": "brand",
+      "generic": "insulin glargine"
+    },
+    {
+      "name": "lasix",
+      "kind": "brand",
+      "generic": "furosemide"
+    },
+    {
+      "name": "latanoprost",
+      "kind": "generic",
+      "generic": "latanoprost"
+    },
+    {
+      "name": "leflunomide",
+      "kind": "generic",
+      "generic": "leflunomide"
+    },
+    {
+      "name": "levaquin",
+      "kind": "brand",
+      "generic": "levofloxacin"
+    },
+    {
+      "name": "levetiracetam",
+      "kind": "generic",
+      "generic": "levetiracetam"
+    },
+    {
+      "name": "levofloxacin",
+      "kind": "generic",
+      "generic": "levofloxacin"
+    },
+    {
+      "name": "levothyroxine",
+      "kind": "generic",
+      "generic": "levothyroxine"
+    },
+    {
+      "name": "lexapro",
+      "kind": "brand",
+      "generic": "escitalopram"
+    },
+    {
+      "name": "lialda",
+      "kind": "brand",
+      "generic": "mesalamine"
+    },
+    {
+      "name": "lidocaine",
+      "kind": "generic",
+      "generic": "lidocaine"
+    },
+    {
+      "name": "lidoderm",
+      "kind": "brand",
+      "generic": "lidocaine"
+    },
+    {
+      "name": "lipitor",
+      "kind": "brand",
+      "generic": "atorvastatin"
+    },
+    {
+      "name": "lisinopril",
+      "kind": "generic",
+      "generic": "lisinopril"
+    },
+    {
+      "name": "loperamide",
+      "kind": "generic",
+      "generic": "loperamide"
+    },
+    {
+      "name": "lopressor",
+      "kind": "brand",
+      "generic": "metoprolol"
+    },
+    {
+      "name": "loratadine",
+      "kind": "generic",
+      "generic": "loratadine"
+    },
+    {
+      "name": "lorazepam",
+      "kind": "generic",
+      "generic": "lorazepam"
+    },
+    {
+      "name": "losartan",
+      "kind": "generic",
+      "generic": "losartan"
+    },
+    {
+      "name": "lotrimin",
+      "kind": "brand",
+      "generic": "clotrimazole"
+    },
+    {
+      "name": "lovenox",
+      "kind": "brand",
+      "generic": "enoxaparin"
+    },
+    {
+      "name": "lyrica",
+      "kind": "brand",
+      "generic": "pregabalin"
+    },
+    {
+      "name": "macrobid",
+      "kind": "brand",
+      "generic": "nitrofurantoin"
+    },
+    {
+      "name": "magnesium",
+      "kind": "generic",
+      "generic": "magnesium"
+    },
+    {
+      "name": "marinol",
+      "kind": "brand",
+      "generic": "dronabinol"
+    },
+    {
+      "name": "medrol",
+      "kind": "brand",
+      "generic": "methylprednisolone"
+    },
+    {
+      "name": "medroxyprogesterone",
+      "kind": "generic",
+      "generic": "medroxyprogesterone"
+    },
+    {
+      "name": "megace",
+      "kind": "brand",
+      "generic": "megestrol"
+    },
+    {
+      "name": "megestrol",
+      "kind": "generic",
+      "generic": "megestrol"
+    },
+    {
+      "name": "melatonin",
+      "kind": "generic",
+      "generic": "melatonin"
+    },
+    {
+      "name": "meloxicam",
+      "kind": "generic",
+      "generic": "meloxicam"
+    },
+    {
+      "name": "mesalamine",
+      "kind": "generic",
+      "generic": "mesalamine"
+    },
+    {
+      "name": "metformin",
+      "kind": "generic",
+      "generic": "metformin"
+    },
+    {
+      "name": "methimazole",
+      "kind": "generic",
+      "generic": "methimazole"
+    },
+    {
+      "name": "methocarbamol",
+      "kind": "generic",
+      "generic": "methocarbamol"
+    },
+    {
+      "name": "methotrexate",
+      "kind": "generic",
+      "generic": "methotrexate"
+    },
+    {
+      "name": "methylprednisolone",
+      "kind": "generic",
+      "generic": "methylprednisolone"
+    },
+    {
+      "name": "metoclopramide",
+      "kind": "generic",
+      "generic": "metoclopramide"
+    },
+    {
+      "name": "metoprolol",
+      "kind": "generic",
+      "generic": "metoprolol"
+    },
+    {
+      "name": "metronidazole",
+      "kind": "generic",
+      "generic": "metronidazole"
+    },
+    {
+      "name": "miconazole",
+      "kind": "generic",
+      "generic": "miconazole"
+    },
+    {
+      "name": "microzide",
+      "kind": "brand",
+      "generic": "hydrochlorothiazide"
+    },
+    {
+      "name": "minoxidil",
+      "kind": "generic",
+      "generic": "minoxidil"
+    },
+    {
+      "name": "miralax",
+      "kind": "brand",
+      "generic": "polyethylene glycol"
+    },
+    {
+      "name": "mirtazapine",
+      "kind": "generic",
+      "generic": "mirtazapine"
+    },
+    {
+      "name": "mobic",
+      "kind": "brand",
+      "generic": "meloxicam"
+    },
+    {
+      "name": "mometasone",
+      "kind": "generic",
+      "generic": "mometasone"
+    },
+    {
+      "name": "monistat",
+      "kind": "brand",
+      "generic": "miconazole"
+    },
+    {
+      "name": "montelukast",
+      "kind": "generic",
+      "generic": "montelukast"
+    },
+    {
+      "name": "morphine",
+      "kind": "generic",
+      "generic": "morphine"
+    },
+    {
+      "name": "motrin",
+      "kind": "brand",
+      "generic": "ibuprofen"
+    },
+    {
+      "name": "mucinex",
+      "kind": "brand",
+      "generic": "guaifenesin"
+    },
+    {
+      "name": "multivitamin",
+      "kind": "generic",
+      "generic": "multivitamin"
+    },
+    {
+      "name": "mupirocin",
+      "kind": "generic",
+      "generic": "mupirocin"
+    },
+    {
+      "name": "naloxone",
+      "kind": "generic",
+      "generic": "naloxone"
+    },
+    {
+      "name": "naprosyn",
+      "kind": "brand",
+      "generic": "naproxen"
+    },
+    {
+      "name": "naproxen",
+      "kind": "generic",
+      "generic": "naproxen"
+    },
+    {
+      "name": "narcan",
+      "kind": "brand",
+      "generic": "naloxone"
+    },
+    {
+      "name": "neulasta",
+      "kind": "brand",
+      "generic": "pegfilgrastim"
+    },
+    {
+      "name": "neupogen",
+      "kind": "brand",
+      "generic": "filgrastim"
+    },
+    {
+      "name": "neurontin",
+      "kind": "brand",
+      "generic": "gabapentin"
+    },
+    {
+      "name": "nexium",
+      "kind": "brand",
+      "generic": "esomeprazole"
+    },
+    {
+      "name": "nicorette",
+      "kind": "brand",
+      "generic": "nicotine"
+    },
+    {
+      "name": "nicotine",
+      "kind": "generic",
+      "generic": "nicotine"
+    },
+    {
+      "name": "nitrofurantoin",
+      "kind": "generic",
+      "generic": "nitrofurantoin"
+    },
+    {
+      "name": "nitroglycerin",
+      "kind": "generic",
+      "generic": "nitroglycerin"
+    },
+    {
+      "name": "norco",
+      "kind": "brand",
+      "generic": "hydrocodone"
+    },
+    {
+      "name": "norvasc",
+      "kind": "brand",
+      "generic": "amlodipine"
+    },
+    {
+      "name": "nystatin",
+      "kind": "generic",
+      "generic": "nystatin"
+    },
+    {
+      "name": "olanzapine",
+      "kind": "generic",
+      "generic": "olanzapine"
+    },
+    {
+      "name": "omega-3",
+      "kind": "generic",
+      "generic": "omega-3"
+    },
+    {
+      "name": "omeprazole",
+      "kind": "generic",
+      "generic": "omeprazole"
+    },
+    {
+      "name": "ondansetron",
+      "kind": "generic",
+      "generic": "ondansetron"
+    },
+    {
+      "name": "oseltamivir",
+      "kind": "generic",
+      "generic": "oseltamivir"
+    },
+    {
+      "name": "otezla",
+      "kind": "brand",
+      "generic": "apremilast"
+    },
+    {
+      "name": "oxybutynin",
+      "kind": "generic",
+      "generic": "oxybutynin"
+    },
+    {
+      "name": "oxycodone",
+      "kind": "generic",
+      "generic": "oxycodone"
+    },
+    {
+      "name": "oxycontin",
+      "kind": "brand",
+      "generic": "oxycodone"
+    },
+    {
+      "name": "ozempic",
+      "kind": "brand",
+      "generic": "semaglutide"
+    },
+    {
+      "name": "palonosetron",
+      "kind": "generic",
+      "generic": "palonosetron"
+    },
+    {
+      "name": "pantoprazole",
+      "kind": "generic",
+      "generic": "pantoprazole"
+    },
+    {
+      "name": "pegfilgrastim",
+      "kind": "generic",
+      "generic": "pegfilgrastim"
+    },
+    {
+      "name": "pepcid",
+      "kind": "brand",
+      "generic": "famotidine"
+    },
+    {
+      "name": "pepto-bismol",
+      "kind": "brand",
+      "generic": "bismuth subsalicylate"
+    },
+    {
+      "name": "permethrin",
+      "kind": "generic",
+      "generic": "permethrin"
+    },
+    {
+      "name": "phenergan",
+      "kind": "brand",
+      "generic": "promethazine"
+    },
+    {
+      "name": "plaquenil",
+      "kind": "brand",
+      "generic": "hydroxychloroquine"
+    },
+    {
+      "name": "plavix",
+      "kind": "brand",
+      "generic": "clopidogrel"
+    },
+    {
+      "name": "polyethylene glycol",
+      "kind": "generic",
+      "generic": "polyethylene glycol"
+    },
+    {
+      "name": "potassium chloride",
+      "kind": "generic",
+      "generic": "potassium chloride"
+    },
+    {
+      "name": "pravastatin",
+      "kind": "generic",
+      "generic": "pravastatin"
+    },
+    {
+      "name": "prednisolone",
+      "kind": "generic",
+      "generic": "prednisolone"
+    },
+    {
+      "name": "prednisone",
+      "kind": "generic",
+      "generic": "prednisone"
+    },
+    {
+      "name": "pregabalin",
+      "kind": "generic",
+      "generic": "pregabalin"
+    },
+    {
+      "name": "prevacid",
+      "kind": "brand",
+      "generic": "lansoprazole"
+    },
+    {
+      "name": "prilosec",
+      "kind": "brand",
+      "generic": "omeprazole"
+    },
+    {
+      "name": "prinivil",
+      "kind": "brand",
+      "generic": "lisinopril"
+    },
+    {
+      "name": "proair",
+      "kind": "brand",
+      "generic": "albuterol"
+    },
+    {
+      "name": "probiotic",
+      "kind": "generic",
+      "generic": "probiotic"
+    },
+    {
+      "name": "prochlorperazine",
+      "kind": "generic",
+      "generic": "prochlorperazine"
+    },
+    {
+      "name": "procrit",
+      "kind": "brand",
+      "generic": "epoetin alfa"
+    },
+    {
+      "name": "prolia",
+      "kind": "brand",
+      "generic": "denosumab"
+    },
+    {
+      "name": "promethazine",
+      "kind": "generic",
+      "generic": "promethazine"
+    },
+    {
+      "name": "proscar",
+      "kind": "brand",
+      "generic": "finasteride"
+    },
+    {
+      "name": "protonix",
+      "kind": "brand",
+      "generic": "pantoprazole"
+    },
+    {
+      "name": "prozac",
+      "kind": "brand",
+      "generic": "fluoxetine"
+    },
+    {
+      "name": "pseudoephedrine",
+      "kind": "generic",
+      "generic": "pseudoephedrine"
+    },
+    {
+      "name": "quetiapine",
+      "kind": "generic",
+      "generic": "quetiapine"
+    },
+    {
+      "name": "reglan",
+      "kind": "brand",
+      "generic": "metoclopramide"
+    },
+    {
+      "name": "remeron",
+      "kind": "brand",
+      "generic": "mirtazapine"
+    },
+    {
+      "name": "retin-a",
+      "kind": "brand",
+      "generic": "tretinoin"
+    },
+    {
+      "name": "rifaximin",
+      "kind": "generic",
+      "generic": "rifaximin"
+    },
+    {
+      "name": "rivaroxaban",
+      "kind": "generic",
+      "generic": "rivaroxaban"
+    },
+    {
+      "name": "robaxin",
+      "kind": "brand",
+      "generic": "methocarbamol"
+    },
+    {
+      "name": "robitussin",
+      "kind": "brand",
+      "generic": "dextromethorphan"
+    },
+    {
+      "name": "rogaine",
+      "kind": "brand",
+      "generic": "minoxidil"
+    },
+    {
+      "name": "rosuvastatin",
+      "kind": "generic",
+      "generic": "rosuvastatin"
+    },
+    {
+      "name": "saline",
+      "kind": "generic",
+      "generic": "saline"
+    },
+    {
+      "name": "sarilumab",
+      "kind": "generic",
+      "generic": "sarilumab"
+    },
+    {
+      "name": "semaglutide",
+      "kind": "generic",
+      "generic": "semaglutide"
+    },
+    {
+      "name": "senna",
+      "kind": "generic",
+      "generic": "senna"
+    },
+    {
+      "name": "senokot",
+      "kind": "brand",
+      "generic": "senna"
+    },
+    {
+      "name": "seroquel",
+      "kind": "brand",
+      "generic": "quetiapine"
+    },
+    {
+      "name": "sertraline",
+      "kind": "generic",
+      "generic": "sertraline"
+    },
+    {
+      "name": "sildenafil",
+      "kind": "generic",
+      "generic": "sildenafil"
+    },
+    {
+      "name": "simethicone",
+      "kind": "generic",
+      "generic": "simethicone"
+    },
+    {
+      "name": "simvastatin",
+      "kind": "generic",
+      "generic": "simvastatin"
+    },
+    {
+      "name": "singulair",
+      "kind": "brand",
+      "generic": "montelukast"
+    },
+    {
+      "name": "sitagliptin",
+      "kind": "generic",
+      "generic": "sitagliptin"
+    },
+    {
+      "name": "sodium bicarbonate",
+      "kind": "generic",
+      "generic": "sodium bicarbonate"
+    },
+    {
+      "name": "spiriva",
+      "kind": "brand",
+      "generic": "tiotropium"
+    },
+    {
+      "name": "spironolactone",
+      "kind": "generic",
+      "generic": "spironolactone"
+    },
+    {
+      "name": "sucralfate",
+      "kind": "generic",
+      "generic": "sucralfate"
+    },
+    {
+      "name": "sudafed",
+      "kind": "brand",
+      "generic": "pseudoephedrine"
+    },
+    {
+      "name": "sulfamethoxazole-trimethoprim",
+      "kind": "generic",
+      "generic": "sulfamethoxazole-trimethoprim"
+    },
+    {
+      "name": "sulfasalazine",
+      "kind": "generic",
+      "generic": "sulfasalazine"
+    },
+    {
+      "name": "sumatriptan",
+      "kind": "generic",
+      "generic": "sumatriptan"
+    },
+    {
+      "name": "symbicort",
+      "kind": "brand",
+      "generic": "budesonide-formoterol"
+    },
+    {
+      "name": "synthroid",
+      "kind": "brand",
+      "generic": "levothyroxine"
+    },
+    {
+      "name": "tadalafil",
+      "kind": "generic",
+      "generic": "tadalafil"
+    },
+    {
+      "name": "tamiflu",
+      "kind": "brand",
+      "generic": "oseltamivir"
+    },
+    {
+      "name": "tamsulosin",
+      "kind": "generic",
+      "generic": "tamsulosin"
+    },
+    {
+      "name": "temovate",
+      "kind": "brand",
+      "generic": "clobetasol"
+    },
+    {
+      "name": "tenormin",
+      "kind": "brand",
+      "generic": "atenolol"
+    },
+    {
+      "name": "terbinafine",
+      "kind": "generic",
+      "generic": "terbinafine"
+    },
+    {
+      "name": "tessalon",
+      "kind": "brand",
+      "generic": "benzonatate"
+    },
+    {
+      "name": "timolol",
+      "kind": "generic",
+      "generic": "timolol"
+    },
+    {
+      "name": "tiotropium",
+      "kind": "generic",
+      "generic": "tiotropium"
+    },
+    {
+      "name": "tizanidine",
+      "kind": "generic",
+      "generic": "tizanidine"
+    },
+    {
+      "name": "tofacitinib",
+      "kind": "generic",
+      "generic": "tofacitinib"
+    },
+    {
+      "name": "topamax",
+      "kind": "brand",
+      "generic": "topiramate"
+    },
+    {
+      "name": "topiramate",
+      "kind": "generic",
+      "generic": "topiramate"
+    },
+    {
+      "name": "toprol",
+      "kind": "brand",
+      "generic": "metoprolol"
+    },
+    {
+      "name": "tramadol",
+      "kind": "generic",
+      "generic": "tramadol"
+    },
+    {
+      "name": "trazodone",
+      "kind": "generic",
+      "generic": "trazodone"
+    },
+    {
+      "name": "tretinoin",
+      "kind": "generic",
+      "generic": "tretinoin"
+    },
+    {
+      "name": "trexall",
+      "kind": "brand",
+      "generic": "methotrexate"
+    },
+    {
+      "name": "triamcinolone",
+      "kind": "generic",
+      "generic": "triamcinolone"
+    },
+    {
+      "name": "truvada",
+      "kind": "brand",
+      "generic": "emtricitabine-tenofovir"
+    },
+    {
+      "name": "tums",
+      "kind": "brand",
+      "generic": "calcium carbonate"
+    },
+    {
+      "name": "turmeric",
+      "kind": "generic",
+      "generic": "turmeric"
+    },
+    {
+      "name": "tylenol",
+      "kind": "brand",
+      "generic": "acetaminophen"
+    },
+    {
+      "name": "ultram",
+      "kind": "brand",
+      "generic": "tramadol"
+    },
+    {
+      "name": "ursodiol",
+      "kind": "generic",
+      "generic": "ursodiol"
+    },
+    {
+      "name": "valacyclovir",
+      "kind": "generic",
+      "generic": "valacyclovir"
+    },
+    {
+      "name": "valsartan",
+      "kind": "generic",
+      "generic": "valsartan"
+    },
+    {
+      "name": "valtrex",
+      "kind": "brand",
+      "generic": "valacyclovir"
+    },
+    {
+      "name": "varenicline",
+      "kind": "generic",
+      "generic": "varenicline"
+    },
+    {
+      "name": "venlafaxine",
+      "kind": "generic",
+      "generic": "venlafaxine"
+    },
+    {
+      "name": "ventolin",
+      "kind": "brand",
+      "generic": "albuterol"
+    },
+    {
+      "name": "viagra",
+      "kind": "brand",
+      "generic": "sildenafil"
+    },
+    {
+      "name": "vibramycin",
+      "kind": "brand",
+      "generic": "doxycycline"
+    },
+    {
+      "name": "vicodin",
+      "kind": "brand",
+      "generic": "hydrocodone"
+    },
+    {
+      "name": "vistaril",
+      "kind": "brand",
+      "generic": "hydroxyzine"
+    },
+    {
+      "name": "vitamin b12",
+      "kind": "generic",
+      "generic": "vitamin b12"
+    },
+    {
+      "name": "vitamin c",
+      "kind": "generic",
+      "generic": "vitamin c"
+    },
+    {
+      "name": "vitamin d",
+      "kind": "generic",
+      "generic": "vitamin d"
+    },
+    {
+      "name": "vitamin d3",
+      "kind": "generic",
+      "generic": "vitamin d3"
+    },
+    {
+      "name": "voltaren",
+      "kind": "brand",
+      "generic": "diclofenac"
+    },
+    {
+      "name": "warfarin",
+      "kind": "generic",
+      "generic": "warfarin"
+    },
+    {
+      "name": "wellbutrin",
+      "kind": "brand",
+      "generic": "bupropion"
+    },
+    {
+      "name": "xalatan",
+      "kind": "brand",
+      "generic": "latanoprost"
+    },
+    {
+      "name": "xanax",
+      "kind": "brand",
+      "generic": "alprazolam"
+    },
+    {
+      "name": "xarelto",
+      "kind": "brand",
+      "generic": "rivaroxaban"
+    },
+    {
+      "name": "xeljanz",
+      "kind": "brand",
+      "generic": "tofacitinib"
+    },
+    {
+      "name": "xgeva",
+      "kind": "brand",
+      "generic": "denosumab"
+    },
+    {
+      "name": "xifaxan",
+      "kind": "brand",
+      "generic": "rifaximin"
+    },
+    {
+      "name": "zanaflex",
+      "kind": "brand",
+      "generic": "tizanidine"
+    },
+    {
+      "name": "zestril",
+      "kind": "brand",
+      "generic": "lisinopril"
+    },
+    {
+      "name": "zinc",
+      "kind": "generic",
+      "generic": "zinc"
+    },
+    {
+      "name": "zithromax",
+      "kind": "brand",
+      "generic": "azithromycin"
+    },
+    {
+      "name": "zocor",
+      "kind": "brand",
+      "generic": "simvastatin"
+    },
+    {
+      "name": "zofran",
+      "kind": "brand",
+      "generic": "ondansetron"
+    },
+    {
+      "name": "zoloft",
+      "kind": "brand",
+      "generic": "sertraline"
+    },
+    {
+      "name": "zolpidem",
+      "kind": "generic",
+      "generic": "zolpidem"
+    },
+    {
+      "name": "zovirax",
+      "kind": "brand",
+      "generic": "acyclovir"
+    },
+    {
+      "name": "zyloprim",
+      "kind": "brand",
+      "generic": "allopurinol"
+    },
+    {
+      "name": "zyprexa",
+      "kind": "brand",
+      "generic": "olanzapine"
+    },
+    {
+      "name": "zyrtec",
+      "kind": "brand",
+      "generic": "cetirizine"
+    }
+  ]
+}

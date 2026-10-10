@@ -1,0 +1,9 @@
+{
+  "source": "CLAUDE.md §3.4(h); CONTRACTS.md §1.1.",
+  "rationale": "If the same participant reports the same CTCAE term while an AE draft for that term is still open and was last reported within the window, the new report is a follow-up of the existing AE (the AE is ongoing) rather than a new AE. Seven days matches the PRO-CTCAE recall window: two check-ins a week apart describe overlapping weeks. The window is inclusive at the boundary (exactly 7 days -> follow-up) and is a heuristic, not a clinical rule (see docs/WHAT_IT_GETS_WRONG.md). When several open AEs share a term, the most recently reported one is linked. An open AE whose last report came from the session being evaluated is never a candidate (a re-evaluation of the same check-in must not link an AE to itself), and one whose last report is dated more than max_future_skew_s after this check-in is skipped as well: both timestamps come from the same server clock, so a larger gap means a backdated override or bad data, not a real earlier report. Both skips are logged in the dedup rule's inputs.",
+  "window_days": 7,
+  "boundary": "inclusive",
+  "compare_against": "last_reported_at",
+  "max_future_skew_s": 300,
+  "exclude_same_session": true
+}

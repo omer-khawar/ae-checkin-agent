@@ -1,0 +1,12 @@
+# Tool caches and build artifacts produced by pytest / hypothesis / mypy / ruff / editable install
+__pycache__/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/

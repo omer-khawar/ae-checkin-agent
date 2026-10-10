@@ -1,0 +1,49 @@
+{
+  "source": "CLAUDE.md §3.4(e); CONTRACTS.md §1.5. Tier 3 stop-screen text is verbatim from CLAUDE.md and is the only participant-facing text the system shows in an urgent situation.",
+  "rationale": "A four-step ladder keeps triage decisions deterministic and auditable: the base tier comes from the highest provisional grade, red flags set a floor, and vitals corroboration can add at most one step (capped at 3). Tier 3 stops the kiosk, shows a fixed pre-approved screen and pages the on-call role through the mock pager. No tier text contains medical advice beyond the fixed stop screen.",
+  "base_tier_by_max_grade": { "0": 0, "1": 0, "2": 1, "3": 2 },
+  "max_tier": 3,
+  "tiers": [
+    {
+      "tier": 0,
+      "name": "Log",
+      "action": "Record goes to the coordinator queue. No notification.",
+      "sla": "none",
+      "triggers": ["no symptom above provisional grade 1"],
+      "stop_screen": false,
+      "page_oncall": false
+    },
+    {
+      "tier": 1,
+      "name": "Coordinator review",
+      "action": "Coordinator reviews within 1 business day.",
+      "sla": "1 business day",
+      "triggers": ["any provisional grade 2"],
+      "stop_screen": false,
+      "page_oncall": false
+    },
+    {
+      "tier": 2,
+      "name": "Nurse call today",
+      "action": "Research nurse calls the participant today.",
+      "sla": "same day",
+      "triggers": ["any provisional grade 3", "any red flag except hospitalization/ER"],
+      "stop_screen": false,
+      "page_oncall": false
+    },
+    {
+      "tier": 3,
+      "name": "Urgent",
+      "action": "Kiosk stops the check-in and shows the fixed stop screen; the on-call role is paged (mock pager).",
+      "sla": "immediate",
+      "triggers": [
+        "hospitalization or emergency-room visit = yes",
+        "severe or very severe shortness of breath",
+        "Tier 2 plus a vitals corroboration rule"
+      ],
+      "stop_screen": true,
+      "page_oncall": true,
+      "stop_screen_text": "Thank you. A member of the study team will contact you today. If you feel you need urgent help right now, call 911 or go to the nearest emergency room."
+    }
+  ]
+}

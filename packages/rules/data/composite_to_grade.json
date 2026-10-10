@@ -1,0 +1,7 @@
+{
+  "source": "Interim team convention (CLAUDE.md §3.4(b)). The PRO-CTCAE composite (Basch et al. 2021) is a 0-3 scale deliberately designed to resemble CTCAE grading; this table makes that resemblance explicit as a one-to-one crosswalk.",
+  "rationale": "A composite of 0 means no adverse event; 1, 2 and 3 become provisional CTCAE grades 1, 2 and 3. The crosswalk is NOT a validated mapping (PRO-CTCAE is patient-reported; CTCAE is clinician-graded and some terms grade on clinical facts such as stool counts or temperature), so every grade Interim assigns is labeled 'provisional, investigator to confirm'. Grades 4 and 5 are never assigned by software. This limitation is listed in docs/WHAT_IT_GETS_WRONG.md.",
+  "map": { "0": 0, "1": 1, "2": 2, "3": 3 },
+  "max_assignable_grade": 3,
+  "grade_label": "provisional, investigator to confirm"
+}

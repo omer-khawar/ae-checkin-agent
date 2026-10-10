@@ -1,0 +1,52 @@
+{
+  "source": "Interim team, hand-written per CLAUDE.md §3.2. Seriousness wording follows ICH E2A (hospitalization or prolongation of hospitalization is a seriousness criterion).",
+  "rationale": "Three non-PRO-CTCAE gate questions close every check-in: a seriousness trigger (hospital/ER), a concomitant-medication capture whose text is stored verbatim and matched only by string distance, and a free-text field that is stored verbatim and never parsed (it can only raise a 'read by a human' flag together with a severe item). The optional typed temperature belongs to the fever item but is captured with the gates so the kiosk can ask it on the same screen.",
+  "questions": [
+    {
+      "id": "hospitalization",
+      "order": 11,
+      "type": "yes_no",
+      "field": "hospitalization",
+      "label": "Since your last study visit, were you admitted to a hospital or seen in an emergency room?",
+      "options": { "No": false, "Yes": true },
+      "seriousness_trigger": true,
+      "red_flag_rule": "redflag.hospitalization"
+    },
+    {
+      "id": "conmed",
+      "order": 12,
+      "type": "yes_no_with_text",
+      "field": "conmed_changed",
+      "label": "Since your last study visit, have you started or stopped any medication? This includes over-the-counter medicines, vitamins and supplements.",
+      "options": { "No": false, "Yes": true },
+      "text_field": "conmed_text",
+      "text_prompt": "Please type the name of the medication as it appears on the label.",
+      "text_note": "Stored exactly as typed. A deterministic string matcher proposes a normalized name; a coordinator confirms it.",
+      "direction_field": "conmed_direction",
+      "direction_prompt": "Did you start it, stop it, or both?",
+      "direction_options": ["started", "stopped", "both"]
+    },
+    {
+      "id": "other",
+      "order": 13,
+      "type": "free_text",
+      "field": "other_text",
+      "label": "Is there anything else you would like the study team to know?",
+      "note": "Stored verbatim and never parsed by software. It is read by a person.",
+      "red_flag_rule": "redflag.other_text_with_severe"
+    }
+  ],
+  "optional_fields": [
+    {
+      "id": "temp_c",
+      "field": "temp_c",
+      "attached_to_item": "fever_or_chills",
+      "type": "number",
+      "unit": "°C",
+      "min": 34.0,
+      "max": 43.0,
+      "label": "If you took your temperature, what was the highest reading? (optional)",
+      "note": "Participant-typed, not device-measured; evidence only."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "source": "CLAUDE.md §3.4(g); CONTRACTS.md §1.7.",
+  "rationale": "Parameters of the deterministic concomitant-medication matcher live here rather than in medlist.json so that regenerating the medication list from openFDA cannot silently change matcher behavior. Matching is string distance only (exact, case-insensitive, then Levenshtein up to max_levenshtein_distance); no NLP. Tokens shorter than min_token_length are not tried on their own because 2-3 letter fragments match too many names by chance. A Levenshtein match whose confidence (1 - distance / max length) is below min_levenshtein_confidence is reported as unmatched, with the nearest candidates still listed for the coordinator: with distance 2 allowed and 4-letter list entries (iron, zinc, tums), ordinary English tokens such as 'from' would otherwise be proposed as 'iron' at confidence 0.5. With the floor at 0.7, a 2-edit match needs a name of 7+ letters and a 1-edit match needs 4+ letters, which keeps 'ondansatrone' -> ondansetron (0.83) and drops 'from' -> iron (0.5). The verbatim text is always preserved; the match is a proposal for the coordinator.",
+  "max_levenshtein_distance": 2,
+  "min_token_length": 4,
+  "min_levenshtein_confidence": 0.7,
+  "top_candidates": 3,
+  "confidence": {
+    "exact": 1.0,
+    "case_insensitive": 1.0,
+    "levenshtein": "round(1 - distance / max(len(input), len(candidate)), 2); reported as unmatched when below min_levenshtein_confidence",
+    "unmatched": 0.0
+  }
+}

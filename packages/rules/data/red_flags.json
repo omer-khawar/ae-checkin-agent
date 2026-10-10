@@ -1,0 +1,59 @@
+{
+  "source": "CLAUDE.md §3.4(c) and §3.4(e); CONTRACTS.md §1.4. Seriousness criterion for hospitalization from ICH E2A (1994) §II.B.",
+  "rationale": "Red flags are conditions that bypass composite grading and set a floor on the escalation tier so that an urgent situation is never under-triaged by the grade crosswalk alone. They are evaluated after grading and before vitals. A 'severe item' is defined once here so every rule means the same thing: for items that ask severity, severity >= 3 (Severe or Very severe); for items that do not ask severity, a composite of 3. Conditions are declarative so the rule and its threshold are visible as data; the engine evaluates them without any clinical number in code.",
+  "severe_item_definition": {
+    "severity_attribute_min": 3,
+    "no_severity_attribute_composite_min": 3,
+    "note": "severity >= 3 means the participant chose Severe or Very severe."
+  },
+  "rules": [
+    {
+      "id": "redflag.severe_dyspnea",
+      "description": "Severe or very severe shortness of breath",
+      "condition": {
+        "kind": "item_attribute",
+        "item": "shortness_of_breath",
+        "attribute": "severity",
+        "op": ">=",
+        "value": 3
+      },
+      "tier_floor": 3,
+      "seriousness": false,
+      "effect": "tier floor = 3 (Urgent)"
+    },
+    {
+      "id": "redflag.fever_with_severe",
+      "description": "Fever or chills present together with at least one severe item",
+      "condition": {
+        "all": [
+          { "kind": "item_attribute", "item": "fever_or_chills", "attribute": "presence", "op": ">=", "value": 1 },
+          { "kind": "any_severe_item" }
+        ]
+      },
+      "tier_floor": 2,
+      "seriousness": false,
+      "effect": "tier floor = 2 (Nurse call today)"
+    },
+    {
+      "id": "redflag.hospitalization",
+      "description": "Participant reports a hospital admission or emergency-room visit since the last visit",
+      "condition": { "kind": "gate_bool", "field": "hospitalization", "equals": true },
+      "tier_floor": 3,
+      "seriousness": true,
+      "effect": "tier floor = 3 (Urgent); seriousness suspected; SAE clock starts"
+    },
+    {
+      "id": "redflag.other_text_with_severe",
+      "description": "Free-text comment present together with at least one severe item",
+      "condition": {
+        "all": [
+          { "kind": "gate_text_nonempty", "field": "other_text" },
+          { "kind": "any_severe_item" }
+        ]
+      },
+      "tier_floor": 2,
+      "seriousness": false,
+      "effect": "tier floor = 2 (Nurse call today); flag for human read; text is never parsed"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "interim-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interim web app: participant kiosk + coordinator dashboard (React 18, Vite, TypeScript, Tailwind).",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 5173 --strictPort",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"*.{js,ts,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,md}\" \"*.{js,ts,json,md}\""
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.1",
+    "recharts": "2.15.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.30.1",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "18.3.23",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.7.0",
+    "autoprefixer": "10.4.21",
+    "eslint": "9.30.1",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "eslint-plugin-react-refresh": "0.4.20",
+    "globals": "16.3.0",
+    "jsdom": "26.1.0",
+    "postcss": "8.5.6",
+    "prettier": "3.6.2",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.35.1",
+    "vite": "5.4.19",
+    "vitest": "3.2.4"
+  }
+}
