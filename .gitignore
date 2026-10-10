@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Node
+node_modules/
+apps/web/dist/
+apps/vitals-bridge/dist/
+*.tsbuildinfo
+.eslintcache
+
+# Runtime data (SQLite lives in a volume / local file; never commit it)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/runtime/
+exports/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Scratch
+tmp/

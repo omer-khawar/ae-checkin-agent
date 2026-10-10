@@ -1,0 +1,30 @@
+{
+  "name": "interim-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interim: between-visit AE check-in with contactless vitals as eSource (HackRU 2026, Regeneron track)",
+  "license": "MIT",
+  "scripts": {
+    "install:all": "npm install && npm --prefix apps/web install && npm --prefix apps/vitals-bridge install",
+    "dev": "concurrently -k -n api,web,bridge -c blue,green,magenta \"npm run api\" \"npm run web\" \"npm run bridge\"",
+    "api": "cd apps/api && uvicorn interim_api.main:app --reload --host 0.0.0.0 --port 8000",
+    "web": "npm --prefix apps/web run dev",
+    "bridge": "npm --prefix apps/vitals-bridge run bridge -- --source mock --scenario resting --api http://localhost:8000 --ws-port 8787",
+    "test": "npm run test:rules && npm run test:api && npm run test:bridge && npm run test:web",
+    "test:rules": "cd packages/rules && python -m pytest -q",
+    "test:api": "cd apps/api && python -m pytest -q",
+    "test:bridge": "npm --prefix apps/vitals-bridge test",
+    "test:web": "npm --prefix apps/web test",
+    "lint": "npm --prefix apps/vitals-bridge run lint && npm --prefix apps/vitals-bridge run typecheck && npm --prefix apps/web run lint && npm --prefix apps/web run typecheck",
+    "eval": "python scripts/run_eval.py --api http://localhost:8000 --out docs/eval/results.md",
+    "seed": "python scripts/seed.py",
+    "demo-reset": "python scripts/seed.py --reset",
+    "fetch-public": "python scripts/fetch_public.py"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
