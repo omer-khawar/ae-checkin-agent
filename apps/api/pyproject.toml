@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interim-api"
+version = "0.1.0"
+description = "Interim system of record: FastAPI + SQLModel service that runs kiosk check-ins through the deterministic rules engine, keeps a tamper-evident audit chain, drafts SDTM-shaped EDC records and serves the coordinator dashboard."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+# Exact pins (CLAUDE.md §4.2 / task brief). interim-rules is installed editable from packages/rules.
+dependencies = [
+  "fastapi==0.115.12",
+  "uvicorn[standard]==0.34.2",
+  "sqlmodel==0.0.48",
+  "sqlalchemy==2.1.4",
+  "pydantic==2.14.0",
+  "pydantic-settings==2.15.0",
+  "python-ulid==4.0.1",
+]
+keywords = ["clinical-trials", "adverse-events", "SDTM", "audit-trail", "FastAPI"]
+classifiers = [
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Framework :: FastAPI",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx==0.28.1",
+  "pytest==9.1.1",
+  "ruff==0.17.0",
+]
+
+[tool.setuptools]
+packages = ["interim_api", "interim_api.services", "interim_api.routers"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B008: `Depends(...)` / `Query(...)` in parameter defaults is the FastAPI idiom.
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["interim_api", "interim_rules"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+  "error",
+  # SQLModel 0.0.48 on SQLAlchemy 2.1 still touches one deprecated declarative hook.
+  "ignore::sqlalchemy.exc.MovedIn20Warning",
+  "ignore::DeprecationWarning:sqlmodel",
+  # starlette 0.46 (pinned by fastapi 0.115.12) touches an anyio alias that anyio 4.15 deprecates.
+  "ignore:The anyio.abc.*:DeprecationWarning",
+]

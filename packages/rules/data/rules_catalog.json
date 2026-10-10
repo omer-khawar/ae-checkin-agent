@@ -1,5 +1,5 @@
 {
-  "source": "CONTRACTS.md §1.4. Every rule id the engine can emit is listed here; eval personas reference these ids.",
+  "source": "CONTRACTS.md §1.4 (engine rules) and R2.4 (chartscan.* rules of the chart-note scanner ported from omer-khawar/ae-checkin-agent, Omer Khawar, MIT). Every rule id the engine or the scanner can emit is listed here; eval personas reference these ids.",
   "rationale": "A closed catalog lets the dashboard, the eval harness and the audit log agree on rule identity. description_template documents the plain-English sentence each rule produces (placeholders in braces are substituted with the actual values at run time). Per-item rules (score.composite.*, grade.provisional.*) are listed once per shipped item so the catalog is exhaustive without wildcards.",
   "categories": [
     "scoring",
@@ -11,7 +11,8 @@
     "seriousness",
     "conmed",
     "dedup",
-    "drafting"
+    "drafting",
+    "chartscan"
   ],
   "rules": [
     { "id": "score.composite.shortness_of_breath", "category": "scoring", "description_template": "{label}: {attributes} -> composite {composite} (Basch 2021 table)", "emitted_when": "composite >= 1" },
@@ -69,6 +70,13 @@
 
     { "id": "draft.ae", "category": "drafting", "description_template": "AE draft {aeseq}: {aedecod}, provisional grade {grade}{followup_note}", "emitted_when": "one per AE draft" },
     { "id": "draft.vs", "category": "drafting", "description_template": "VS draft {vstestcd}: {vsorres} {vsorresu} ({vsmethod}, n={n_samples})", "emitted_when": "one per VS summary row" },
-    { "id": "draft.cm", "category": "drafting", "description_template": "CM draft: '{cmtrt}' -> {cmdecod} ({match_kind}, confidence {confidence})", "emitted_when": "one per CM draft" }
+    { "id": "draft.cm", "category": "drafting", "description_template": "CM draft: '{cmtrt}' -> {cmdecod} ({match_kind}, confidence {confidence})", "emitted_when": "one per CM draft" },
+
+    { "id": "chartscan.symptom", "category": "chartscan", "description_template": "Chart note: '{quote}' -> {term}, provisional grade hint {grade_hint} ({grade_basis}); onset {onset_days} day(s) before the note; worsening; resolved per the text", "emitted_when": "one per kept symptom finding of a scanned chart note (interim_rules.chartscan.rules_fired); the API drafts an AE with AEDECOD = term, AETOXGR = grade hint (never above composite_to_grade.max_assignable_grade), INTERIM_SOURCE = chart_note; inputs.resolved = true when the text says the symptom resolved (the API may propose AEENDTC)" },
+    { "id": "chartscan.symptom_excluded", "category": "chartscan", "description_template": "Chart note: '{quote}' ({term}) skipped: {excluded_reason}: {reason}", "emitted_when": "one per excluded symptom mention (negated, historical, hypothetical); no draft" },
+    { "id": "chartscan.med", "category": "chartscan", "description_template": "Chart note: '{quote}' -> {drug} ({change}): {reason}", "emitted_when": "one per kept medication finding; the API drafts a CM with CMTRT = quote, CMDECOD = drug, CMSTDTC/CMENDTC from change" },
+    { "id": "chartscan.med_excluded", "category": "chartscan", "description_template": "Chart note: '{quote}' ({drug}) skipped: {excluded_reason} ({reason})", "emitted_when": "one per excluded medication mention (allergy, negated); no draft" },
+    { "id": "chartscan.red_flag", "category": "chartscan", "description_template": "Chart note red flag ({level}, {category}): {reason} -- '{quote}'", "emitted_when": "one per red-flag category matched (first non-excluded match); a note escalates to Tier 2 at most and never pages or shows a stop screen (D-017)" },
+    { "id": "chartscan.hospitalization", "category": "chartscan", "description_template": "Chart note mentions hospitalization or an ER visit ('{quote}') -> seriousness suspected (ICH E2A); the SAE clock starts when the site reads the note", "emitted_when": "a red flag of a seriousness category (hospitalization) fired; the API sets seriousness_suspected and starts the SAE clock with site_awareness_at = ingested_at" }
   ]
 }

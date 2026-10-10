@@ -2,10 +2,12 @@
 
 This document is the single reference for anyone touching `apps/vitals-bridge/src/sources/`.
 It covers the plugin contract (verbatim from `CLAUDE.md` §7.1), what the bridge guarantees around
-every source (timing gates, confidence flags, labelling), the fully working mock source, and the
-two deliberately unimplemented slots: **Presage SmartSpectra** (contactless, camera-based) and
-**Arduino** (contact sensor over serial). Implementing Presage should touch exactly one file:
-`apps/vitals-bridge/src/sources/presage.ts`.
+every source (timing gates, confidence flags, labelling), the fully working mock source, the
+**Presage SmartSpectra** source (contactless, camera-based; implemented in §5, untested against a
+live camera until someone runs it with an API key), and the deliberately unimplemented
+**Arduino** slot (contact sensor over serial, §6). Implementing Presage touched exactly the two
+files it was meant to: `apps/vitals-bridge/src/sources/presage.ts` (SDK lifecycle) and
+`presageMap.ts` (pure packet → sample mapping).
 
 Principles that do not change with the source:
 
@@ -16,7 +18,9 @@ Principles that do not change with the source:
   escalation tier by at most one step, and only through the documented rules in
   `packages/rules/data/vitals_corroboration.json`.
 - **No frames leave the bridge.** Camera frames (when a real camera is used) are processed in
-  memory by the SDK; only derived metrics, confidences and quality flags are emitted.
+  memory by the SDK; only derived metrics, confidences and quality flags are emitted. The
+  Presage SDK's aggregate telemetry (on by default) is switched off; what the SDK still talks to
+  Presage's servers for (API-key validation, credit metering) is disclosed in §5.
 - **The raw series is never thinned.** Low-confidence values are flagged, not dropped; the rules
   engine applies its own threshold with a logged reason.
 
@@ -53,15 +57,21 @@ Bridge-side additions (same file, not part of the verbatim block):
 - `WaveformCapable` — optional `onWaveform(cb)` for sources that can produce a pleth trace
   (~25 points per second, values 0..1). The mock does; Presage can; Arduino cannot.
 - `StubMarker` — `{ implemented: false, notImplementedMessage }`; the factory refuses such a
-  source at startup.
+  source at startup (today only Arduino).
 - `NotImplementedError` — thrown by stubs and by the factory.
+- `Preflightable` — optional `preflight({ forListCameras? })` for a real source that depends on
+  something outside the repository (a native SDK, an API key, a device). The CLI awaits it right
+  after construction, before any port opens, and maps a `SourceUnavailableError` to exit code 2
+  exactly like a stub. Presage implements it; the mock does not need it.
+- `SourceUnavailableError` — `{ reason: "sdk_missing" | "sdk_load_failed" | "api_key_missing" |
+  "no_camera" | "other" }`, always with the exact fix in the message and the switch-to-mock hint.
 
 ### Semantics every source must honour
 
 | Aspect           | Rule                                                                                                                                                          |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Cadence          | One `VitalsSample` per second while `collecting`. Coalesce faster SDK events to 1 Hz (keep the latest per metric); never emit faster.                        |
-| Timestamps       | `tsUtc` is the bridge clock in UTC ISO-8601 with millisecond precision and a `Z` suffix.                                                                     |
+| Timestamps       | `tsUtc` is UTC ISO-8601 with millisecond precision and a `Z` suffix: the bridge clock, or the sensor's own epoch timestamp when it is plausible (presage, §5). |
 | Missing metrics  | Omit the field (undefined), do not send `null` or `0`. A metric without a confidence is treated as confidence 0 downstream.                                   |
 | Confidence       | Pass the SDK's 0..1 confidence through unchanged. Do not rescale, smooth or threshold it in the source.                                                        |
 | `windowS`        | The averaging window the source actually used, in seconds (≥ 1). One value per sample: report the window of the longest-window metric present.                 |
@@ -102,20 +112,22 @@ Bridge-side additions (same file, not part of the verbatim block):
 ## 3. Selecting a source
 
 `VITALS_SOURCE=mock|presage|arduino` or `--source`; the factory in `src/sources/index.ts` builds
-the source. A stub or an unknown name makes the CLI print the message and exit with code 2
+the source. A stub (`arduino`), an unknown name, or a real source whose preflight fails (Presage
+without the SDK or without `PRESAGE_API_KEY`) makes the CLI print the message and exit with code 2
 **before any port is opened**:
 
 ```
-[bridge] ERROR Presage SDK not yet integrated; see docs/VITALS_SOURCES.md. Switch to the mock source: --source mock (or VITALS_SOURCE=mock).
+[bridge] ERROR Presage SmartSpectra SDK (@smartspectra/node-sdk@3.4.0) is not installed. Run "npm run install:presage" in apps/vitals-bridge (it is deliberately not a package.json dependency; see docs/VITALS_SOURCES.md). Switch to the mock source: --source mock (or VITALS_SOURCE=mock).
+[bridge] ERROR Arduino serial source not yet integrated; see docs/VITALS_SOURCES.md. Switch to the mock source: --source mock (or VITALS_SOURCE=mock).
 ```
 
 The source is fixed for the life of the process. The admin panel's `vitals_source` setting is
 read from `GET /api/v1/settings/public` on every session start; if it differs from the running
 source the bridge logs a warning telling the operator to restart with the other `--source`.
-Hot-swapping a native SDK mid-session is not worth the complexity for a kiosk, and today both
-alternatives are stubs, so the admin setting is informational for the bridge. This is a
-deliberate deviation from the brief's "runtime override from the admin panel" (CLAUDE.md §7.1)
-and is recorded in `docs/DECISIONS.md` ("No runtime vitals-source hot-swap").
+Hot-swapping a native SDK (and a camera) mid-session is not worth the complexity for a kiosk, so
+the admin setting is informational for the bridge. This is a deliberate deviation from the
+brief's "runtime override from the admin panel" (CLAUDE.md §7.1) and is recorded in
+`docs/DECISIONS.md` ("No runtime vitals-source hot-swap").
 
 ## 4. Mock source (implemented)
 
@@ -152,13 +164,168 @@ The mock also emits a synthetic photoplethysmogram (systolic upstroke + dicrotic
 current pulse frequency, 25 points per second) through `onWaveform`, so the kiosk sparkline has
 something to draw; it is cosmetic and is not persisted.
 
-## 5. Presage SmartSpectra source (STUB — the hole to fill)
+## 5. Presage SmartSpectra source (IMPLEMENTED; untested against a live camera)
 
-Status: `src/sources/presage.ts` exports `PresageVitalsSource implements VitalsSource` where
-every method throws `NotImplementedError("Presage SDK not yet integrated; see docs/VITALS_SOURCES.md")`
-except `name` (`"presage"`) and `isMeasured` (`true`). The SDK dependency is intentionally **not**
-in `package.json` (it pulls several hundred MB of native binaries). Tracked as issue #11 in
-`docs/ISSUES.md`.
+**Status: implemented, untested against a live camera (needs `PRESAGE_API_KEY` and a webcam).**
+`src/sources/presage.ts` is a real `VitalsSource` (SDK lifecycle, camera selection, status) and
+`src/sources/presageMap.ts` is the pure packet → `VitalsSample` mapping, unit-tested against
+fixtures in the exact decoded shape. The SDK is loaded dynamically at `start()` / `preflight()`
+and is **not** a `package.json` dependency (CLAUDE.md §7.3; decision D-016): CI never installs it,
+and the Docker image never contains it. Ported from Omer Khawar's `presage-bridge/bridge.js`
+(MIT), which exercised SDK 3.4.0 against a real camera and verified the surface this port uses;
+credit is in the module header. Tracked as issue #14 in `docs/ISSUES.md`. Until the live test
+below has been run once, the kiosk badge **MEASURED** `presage` has never been seen on a real
+participant; say so if asked.
+
+### Install (on the kiosk laptop, never in Docker)
+
+1. Check the platform matrix in the vendor notes below (Linux x64/arm64 with glibc 2.35+, Windows
+   x64, macOS Apple Silicon; Intel Mac is not supported). Node ≥ 20 (24 LTS recommended).
+2. `cd apps/vitals-bridge && npm install && npm run install:presage`. The second command runs
+   `npm install --no-save @smartspectra/node-sdk@3.4.0`: several hundred MB of native binaries
+   land in `node_modules/`, while `package.json` and `package-lock.json` stay untouched. A later
+   plain `npm install` or `npm ci` prunes the SDK again (npm removes extraneous packages); just
+   re-run `npm run install:presage`. The version is pinned to the one the teammate's bridge was
+   verified against.
+3. Get an API key from https://physiology.presagetech.com and put it in the bridge's environment:
+   `PRESAGE_API_KEY=...` in `.env` (read by `make dev` / `npm run dev`) or exported in the shell.
+   Never commit it; the bridge never logs it or sends it anywhere but the SDK constructor.
+4. `npm run bridge -- --source presage --list-cameras` prints `id<TAB>label` per camera (no key
+   needed). On Windows the SDK cannot open the "default" camera, so the bridge selects the **first
+   discovered id** automatically. That first id can be an IR or virtual device on some laptops,
+   so run `--list-cameras` once and pin the real webcam with `PRESAGE_CAMERA_ID=<id>` (camera ids
+   are "opaque and platform-local; rediscover before reuse", per the SDK).
+5. `npm run bridge -- --source presage --api http://localhost:8000 --ws-port 8787` (or
+   `VITALS_SOURCE=presage` with `make bridge`). The banner reads
+   `source=presage (MEASURED sensor values)`; the camera opens only when the kiosk starts a session.
+
+**Network and telemetry (read before a site deployment).** The Presage source is the one
+documented exception to CLAUDE.md §13's "no network calls at runtime": the SDK authenticates the
+API key against Presage's servers ("server-validated auth") and meters usage against the
+account's credits, so the kiosk needs outbound HTTPS to Presage and a funded account. The SDK's
+error codes `kAuthenticationFailed` (2), `kCreditExhausted` (4), `kNetworkError` (5) and
+`kServerError` (6) are exactly these failures; the bridge names them in the status message. The
+bridge cannot check the key before a session (the SDK validates it on `start()`), so a wrong key,
+an exhausted balance or a locked-down network surfaces as a **fatal** status during the first
+participant's session, after `warming`: the kiosk card shows the error, the check-in continues
+without vitals (`vitals_status: "unavailable"`), and the next session constructs a fresh SDK, so
+the fix is "correct the key / credits / network, then start a new session", never "restart the
+bridge". Run step 2 of the live checklist below before the first real participant. The SDK's
+**aggregate telemetry is switched off** (`enableTelemetry: false`; it defaults to on in
+`SmartSpectraOptions`) and its log level is pinned to warnings and errors; no camera frame, no
+sample and no identifier leaves the bridge except through the SDK's own authentication and
+metering calls. This is recorded as a decision for `docs/DECISIONS.md` (D-016 amendment) and
+belongs in `docs/WHAT_IT_GETS_WRONG.md`.
+
+What fails fast, **before any port opens**, with exit code 2 and the fix in the message: SDK not
+installed (`npm run install:presage`), SDK installed but not loadable on this platform, SDK
+exports not the ones this bridge was written against, `PRESAGE_API_KEY` unset (not required for
+`--list-cameras`), camera discovery unsupported or no camera found on Windows (`--list-cameras`
+takes the same path: a discovery failure is reported with the `PRESAGE_CAMERA_ID` hint, never as a
+stack trace). Every message ends with the switch-to-mock hint.
+
+### How it works (`presage.ts`)
+
+| Step | What happens |
+| --- | --- |
+| `preflight()` | `import("@smartspectra/node-sdk")` and `import(".../messages")` inside try/catch, then a structural check of the exports used; then the API key (unless listing cameras). The CLI runs this first. |
+| `start()` | Wait for any in-flight `stop()` or fatal-error teardown (the SDK says to await `destroy()` before constructing a replacement: native state is process-global). Resolve the key (constructor option > `PRESAGE_API_KEY`), load the SDK, choose the camera (`start` opts > constructor > `PRESAGE_CAMERA_ID` > Windows: first discovered id > `CameraSelection.default`), `new SmartSpectraSDK({ apiKey, requestedMetrics: [...breathingMetrics, ...cardioMetrics], enableTelemetry: false, logLevel: SmartSpectraLogLevel.kWarning })`, wire the three events (the SDK keeps one callback per event; `on()` replaces, so each is registered exactly once per instance), `useCamera`, `start()`, status `warming`, start a 1 Hz ticker. A constructor or `start()` failure destroys the instance and rejects with the SDK's message plus the mock hint. |
+| `metrics(buf)` | `Metrics.toObject(decodeMetrics(buf), { longs: Number })` → newest entry per metric (`extractLatest`) merged into a pending slot (`mergeLatest`, newest timestamp wins). An undecodable packet is counted and logged, never thrown. |
+| tick (1 Hz) | If the pending slot has at least one value: status `collecting` (first time, or "recovered" after an error) and **one** `VitalsSample`. Packets arriving faster than 1 Hz are coalesced, never emitted faster; a tick with nothing new emits nothing (no stale value is re-sent). If nothing with a value arrived for 5 s while collecting → status `warming` ("timing gates reset"), because the SDK's own 12/30/60 s averages restart when the face is re-acquired. |
+| `validationStatus(code, ts, hint)` | Remembered. Its integer **code** becomes `qualityFlags` on the next sample through the `VALIDATION_CODE_FLAGS` table (§7); the free-text hint only re-announces the current status as `camera: <hint>` (a repeated `collecting` status does not reset the gate clock) and goes to the log, once per change. |
+| `error(code, message, retryable)` | Status `error` naming the code (`SDK_ERROR_NAMES` table) and the vendor text. Retryable: the SDK keeps running and the next packet brings `collecting` back. Fatal: the SDK is stopped and destroyed; the source stays in `error` until `stop()`; the message says "capture stopped for this session. Fix: …, then start a new session", because the next `start()` builds a fresh instance. |
+| `stop()` | Ticker off, `await sdk.stopAsync(); await sdk.destroy();` (each failure logged, never thrown), status `idle`. Idempotent; late events from the old instance are ignored via a generation counter, and a `start()` that arrives during the teardown waits for it (so the old teardown's `idle` can never overwrite the new session's `warming`). |
+| `listCameras()` | `SmartSpectraSDK.availableCameras()` (a synchronous static: `CameraInfo[]` = `{ id, name: string \| null, facing, lensType }`) normalised to `{ id, label }[]` with `label` = `name` or `camera <id>`. A throw ("discovery unsupported") becomes `SourceUnavailableError('no_camera')` with the `PRESAGE_CAMERA_ID` hint. |
+
+The gates in `gate.ts` apply unchanged: pulse appears on the kiosk after 12 s of continuous
+`collecting`, breathing after 30 s, HRV after 60 s, and only when the SDK's confidence (÷ 100)
+meets the threshold from the rules tables. The pleth waveform the SDK can produce is **not**
+wired (deliberately: it is cosmetic, and the kiosk sparkline simply stays hidden for this
+source). No camera frame ever leaves the SDK's memory; only the decoded metrics do.
+
+### Mapping (`presageMap.ts`, pure)
+
+| `VitalsSample` field | From | Notes |
+| --- | --- | --- |
+| `source` / `isMeasured` | constant | `"presage"` / `true`: a camera-based measurement of a real participant. |
+| `pulseBpm`, `pulseConf` | last `cardio.pulseRate[]` entry: `value`, `confidence ÷ 100` | value rounded to 0.1; confidence clamped to 0..1. A missing confidence stays missing (the gate treats it as 0). |
+| `breathingBpm`, `breathingConf` | last `breathing.rate[]` entry | likewise |
+| `hrvRmssdMs`, `hrvConf` | last `cardio.hrv[]` entry: `rmssd` (ms), `confidence ÷ 100` | the `IHrv` message is `{ rmssd, meanNn, sdnn, baevsky, timestamp, confidence, stable }` (SDK `generated.d.ts`); only RMSSD is mapped (the contract has no slot for the others). Omitted when `rmssd` is absent or not finite. |
+| `windowS` | longest window among the metrics present: pulse 12, breathing 30, HRV 60 | the vendor's documented averaging windows (sensor properties, not clinical thresholds); the rules engine checks them against its `min_window_s` table. |
+| `qualityFlags` | latest non-zero `validationStatus` **code** → one token from the `VALIDATION_CODE_FLAGS` table in `presageMap.ts` (full list in §7); plus `unstable_pulse` / `unstable_breathing` / `unstable_hrv` when the entry's `stable` is `false` | the integer codes are a typed, stable part of the SDK's public surface (`ValidationCode` in `index.d.ts`); the hint's wording is not published, so it is never parsed into flags. A code the table does not know yields `sdk_validation_<code>` plus the snake_cased hint, so nothing the SDK said is lost. `kNoFaceFound` → `face_not_found`, `kTooDark` → `low_light`, `kExcessiveMotion` → `motion`: the tokens the kiosk's "signal is weak" logic (`DEGRADED_FLAGS`) knows. |
+| `tsUtc` | newest entry `timestamp` (µs since epoch → ISO, ms precision) | used only when plausible (after 2020-01-01 and at most 24 h ahead of the bridge clock); otherwise the bridge clock, with one warning. An SDK build that reports monotonic or millisecond timestamps must not produce 1970 eSource records. |
+
+Nothing clinical is decided in the mapping: no thresholds, no plausibility checks on the values
+themselves; `gate.ts` and the rules engine do that.
+
+### Verified vs. unverified
+
+Two sources of evidence: (a) the teammate's `presage-bridge/bridge.js`, which ran SDK 3.4.0
+against a webcam; (b) the SDK package's own shipped TypeScript declarations (`js/index.d.ts`,
+`js/messages/generated.d.ts`), which anyone can read without the native binaries:
+`npm pack @smartspectra/node-sdk@3.4.0` (about 125 KB) and open the tarball.
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Package `@smartspectra/node-sdk@3.4.0`; exports `SmartSpectraSDK`, `CameraSelection`, `breathingMetrics`, `cardioMetrics`, `decodeMetrics`, `SmartSpectraLogLevel`, `ValidationCode`, `SmartSpectraErrorCode`; `@smartspectra/node-sdk/messages` export `Metrics` | **verified** | (a) + (b) `index.d.ts`, `index.js` |
+| Decode path `Metrics.toObject(decodeMetrics(buf), { longs: Number })` | **verified** | (a); (b) `index.js` registers the bundled `Metrics` class so `decodeMetrics` returns a protobufjs message |
+| `cardio.pulseRate[{ value, confidence 0–100, stable, timestamp µs }]`, `breathing.rate[...]` | **verified** | (a) `simulatedMetrics` round-trips this shape; (b) `IMeasurementWithConfidence` in `generated.d.ts`: confidence "percentage in the range [0.0, 100.0]", timestamp "microseconds since Linux epoch" |
+| `cardio.hrv[]` = `IHrv { rmssd, meanNn, sdnn, baevsky, timestamp, confidence, stable }` | **verified** | (b) `generated.d.ts`; `hrvRmssd()` reads `rmssd` directly. Not yet seen on a live packet (the SDK says HRV needs 60 s) |
+| Events `metrics(buf, tsMicros)`, `validationStatus(code, ts, hint)`, `error(code, message, retryable)`; `useCamera`, `start`, `stopAsync`, `destroy`; `on()` keeps one callback per event (re-registration replaces) | **verified** | (a); (b) `index.d.ts` event table |
+| `ValidationCode` integer table (1 no face … 17 face not forward) and `SmartSpectraErrorCode` (1 invalid state … 11 timestamp gap); "integer values are stable across SDK versions" | **verified** | (b) `index.d.ts`; mirrored in `presageMap.ts` tables and asserted complete by `test/presageMap.test.ts` |
+| `SmartSpectraOptions.enableTelemetry` defaults to `true`; `logLevel` defaults to warning | **verified** | (b) `index.d.ts`, `ffi.js` (`disable_telemetry: cfg.enableTelemetry === false ? 1 : 0`); the bridge passes `false` and `kWarning` |
+| `static availableCameras(): CameraInfo[]` is synchronous, needs no instance / key / capture, "throws when discovery is unsupported" with a plain `Error` carrying `code` and `retryable`; `CameraInfo = { id, name: string \| null, facing, lensType }` | **verified** | (b) `index.d.ts`, `ffi.js` `makeFfiError` |
+| `apiKey` is "server-validated auth"; credits are metered (`kCreditExhausted`) | **verified** | (b) `index.d.ts`; hence the network paragraph above |
+| `timestamp` is epoch microseconds | **verified** by declaration, **not yet observed** live | (b) field doc; plausibility guard + bridge-clock fallback stays, in case a build reports monotonic time |
+| Metrics packet cadence ≈ 1 Hz | **assumed** | coalesced to ≤ 1 Hz either way |
+| `CameraSelection.default` fails on Windows | **vendor note** | the bridge selects by discovered id there |
+| Exact wording of validation hints | **unpublished** | never parsed; the code is used instead |
+| Pleth / breathing waveform | not wired (deliberate) | kiosk sparkline hidden for this source |
+
+The vendor notes block at the end of this section still says "Exact decoded field names were not
+verified": that sentence is the brief's own text, reproduced verbatim on purpose (it is checked
+byte-for-byte against `CLAUDE.md` and `presage.ts`); the table above is where the verification
+status actually lives.
+
+### Capture conditions (vendor guidance)
+
+Face and upper chest visible and well lit from the front; a stable camera (breathing rate needs a
+still frame); the participant sitting still and not talking (talking degrades breathing); avoid
+dark clothing and fine stripes; do not open the camera in a browser tab at the same time. Pulse
+is a 12-second average (vendor validity 40–110 BPM), breathing a 30-second average (5–40), HRV
+needs 60 s.
+
+### Live test checklist (do this once, then update the status line above and issue #14)
+
+1. **Cameras.** `npm run bridge -- --source presage --list-cameras` exits 0 and lists at least one
+   camera. Without the SDK it must exit 2 quoting `npm run install:presage`.
+2. **Banner and key.** With `PRESAGE_API_KEY` set, `npm run bridge -- --source presage` prints
+   `source=presage (MEASURED sensor values)` and then idle status lines; nothing opens the camera
+   yet. Without the key it must exit 2 naming `PRESAGE_API_KEY`. Then run one throwaway kiosk
+   session **before the first participant**: a wrong key, an exhausted balance or a blocked
+   network shows up only now, as `SmartSpectra error 2 (authentication failed)` / `4 (credits
+   exhausted)` / `5 (network error)` in the bridge log and on the kiosk card.
+3. **Kiosk session.** Start a check-in with camera consent. Expected in the bridge log within a few
+   seconds: `source status warming → collecting: face found; collecting`; the status line shows
+   `pulse=NN(0.xx)` from ~12 s and `breathing=NN(0.xx)` from ~30 s; the kiosk card's badge reads
+   **MEASURED** `presage` and the pulse appears when the gate opens. Note the first
+   `camera: <hint>` lines (these are the vendor's validation hints; the flags on the samples come
+   from the codes, not the words) and whether an HRV value appears after 60 s (`hrvRmssdMs` on
+   the samples, `HRV_RMSSD` in the VS draft).
+4. **eSource.** `GET /api/v1/checkins/<session id>`: every `vitals.samples[]` row has
+   `source: "presage"`, `is_measured: true`, `window_s` 12/30/60, the flags you saw; `vitals.status`
+   is `ok`; the VS drafts carry `VSMETHOD = "Contactless optical, camera-based"` and
+   `INTERIM_SOURCE = "presage"`. Nothing should say "simulated".
+5. **Loss and corroboration.** Cover the camera for ~10 s: a hint flag appears, after 5 s the
+   status drops to `warming` ("timing gates reset"), uncover it: `collecting` again and the pulse
+   returns 12 s later. Then do 30 s of jumping jacks, sit down, and complete a check-in with
+   shortness of breath "Moderate": the dashboard's Why panel shows the corroboration rule firing
+   on **measured** vitals (no "treat simulated as measured" toggle involved), the tier bumps by
+   one, the grade does not change. Record OS, SDK version, camera and the HRV field name in
+   `docs/ISSUES.md` #14.
+
+Reminder from the vendor disclaimer: the Node SDK metrics are for general wellness and
+informational use; Interim never claims FDA clearance and the UI footer says so.
 
 ### Vendor notes (verbatim from `CLAUDE.md` §7.3; the same block heads `presage.ts`)
 
@@ -181,56 +348,6 @@ in `package.json` (it pulls several hundred MB of native binaries). Tracked as i
 > - Windows: `CameraSelection.front/back` fail; select by discovered id.
 > - Vendor disclaimer: the SDK metrics are "for general wellness and informational use only" except the FDA-cleared iOS/Android pulse+breathing monitor (510(k) K254169). Our product never claims clearance; the UI footer covers this.
 > - Mapping: `isMeasured = true`, `source = "presage"`, `windowS` from the metric (12/30/60), `qualityFlags` from validationStatus hints, confidences passed through unchanged.
-
-### How to implement Presage in one file
-
-Everything outside `presage.ts` already treats a Presage sample like a mock sample with
-`isMeasured: true`; the kiosk badge flips to **MEASURED** on its own.
-
-1. **Install the SDK, pinned.** In `apps/vitals-bridge`: `npm install @smartspectra/node-sdk@<exact version>`.
-   Check the platform matrix in the notes above (no Intel Mac). Expect a large install; keep the
-   Docker image mock-only or add a separate build stage, since the bridge normally runs on the
-   kiosk laptop, not in compose.
-2. **API key.** Read `PRESAGE_API_KEY` (already in `.env.example`) in the constructor or
-   `start()`. If it is missing, throw a clear error before touching the camera. Never log the key.
-3. **Construct and wire the SDK in `start()`** following the vendor snippet: `requestedMetrics:
-   [...breathingMetrics, ...cardioMetrics]`, `useCamera(CameraSelection.byId(opts.cameraId))` when
-   a camera id is given, else `CameraSelection.default` (on Windows, always select by discovered
-   id). Emit `warming` immediately, `collecting` on the first `metrics` event.
-4. **Map `metrics` → `VitalsSample`.** `decodeMetrics(buf)` gives the latest pulse / breathing /
-   HRV with confidences (**verify the decoded field names against
-   `smartspectra.presagetech.com/docs/nodejs/metrics/`; they were not verified when this was
-   written**). Keep the latest value per metric and emit one sample per second from a 1 s timer:
-   `source: "presage"`, `isMeasured: true`, confidences unchanged, `windowS` = the window of the
-   longest-window metric present (12 / 30 / 60), `tsUtc` = bridge clock. Omit a metric the SDK has
-   not produced yet (undefined, never 0).
-5. **Map `validationStatus` → `qualityFlags`** using the vocabulary in §6 (face not found →
-   `face_not_found`, lighting → `low_light`, motion → `motion`, talking → `talking`; anything else
-   → `sdk_<code>` so nothing is silently lost). The hint text can go into the `warming`/`error`
-   status message.
-6. **Map `error` → status.** `retryable === true`: emit `{state: "error", message}` and let the SDK
-   recover (it will emit `metrics` again; then emit `collecting`). Non-retryable: emit `error`,
-   stop the SDK, stay in `error` until `stop()`.
-7. **`stop()`**: clear the 1 s timer, `await sdk.stopAsync(); await sdk.destroy();`, emit `idle`.
-   Make it idempotent (the session layer may call it twice).
-8. **`listCameras()`**: `SmartSpectraSDK.availableCameras()` → `{ id, label }[]`.
-9. **Optional waveform**: implement `WaveformCapable` from the SDK's pleth waveform, normalised to
-   0..1, ~25 points per second, `tsUtc` of the accompanying sample. The kiosk draws it if present.
-10. **Flip the marker**: set `implemented = true` (or drop the `StubMarker` fields). The factory
-    will then hand the source out; `--source presage` starts normally.
-11. **Tests**: add `test/presage.test.ts` driving the class with a fake SDK injected through a
-    constructor option (`sdkFactory`), covering the metric mapping, flag mapping, retryable vs.
-    fatal errors, 1 Hz coalescing and `stop()`; update the fail-fast expectations in
-    `test/sources.test.ts` and `test/cli.test.ts` (presage now starts; missing key still exits 2).
-12. **Verify end to end**: `npm run lint && npm run typecheck && npm test`, then
-    `npm run bridge -- --source presage --list-cameras`, then a live kiosk session: the status
-    line should show real values after 12 s / 30 s and the kiosk badge should read **MEASURED**.
-    Do jumping jacks and watch the corroboration rule fire on the dashboard.
-13. **Docs**: update the status lines in this file and `docs/ISSUES.md` #11; log the `windowS`
-    choice and any contract touch in `docs/DECISIONS.md`.
-
-Reminder from the vendor disclaimer: the Node SDK metrics are for general wellness and
-informational use; Interim never claims FDA clearance and the UI footer says so.
 
 ## 6. Arduino serial source (STUB)
 
@@ -273,13 +390,15 @@ the port through a constructor option for tests, flip `implemented = true`, add
 
 | Flag                      | Added by | Meaning                                                         |
 | ------------------------- | -------- | --------------------------------------------------------------- |
-| `face_not_found`          | source   | No face in frame; optical metrics unavailable this second.      |
-| `low_light`               | source   | Illumination too low for a reliable optical signal.             |
-| `motion`                  | source   | Subject or camera movement degrading the signal.                |
-| `talking`                 | source   | Speech detected; breathing estimate degraded.                   |
+| `face_not_found`          | mock, presage (`kNoFaceFound` = 1) | No face in frame; optical metrics unavailable this second. |
+| `low_light`               | mock, presage (`kTooDark` = 5)     | Illumination too low for a reliable optical signal.        |
+| `motion`                  | mock, presage (`kExcessiveMotion` = 12) | Subject or camera movement degrading the signal.      |
+| `talking`                 | mock only | Speech detected; breathing estimate degraded. The Presage source does not produce it: the SDK reports talking as a `faceMetrics` metric (`MetricType.TALKING`) that the bridge does not request; "do not talk" stays a capture condition. |
 | `no_finger`               | arduino  | Contact sensor sees no finger.                                  |
 | `malformed_line`          | arduino  | A serial line could not be parsed (dropped).                    |
-| `sdk_<code>`              | presage  | Any vendor validation code without a mapping above.             |
+| `multiple_faces`, `face_not_centered`, `face_size_out_of_range`, `too_bright`, `chest_not_visible`, `camera_tuning`, `frame_rate_too_low`, `face_too_close`, `face_too_far`, `face_too_high`, `face_too_low`, `face_not_forward` | presage | The remaining `ValidationCode` values (2, 3, 4, 6, 7, 10, 11, 13–17), one token each, from the `VALIDATION_CODE_FLAGS` table in `presageMap.ts`. Observational; the kiosk shows them as "signal is weak" only through the confidence, the rules ignore them. |
+| `sdk_validation_<code>`   | presage  | A non-zero validation code the table does not know (a newer SDK); accompanied by the hint snake_cased (e.g. `lens_smudged`) when one was given. |
+| `unstable_<metric>`       | presage  | The SDK's `stable` flag is false for that metric's average.     |
 | `gate_pending_<metric>`   | bridge   | Timing gate for that metric not yet elapsed; value removed.     |
 | `low_conf_<metric>`       | bridge   | Confidence below threshold; value kept, hidden in UI, ignored by rules. |
 
@@ -288,7 +407,8 @@ the port through a constructor option for tests, flip `implemented = true`, add
 - Contract types: `apps/vitals-bridge/src/sources/types.ts`
 - Factory / fail-fast: `apps/vitals-bridge/src/sources/index.ts`
 - Mock + scenario table: `apps/vitals-bridge/src/sources/mock.ts`, `scenarios.ts`, `noise.ts`
-- Presage stub (the one file to implement): `apps/vitals-bridge/src/sources/presage.ts`
+- Presage source (implemented): `apps/vitals-bridge/src/sources/presage.ts` (SDK lifecycle) and
+  `presageMap.ts` (pure mapping); tests `test/presage.test.ts`, `test/presageMap.test.ts`
 - Arduino stub: `apps/vitals-bridge/src/sources/arduino.ts`
 - Gates: `apps/vitals-bridge/src/gate.ts`
 - Bridge README (CLI, WS protocol, HTTP batching): `apps/vitals-bridge/README.md`

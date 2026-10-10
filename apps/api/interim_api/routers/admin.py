@@ -1,0 +1,65 @@
+"""Admin endpoints (CONTRACTS.md §2.2): settings GET/PUT and the demo reset."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends
+
+from ..audit import Actor
+from ..auth import require_role
+from ..constants import MOCK_SCENARIOS, VITALS_SOURCES
+from ..db import Database
+from ..deps import get_database, get_settings
+from ..schemas import ResetRequest, SettingsUpdate
+from ..seed import reset_and_seed
+from ..services.settings_svc import get_admin_settings, update_settings
+from ..settings import Settings
+
+router = APIRouter(tags=["admin"])
+
+SIMULATED_WARNING = (
+    "Treat simulated as measured is a DEMO toggle: simulated vitals may then satisfy the "
+    "corroboration gate (tier +1 at most). Exports and the UI still label every value Simulated. "
+    "Default OFF."
+)
+
+
+@router.get("/admin/settings")
+def get_settings_endpoint(
+    _actor: Actor = Depends(require_role()),
+    database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    with database.read_scope() as db:
+        out = get_admin_settings(db, settings)
+    out["warning"] = SIMULATED_WARNING
+    out["known_scenarios"] = list(MOCK_SCENARIOS)  # PUT validates against the same list
+    out["known_sources"] = list(VITALS_SOURCES)
+    return out
+
+
+@router.put("/admin/settings")
+def put_settings_endpoint(
+    body: SettingsUpdate,
+    actor: Actor = Depends(require_role("admin")),
+    database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    with database.write_scope() as db:
+        out = update_settings(db, settings, actor, body.model_dump(exclude_none=True))
+    out["warning"] = SIMULATED_WARNING
+    out["known_scenarios"] = list(MOCK_SCENARIOS)
+    out["known_sources"] = list(VITALS_SOURCES)
+    return out
+
+
+@router.post("/admin/reset")
+def post_reset(
+    body: ResetRequest | None = None,
+    actor: Actor = Depends(require_role("admin")),
+    database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    reseed = body.reseed if body is not None else True
+    return reset_and_seed(database, settings, actor, reseed=reseed)

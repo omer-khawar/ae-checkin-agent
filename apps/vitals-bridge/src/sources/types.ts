@@ -80,8 +80,8 @@ export function hasWaveform(source: VitalsSource): source is VitalsSource & Wave
 /**
  * Optional marker for sources whose implementation is a documented stub. The factory in
  * `index.ts` refuses to hand out a source with `implemented === false`, so selecting it fails
- * fast at startup with the stub's message (CLAUDE.md §7.3/§7.4). When Presage is implemented,
- * flip the flag in presage.ts; nothing else in the bridge needs to change.
+ * fast at startup with the stub's message (CLAUDE.md §7.4). Today only the Arduino source is a
+ * stub; Presage is implemented (presage.ts) and uses `Preflightable` below instead.
  */
 export interface StubMarker {
   readonly implemented: boolean;
@@ -100,4 +100,46 @@ export class NotImplementedError extends Error {
     // Restore the prototype chain for `instanceof` under ES5-style targets/transpilers.
     Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+/** The hint every fail-fast message ends with (CLAUDE.md §7.3: "tell the operator to switch to mock"). */
+export const SWITCH_TO_MOCK_HINT =
+  'Switch to the mock source: --source mock (or VITALS_SOURCE=mock).';
+
+/** Why a real source cannot run on this machine right now. */
+export type SourceUnavailableReason =
+  | 'sdk_missing' // the native SDK package is not installed (it is never a package.json dependency)
+  | 'sdk_load_failed' // installed, but importing it failed (unsupported platform, broken native build)
+  | 'api_key_missing' // the vendor API key is not configured
+  | 'no_camera' // the SDK found no camera to open
+  | 'other';
+
+/**
+ * Thrown by a real (non-stub) source when something outside the repository is missing: the
+ * vendor SDK, an API key, a camera, a serial device. The CLI maps it to exit code 2, exactly like
+ * a stub, so "source unavailable" means the same thing whichever source was selected.
+ */
+export class SourceUnavailableError extends Error {
+  override readonly name = 'SourceUnavailableError';
+  readonly reason: SourceUnavailableReason;
+  constructor(message: string, reason: SourceUnavailableReason = 'other') {
+    super(message);
+    this.reason = reason;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/**
+ * Optional capability: a source backed by a native SDK, an API key or a device can verify those
+ * BEFORE the bridge opens any port, so `--source presage` on a laptop without the SDK exits with
+ * code 2 and the install command instead of failing at the first participant's check-in. The CLI
+ * calls it right after construction and expects a `SourceUnavailableError` on failure.
+ * `forListCameras` relaxes checks that `--list-cameras` does not need (the API key).
+ */
+export interface Preflightable {
+  preflight(opts?: { forListCameras?: boolean }): Promise<void>;
+}
+
+export function hasPreflight(source: VitalsSource): source is VitalsSource & Preflightable {
+  return typeof (source as Partial<Preflightable>).preflight === 'function';
 }

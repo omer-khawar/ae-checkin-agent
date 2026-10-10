@@ -3,8 +3,9 @@
 # What it is: the Node service that turns a vitals source into the kiosk's live WebSocket feed
 # and batched eSource POSTs to the API. In Docker it can only run the MOCK source (every sample
 # `isMeasured: false`, badge SIMULATED): a container has no webcam, and the Presage SDK (several
-# hundred MB of native binaries) is deliberately not a dependency yet. Real sensors run the bridge
-# on the kiosk laptop itself (`npm run bridge`), not in compose. See docs/VITALS_SOURCES.md.
+# hundred MB of native binaries) is never a declared dependency; it is installed on demand on the
+# kiosk laptop with `npm run install:presage`. Real sensors run the bridge on the kiosk laptop
+# itself (`npm run bridge -- --source presage`), not in compose. See docs/VITALS_SOURCES.md.
 #
 # Build context: this directory (apps/vitals-bridge). From the repo root:
 #   docker build -t interim-bridge apps/vitals-bridge

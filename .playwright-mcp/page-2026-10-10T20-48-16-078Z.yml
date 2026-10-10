@@ -1,0 +1,15 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: Interim check-in
+  - main [ref=e8]:
+    - generic [ref=e11]:
+      - heading "Welcome" [level=1] [ref=e12]
+      - paragraph [ref=e13]: This short check-in asks how you have been feeling in the last 7 days. It takes about three minutes.
+      - generic [ref=e14]:
+        - generic [ref=e15]: Your study ID
+        - textbox "Your study ID" [ref=e16]:
+          - /placeholder: e.g. P-007
+        - paragraph [ref=e17]: It is printed on your study card, e.g. P-007.
+        - button "Start check-in" [disabled] [ref=e18]
+  - contentinfo [ref=e20]:
+    - paragraph [ref=e21]: Interim is a research data-capture tool. It is not a medical device and does not provide medical advice.

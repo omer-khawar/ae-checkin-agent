@@ -5,8 +5,10 @@
  *   npm run bridge -- --source mock --scenario resting --api http://localhost:8000 --ws-port 8787
  *
  * Lifecycle:
- *   parse args → build the source (fail fast with exit 2 for presage/arduino stubs or an unknown
- *   name, BEFORE any port is opened) → optional --list-cameras → open the WebSocket server → idle
+ *   parse args → build the source (fail fast with exit 2 for the arduino stub or an unknown name)
+ *   → preflight a real source (exit 2 when the Presage SDK is not installed or PRESAGE_API_KEY is
+ *   unset; all of this BEFORE any port is opened) → optional --list-cameras → open the WebSocket
+ *   server → idle
  *   until the kiosk sends {type:"start"} (or --session <id> starts immediately) → print one status
  *   line every 5 s → SIGINT/SIGTERM: stop the session (flushes the API buffer with a short
  *   timeout, bounded by SHUTDOWN_DEADLINE_MS overall), close the server, exit 0. A second signal
@@ -19,7 +21,12 @@ import { withDeadline } from './deadline.js';
 import { createLogger } from './log.js';
 import { BridgeSession } from './session.js';
 import { createSource, UnknownSourceError } from './sources/index.js';
-import { NotImplementedError, type VitalsSource } from './sources/types.js';
+import {
+  hasPreflight,
+  NotImplementedError,
+  SourceUnavailableError,
+  type VitalsSource,
+} from './sources/types.js';
 import { formatStatusLine } from './status_line.js';
 import { BRIDGE_VERSION } from './version.js';
 import { BridgeWsServer } from './ws.js';
@@ -63,7 +70,7 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   // 1. Source. Stubs and unknown names stop us here, before any socket exists.
   let source: VitalsSource;
   try {
-    source = createSource(cfg.source);
+    source = createSource(cfg.source, { presage: { log } });
   } catch (err) {
     if (err instanceof NotImplementedError || err instanceof UnknownSourceError) {
       log.error(err.message);
@@ -72,13 +79,36 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     throw err;
   }
 
+  // 1b. Preflight. A real source verifies its SDK / key / device now, so a laptop without the
+  // Presage SDK exits with the install command instead of failing at the first check-in.
+  if (hasPreflight(source)) {
+    try {
+      await source.preflight({ forListCameras: cfg.listCameras });
+    } catch (err) {
+      if (err instanceof SourceUnavailableError) {
+        log.error(err.message);
+        return EXIT_SOURCE_UNAVAILABLE;
+      }
+      throw err;
+    }
+  }
+
   // 2. --list-cameras: only sources that implement listCameras can answer.
   if (cfg.listCameras) {
     if (!source.listCameras) {
       log.error(`source "${source.name}" does not implement listCameras`);
       return EXIT_FATAL;
     }
-    const cameras = await source.listCameras();
+    let cameras: { id: string; label: string }[];
+    try {
+      cameras = await source.listCameras();
+    } catch (err) {
+      if (err instanceof SourceUnavailableError) {
+        log.error(err.message);
+        return EXIT_SOURCE_UNAVAILABLE;
+      }
+      throw err;
+    }
     if (cameras.length === 0) console.log('(no cameras found)');
     for (const cam of cameras) console.log(`${cam.id}\t${cam.label}`);
     return EXIT_OK;
@@ -125,6 +155,12 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     `source=${source.name} (${source.isMeasured ? 'MEASURED sensor values' : 'SIMULATED values, isMeasured=false'})` +
       (source.name === 'mock' ? ` scenario=${cfg.scenario}` : ''),
   );
+  if (source.name === 'presage') {
+    log.info(
+      'presage: SDK loaded and PRESAGE_API_KEY set; the camera opens when the kiosk starts a session. ' +
+        'Capture conditions: face and upper chest visible, well lit, still, not talking.',
+    );
+  }
   log.info(
     `ws://${cfg.wsHost}:${port}  api=${cfg.apiBase}  token=${cfg.token ? 'set' : 'none'}  ` +
       `origins=${cfg.allowedOrigins.length > 0 ? cfg.allowedOrigins.join(',') : 'any'}  ` +

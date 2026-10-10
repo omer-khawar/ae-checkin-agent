@@ -7,9 +7,11 @@ turns a pluggable **vitals source** into two streams:
 - batched `VitalsSample` POSTs to the Interim API, which stores them as eSource with full
   provenance (`POST /api/v1/sessions/{id}/vitals` every 2 s).
 
-Today the only working source is the **mock** (scenario-driven synthetic signals, every sample
-labelled `isMeasured: false` / **SIMULATED**). The **Presage SmartSpectra** and **Arduino**
-sources are documented stubs that fail fast; implementing Presage is a one-file job described in
+Two sources work today: the **mock** (scenario-driven synthetic signals, every sample labelled
+`isMeasured: false` / **SIMULATED**) and **Presage SmartSpectra** (contactless pulse / breathing /
+HRV from the webcam, `isMeasured: true` / **MEASURED**; implemented, untested against a live
+camera until someone runs it with an API key, see [Presage](#presage-smartspectra-source)). The
+**Arduino** source is a documented stub that fails fast. Details for all three:
 [`docs/VITALS_SOURCES.md`](../../docs/VITALS_SOURCES.md).
 
 > Interim is a research data-capture tool. It is not a medical device and does not provide
@@ -47,7 +49,7 @@ Precedence: flag > environment variable > default. The bridge reads no `.env` fi
 
 | Flag                               | Env               | Default                 | Meaning                                                   |
 | ---------------------------------- | ----------------- | ----------------------- | --------------------------------------------------------- |
-| `--source mock\|presage\|arduino`  | `VITALS_SOURCE`   | `mock`                  | Which plugin to run. Stubs exit with code 2.              |
+| `--source mock\|presage\|arduino`  | `VITALS_SOURCE`   | `mock`                  | Which plugin to run. `presage` needs the SDK and `PRESAGE_API_KEY` (else exit 2); `arduino` is a stub (exit 2). |
 | `--scenario <name>`                | `VITALS_SCENARIO` | `resting`               | Mock scenario (see below). Ignored by other sources.      |
 | `--api <url>`                      | `BRIDGE_API_URL`  | `http://localhost:8000` | Interim API base URL.                                     |
 | `--ws-port <port>`                 | `BRIDGE_WS_PORT`  | `8787`                  | WebSocket port for the kiosk (0 = ephemeral).             |
@@ -57,9 +59,11 @@ Precedence: flag > environment variable > default. The bridge reads no `.env` fi
 | `--allowed-origins <a,b>`          | `BRIDGE_ALLOWED_ORIGINS` | any              | Browser `Origin`s allowed to open the WebSocket (comma-separated). |
 | `--session <id>`                   | —                 | —                       | Start capturing for this session immediately (dev/CI).    |
 | `--list-cameras`                   | —                 | —                       | Print the source's cameras and exit.                      |
+| —                                  | `PRESAGE_API_KEY` | —                       | Presage only: API key from physiology.presagetech.com. Required to start; not for `--list-cameras`. |
+| —                                  | `PRESAGE_CAMERA_ID` | auto                  | Presage only: camera id from `--list-cameras`. Unset: the SDK default (Windows: the first discovered id). |
 
 Exit codes: `0` ok, `1` fatal (port in use, unsupported `--list-cameras`), `2` source unavailable
-(presage/arduino stubs, unknown source, bad options).
+(arduino stub, Presage SDK or `PRESAGE_API_KEY` missing, unknown source, bad options).
 
 The timing gates (pulse 12 s, breathing 30 s, HRV 60 s) have no flag: they belong to the rules
 tables and are adopted from `GET /api/v1/settings/public.timing_gates` on every start, with the
@@ -84,6 +88,60 @@ Signals are deterministic for a given seed (default: a hash of the scenario name
 autocorrelated AR(1) noise (physiological drift, not white noise), and come with a synthetic
 pleth waveform (25 points per second) for the kiosk sparkline.
 
+### Presage SmartSpectra source
+
+Real contactless vitals from the kiosk's webcam through the vendor's Node SDK. **Status:
+implemented, untested against a live camera (needs `PRESAGE_API_KEY` and a webcam).** The SDK is
+loaded dynamically and is never a `package.json` dependency (several hundred MB of native
+binaries; CLAUDE.md §7.3), so CI and the Docker image stay SDK-free.
+
+```bash
+cd apps/vitals-bridge
+npm install
+npm run install:presage          # = npm install --no-save @smartspectra/node-sdk@3.4.0 (re-run after any npm install / npm ci)
+export PRESAGE_API_KEY=...       # from https://physiology.presagetech.com ; never commit it
+npm run bridge -- --source presage --list-cameras            # id<TAB>label per camera (no key needed)
+npm run bridge -- --source presage --api http://localhost:8000 --ws-port 8787
+```
+
+- **Platforms:** Linux x64/arm64 (glibc 2.35+), Windows x64, macOS Apple Silicon. No Intel Mac.
+- **Network, credits, telemetry:** the SDK validates the API key against Presage's servers and
+  meters usage against the account's credits, so the kiosk needs outbound HTTPS and a funded
+  account; this is the one documented exception to "no runtime network calls". The SDK's
+  aggregate telemetry (on by default) is switched **off** (`enableTelemetry: false`) and its log
+  level pinned to warnings; nothing but the SDK's own auth/metering calls leaves the machine, and
+  never a frame. A bad key, empty balance or blocked network surfaces as a fatal status during
+  the first session (`SmartSpectra error 2 (authentication failed)` / `4 (credits exhausted)` /
+  `5 (network error)`); the next session builds a fresh SDK, so fix the cause and start a new
+  session; no bridge restart needed. Run one throwaway session before the first participant.
+- **Camera:** `PRESAGE_CAMERA_ID=<id>` pins one. Unset: the SDK default, except on Windows where
+  the default selection fails (vendor note) and the bridge takes the first discovered id, which
+  on some laptops is an IR or virtual device: run `--list-cameras` once and pin the webcam.
+- **Fail fast (exit 2, before any port opens):** SDK not installed, with the message quoting
+  `npm run install:presage`; SDK present but not loadable here; `PRESAGE_API_KEY` unset (not
+  needed for `--list-cameras`); camera discovery unsupported or no camera on Windows (also for
+  `--list-cameras`, with the `PRESAGE_CAMERA_ID` hint rather than a stack trace). Each message
+  ends with the mock hint.
+- **Behaviour:** the camera opens when the kiosk sends `start`. Status `warming` → `collecting`
+  on the first metrics packet; one `VitalsSample` per second (`source: "presage"`,
+  `isMeasured: true`, confidences ÷ 100, `windowS` 12/30/60, the SDK's validation **code**
+  mapped to a `qualityFlags` token (`face_not_found`, `low_light`, `motion`,
+  `face_not_centered`, … from the `VALIDATION_CODE_FLAGS` table; the free-text hint only feeds
+  the status message), `unstable_*` while its averages settle). 5 s without metrics →
+  `warming` again (gates reset). Retryable SDK errors → `error`, then `collecting` on the next
+  packet; fatal ones stop the SDK until the session stops. A `start` that arrives while the
+  previous SDK is still being destroyed waits for it (native state is process-global). The
+  gates in `gate.ts` apply unchanged; the kiosk badge reads **MEASURED** `presage`.
+- **HRV:** emitted as `hrvRmssdMs` from the decoded `cardio.hrv[].rmssd` field (verified in the
+  SDK's shipped `generated.d.ts`), gated at 60 s like everything else.
+- **Not wired:** the SDK's pleth waveform (cosmetic), so the kiosk sparkline stays hidden for
+  this source; `talking` is never flagged by this source (the SDK reports it as a face metric
+  the bridge does not request).
+
+What was verified from the teammate's `presage-bridge/bridge.js` (SDK 3.4.0) versus what is
+still assumed, the full mapping table and the 5-step live test checklist are in
+[`docs/VITALS_SOURCES.md` §5](../../docs/VITALS_SOURCES.md).
+
 ## How it fits together
 
 ```
@@ -94,7 +152,9 @@ pleth waveform (25 points per second) for the kiosk sparkline.
 
 - `src/sources/types.ts` — the plugin contract, verbatim from CLAUDE.md §7.1.
 - `src/sources/mock.ts`, `scenarios.ts`, `noise.ts` — the mock source and its data table.
-- `src/sources/presage.ts`, `arduino.ts` — documented stubs; `index.ts` is the factory.
+- `src/sources/presage.ts`, `presageMap.ts` — the Presage SmartSpectra source (dynamic SDK load,
+  camera selection, 1 Hz coalescing) and its pure packet → sample mapping; `arduino.ts` — a
+  documented stub; `index.ts` is the factory.
 - `src/gate.ts` — timing gates + confidence flags (pure functions).
 - `src/session.ts` — orchestration: idle until `start`, stop flushes.
 - `src/ws.ts` — WebSocket protocol; `src/api.ts` — batching, retry, bounded buffer.
@@ -208,9 +268,10 @@ Two things to know:
 - The web app does **not** proxy the WebSocket (nginx only proxies `/api/`); the browser opens
   `ws://<hostname of the page>:8787` (or `VITE_BRIDGE_WS_URL`). The published port is therefore
   required, and the hostname the kiosk page is opened on must reach the Docker host.
-- A container has no webcam and the Presage SDK is not a dependency, so the image can only run
-  the mock. Real sensors run the bridge on the kiosk laptop (`npm run bridge`), pointed at the
-  API with `--api`. `--source presage` inside the container exits with code 2 like anywhere else.
+- A container has no webcam and the Presage SDK is never a declared dependency (it is installed
+  on demand with `npm run install:presage`), so the image can only run the mock. Real sensors run
+  the bridge on the kiosk laptop (`npm run bridge`), pointed at the API with `--api`.
+  `--source presage` inside the container exits with code 2 and the install hint.
 
 Build and run it by hand: `docker build -t interim-bridge apps/vitals-bridge` then
 `docker run --rm -p 8787:8787 -e BRIDGE_API_URL=http://host.docker.internal:8000 interim-bridge`.
@@ -247,7 +308,9 @@ anyone but the kiosk's own browser; relax them deliberately.
    allows `mock | presage | arduino`; a new name is a contract change logged in
    `docs/DECISIONS.md` and mirrored in the API's Pydantic model and the web types).
 3. Register it in `src/sources/index.ts`. If it is a stub, implement `StubMarker` so the factory
-   refuses it with a clear message.
+   refuses it with a clear message. If it needs something outside the repo (an SDK, a key, a
+   device), implement `Preflightable` and throw `SourceUnavailableError` with the exact fix; the
+   CLI runs `preflight()` before opening any port and exits 2.
 4. Do not apply timing gates or confidence thresholds inside the source; `gate.ts` does that for
    everyone.
 5. Add `test/<name>.test.ts` with a fake SDK/port injected through the constructor.
@@ -269,5 +332,9 @@ tolerant settings fetch, the stop-during-POST race, terminal 4xx handling, the b
 flush, no cross-session requeue), the WebSocket protocol on an ephemeral port (including the
 frame cap and the Origin allow-list), scenario precedence, start idempotence on reconnect,
 stop-during-start, threshold adoption from the API and the status-line reset in the session,
-CLI argument parsing, the shutdown deadline helper, and the fail-fast exit code 2 for `presage` /
-`arduino` by spawning the real CLI.
+CLI argument parsing, the shutdown deadline helper, the Presage source against a fake SDK (packet
+mapping fixtures in the decoded `toObject` shape, hint → flag mapping, 1 Hz coalescing, the
+stale-stream reset, retryable vs. fatal SDK errors, camera selection including the Windows by-id
+rule, stop idempotence, the absent-SDK and missing-key fail-fast paths, the timing gates through
+the real `BridgeSession`, and a guard that `package.json` and the lockfile never declare the SDK),
+and the fail-fast exit code 2 for `presage` (SDK absent) / `arduino` by spawning the real CLI.

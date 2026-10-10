@@ -1,0 +1,78 @@
+{
+  "source": "Hand-written for scripts/synthea/eval_synthea.py (2026-10-10). CTCAE v5.0 term names checked against the NCI EVS workbook CTCAE_v5.0_2017-11-27.xlsx, sheet 'CTCAE v5.0 Clean Copy' (rows: Cough 10011224, Fatigue 10016256, Chest pain - cardiac 10008481, Chest wall pain 10008496, Pleuritic pain 10035623, Abdominal pain, Urinary frequency 10046539, Peripheral sensory neuropathy 10034620, Paresthesia 10033987). The Synthea module that emits each chief complaint was read from the modules/*.json inside the pinned jar (Synthea d9d07a6, sha256 018ad7f04f7aacb995804d7d4781c76d5fc714f7f23257ba50daa9eefae224ac).",
+  "rationale": "Synthea writes a person's current symptoms as '# Chief Complaint' bullets. To score Interim's chart scanner against them, each complaint string is mapped to the CTCAE v5.0 term an AE coder would choose, or to null when CTCAE v5.0 has no term for it (null complaints are reported as out of scope, never as misses). 'also_accept' lists other CTCAE terms that are a defensible coding of the same complaint when the note alone cannot decide between them; the evaluator scores at the level of the concept (primary term plus its alternatives), so the scanner is credited for surfacing the symptom and the coding choice is left to the investigator, as it is in the product. Every complaint string seen in the data must be listed here: an unknown complaint stops the evaluation so that a regenerated Synthea cohort cannot be scored with a silently incomplete map. Everything scored with this map is Synthea synthetic EHR (simulated).",
+  "label": "Synthea synthetic EHR (simulated)",
+  "ctcae_version": "5.0",
+  "complaints": {
+    "Cough": {
+      "ctcae_term": "Cough",
+      "also_accept": [],
+      "synthea_modules": ["lung_cancer", "veteran_lung_cancer", "asthma", "bronchitis", "copd", "sinusitis", "sore_throat"],
+      "rationale": "Direct CTCAE v5.0 term (Respiratory, thoracic and mediastinal disorders). Note: in Synthea d9d07a6 the lung_cancer module's states named 'Shortness of Breath', 'Fever', 'Fatigue', 'Sweats', 'Bloody Cough', 'Decrease in appetite' and 'Decrease in weight' all emit the symptom 'Cough', so lung-cancer dyspnea, fever and weight loss never reach the notes; only 'Cough' and 'Chest Pain' do."
+    },
+    "Chest Pain": {
+      "ctcae_term": "Chest pain - cardiac",
+      "also_accept": ["Chest wall pain", "Pleuritic pain"],
+      "synthea_modules": ["lung_cancer", "veteran_lung_cancer", "stable_ischemic_heart_disease"],
+      "rationale": "CTCAE v5.0 splits chest pain by origin: 'Chest pain - cardiac' (Cardiac disorders: substernal discomfort from insufficient myocardial oxygenation), 'Chest wall pain' (Musculoskeletal) and 'Pleuritic pain' (Respiratory). Synthea emits the same 'Chest Pain' string from the lung cancer module (tumour-related, most likely chest wall or pleuritic) and from stable ischemic heart disease (cardiac), and the note does not say which. All three are accepted as the same concept; the primary is 'Chest pain - cardiac' only because it is what the scanner emits for any 'chest pain'. In an NSCLC participant without heart disease an investigator would usually recode it, which is a coding error of the scanner's label that this evaluation does not penalize (see the results document)."
+    },
+    "Fatigue": {
+      "ctcae_term": "Fatigue",
+      "also_accept": [],
+      "synthea_modules": ["anemia___unknown_etiology", "bronchitis", "chronic_kidney_disease", "colorectal_cancer", "fibromyalgia", "lupus", "rheumatoid_arthritis", "sore_throat"],
+      "rationale": "Direct CTCAE v5.0 term (General disorders and administration site conditions)."
+    },
+    "Cramping": {
+      "ctcae_term": "Abdominal pain",
+      "also_accept": [],
+      "synthea_modules": ["colorectal_cancer"],
+      "rationale": "Synthea emits 'Cramping' only from the colorectal_cancer module, next to 'Abdominal Pain', 'Constipation' and 'Weight Loss': it is abdominal cramping, not a muscle cramp, so 'Muscle cramp' (Musculoskeletal) would be the wrong code. CTCAE v5.0 has no separate cramping term in Gastrointestinal disorders; 'Abdominal pain' is the closest term."
+    },
+    "Tingling in Hands and Feet": {
+      "ctcae_term": "Peripheral sensory neuropathy",
+      "also_accept": ["Paresthesia"],
+      "synthea_modules": ["metabolic_syndrome_disease"],
+      "rationale": "Synthea emits it from the metabolic syndrome module's nerve-damage states (diabetic neuropathy). In a participant on cisplatin + paclitaxel it is also the classic presentation of chemotherapy-induced peripheral sensory neuropathy, an AE a trial must capture whatever its cause. 'Paresthesia' (Nervous system disorders) is accepted as an alternative coding."
+    },
+    "Frequent Urination": {
+      "ctcae_term": "Urinary frequency",
+      "also_accept": [],
+      "synthea_modules": ["chronic_kidney_disease"],
+      "rationale": "CTCAE v5.0 has 'Urinary frequency' (Renal and urinary disorders). Synthea emits it from chronic kidney disease together with thirst and hunger (the diabetes triad), so it is most likely comorbidity-related, but AE capture records events regardless of attribution. Scored as a CTCAE-mappable complaint; it is outside the scanner's lexicon, which the results report as a coverage gap rather than hiding it."
+    },
+    "urinary frequency": {
+      "ctcae_term": "Urinary frequency",
+      "also_accept": [],
+      "synthea_modules": ["veteran_prostate_cancer"],
+      "rationale": "Same CTCAE term as 'Frequent Urination'; Synthea's prostate cancer module spells it in lower case."
+    },
+    "Thirst": {
+      "ctcae_term": null,
+      "also_accept": [],
+      "synthea_modules": ["chronic_kidney_disease"],
+      "rationale": "No CTCAE v5.0 term: polydipsia is not a CTCAE term ('Dry mouth' is a different finding). Counted out of scope, not as a miss."
+    },
+    "Hunger": {
+      "ctcae_term": null,
+      "also_accept": [],
+      "synthea_modules": ["chronic_kidney_disease"],
+      "rationale": "No CTCAE v5.0 term: polyphagia is not a CTCAE term ('Anorexia' is the opposite finding). Counted out of scope, not as a miss."
+    }
+  },
+  "ingredient_equivalents": {
+    "source": "Hand-written. Pairs of names for the same active moiety that Synthea's RxNorm displays and Interim's medlist.json (built from openFDA labels) spell differently.",
+    "rationale": "Medication scoring compares lowercase ingredient names. A salt suffix is already tolerated by the evaluator ('naproxen sodium' counts as 'naproxen'); this table covers synonyms that are not a prefix of each other, so that a correct normalization is not scored as wrong. Keys are the Synthea ingredient as parsed by import_synthea.py; values are accepted equivalent generic names.",
+    "map": {
+      "alendronic acid": ["alendronate"],
+      "vitamin b12": ["cyanocobalamin"],
+      "acetaminophen": ["paracetamol"]
+    }
+  },
+  "note_format": {
+    "source": "Synthea's clinical-note exporter templates as rendered in data/synthetic/synthea/notes.json (Synthea d9d07a6): a '# Medications' section whose single line is a lowercase list joined by '; ', or 'No Active Medications.'.",
+    "rationale": "The section-aware variant (scanner + con-med matcher) reads this one section, splits it on the separator and runs interim_rules.conmed.match_conmed on every item. It is a candidate improvement measured here, not a change to the scanner.",
+    "medications_heading": "# Medications",
+    "item_separator": ";",
+    "empty_markers": ["No Active Medications."]
+  }
+}

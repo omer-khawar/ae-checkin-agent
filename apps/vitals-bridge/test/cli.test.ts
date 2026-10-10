@@ -30,12 +30,21 @@ function runCli(args: string[], env: Record<string, string> = {}): Promise<RunRe
 }
 
 describe('cli: fail-fast sources (exit code 2, before any port opens)', () => {
-  it('--source presage prints the NotImplemented message and exits 2', async () => {
-    const r = await runCli(['--source', 'presage', '--ws-port', '0']);
+  it('--source presage without the SDK installed prints the install command and exits 2', async () => {
+    // The SDK is never a dependency, so in CI (and on this machine) it is absent.
+    const r = await runCli(['--source', 'presage', '--ws-port', '0'], { PRESAGE_API_KEY: 'k' });
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain('Presage SDK not yet integrated; see docs/VITALS_SOURCES.md');
+    expect(r.stderr).toContain('@smartspectra/node-sdk@3.4.0');
+    expect(r.stderr).toContain('npm run install:presage');
     expect(r.stderr).toContain('--source mock');
     expect(r.stdout).not.toMatch(/ws:\/\//); // never got as far as listening
+  });
+
+  it('--source presage --list-cameras without the SDK exits 2 with the same hint', async () => {
+    const r = await runCli(['--source', 'presage', '--list-cameras'], { PRESAGE_API_KEY: '' });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain('npm run install:presage');
+    expect(r.stderr).not.toContain('PRESAGE_API_KEY is not set'); // listing cameras needs no key
   });
 
   it('VITALS_SOURCE=arduino from the environment exits 2 too', async () => {

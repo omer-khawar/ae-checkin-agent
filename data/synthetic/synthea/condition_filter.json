@@ -1,0 +1,33 @@
+{
+  "source": "Hand-written by the Interim team (2026-10-10) from the SNOMED CT concepts present in the committed Synthea run; semantic tags are the parenthesised suffix SNOMED prints on every fully specified name.",
+  "rationale": "A participant's comorbidity list (participants.json) and the conditions diagnosed at a note's encounter (notes.json ground truth) should be clinical problems a research nurse would record as medical history. Synthea also emits social-determinant and administrative 'conditions' (employment, education, criminal record, intimate partner abuse, refugee status, 'medication review due'), which are not medical history, are sensitive even when synthetic, and would be noise in a chart-scan answer key. Rule: keep a condition when its semantic tag is not in exclude_semantic_tags, or when its code is in allow_snomed (clinically relevant findings/situations); always drop codes in exclude_snomed. A condition with no semantic tag (Synthea prints 'Opioid abuse' bare) is kept. NSCLC itself is reported separately (participants[].nsclc) and never listed as a comorbidity; its codes are in import_tables.json.",
+  "exclude_semantic_tags": [
+    "finding",
+    "situation",
+    "person",
+    "social concept",
+    "occupation",
+    "environment",
+    "record artifact",
+    "event",
+    "life style",
+    "qualifier value"
+  ],
+  "allow_snomed": [
+    { "code": "162864005", "display": "Body mass index 30+ - obesity (finding)", "why": "obesity is medical history" },
+    { "code": "714628002", "display": "Prediabetes (finding)", "why": "metabolic history" },
+    { "code": "82423001", "display": "Chronic pain (finding)", "why": "relevant to arthralgia/pain AEs" },
+    { "code": "278860009", "display": "Chronic low back pain (finding)", "why": "relevant to pain AEs" },
+    { "code": "236077008", "display": "Protracted diarrhea (finding)", "why": "baseline GI symptom; matters for colitis/diarrhea AE attribution" },
+    { "code": "449868002", "display": "Smokes tobacco daily (finding)", "why": "smoking history matters in NSCLC" },
+    { "code": "399261000", "display": "History of coronary artery bypass grafting (situation)", "why": "cardiac history" },
+    { "code": "108631000119101", "display": "History of autologous bone marrow transplant (situation)", "why": "oncology history" },
+    { "code": "1290882004", "display": "History of seizure (situation)", "why": "neurologic history" },
+    { "code": "5602001", "display": "Opioid abuse", "why": "substance use disorder (printed without a tag; listed for clarity)" }
+  ],
+  "exclude_snomed": [
+    { "code": "162573006", "display": "Suspected lung cancer (situation)", "why": "superseded by the NSCLC diagnosis" },
+    { "code": "315268008", "display": "Suspected prostate cancer (situation)", "why": "a work-up state, not a diagnosis" },
+    { "code": "314529007", "display": "Medication review due (situation)", "why": "administrative" }
+  ]
+}

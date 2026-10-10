@@ -56,3 +56,37 @@ simulated whatever `isMeasured` says), `conmed_matching.json: min_levenshtein_co
 max_future_skew_s` (300 s; same-server clock skew). `personas.json` (the eval answer key) is
 owned by the eval harness; its vitals samples follow the bridge contract (`windowS` = window
 of the longest-window metric present, so 60 once HRV is published).
+
+## `chartscan_lexicon.json`, `chartscan_red_flags.json`, `chartscan_answer_key.json` (chart-note scanner)
+
+* **Source:** ported from `backend/app/services/extract.py`, `backend/app/data/answer_key.json`
+  and `backend/app/data/chart_notes.json` of `omer-khawar/ae-checkin-agent` (Omer Khawar, MIT),
+  2026-10-10 (CONTRACTS.md R2.4, decision D-014). Read by `interim_rules.chartscan` through
+  `tables.load_table`; not part of `tables.TABLE_NAMES` (the scanner owns them, as the eval
+  harness owns `personas.json`).
+* **`chartscan_lexicon.json`:** `symptom_patterns` (29 CTCAE v5.0 term names → regex lists; the
+  ten kiosk terms of `ctcae_terms.json` are among them, so note and check-in findings de-duplicate
+  by term), `med_patterns` (43 lowercase generics → brand / abbreviation regexes; not RxNorm), and
+  `text_normalization` (typographic punctuation → ASCII, one code point each, applied before
+  matching so offsets are preserved), `scope` (the NegEx word scope and the character windows
+  around a term), and one section per context cue (`negation`, `pseudo_negation`, `terminators`,
+  `historical`, `hypothetical`, `post_negation`, `resolved`, `severity_words`, `explicit_grade`
+  (capped at `composite_to_grade.json` `max_assignable_grade`), `default_grade`, `stool_count`,
+  `bsa`, `worsening`, `hospital`, `number_words`, `duration`, `relative_days`, `med_started` /
+  `med_stopped` / `med_changed` / `med_negated`, `allergy`, `indication`, `human_request`), each
+  with its own `source` / `rationale`. Rows changed or added after the 2026-10-10 review say so
+  in their `source`. The grade bands for diarrhea
+  (stools/day over baseline) and maculo-papular rash (% BSA) are the CTCAE v5.0 definitions.
+  Patterns compile with `re.IGNORECASE`; `(?-i:...)` marks a case-sensitive abbreviation.
+* **`chartscan_red_flags.json`:** 16 red-flag rules (`category`, `level` emergency / urgent,
+  `seriousness`, `pattern`, `reason`) and the ordered `escalation_levels`. The fever rule embeds
+  the lexicon's `temperature_high` pattern and the hospitalization rule equals the lexicon's
+  `hospital` pattern; `tests/test_chartscan.py` fails if the copies drift.
+* **`chartscan_answer_key.json`:** 39 SYNTHETIC cases (8 chart notes with their text inline,
+  31 participant utterances; `T18`–`T31` were added after the 2026-10-10 review, one per fix,
+  each with a `review_fix` note) with the expected AE terms, con-meds, escalation level and SAE
+  cue. Subject ids were remapped `101-00x` → `P-00x` (`subject_mapping`); the same eight notes
+  live in `data/synthetic/chart_notes.json` for the seed (unchanged by the review), and the tests
+  keep both files identical.
+* **Regenerate / extend:** hand-edited. Add an answer-key case for every new pattern and run
+  `pytest tests/test_chartscan.py` (pass criterion: 100% on the shipped key).

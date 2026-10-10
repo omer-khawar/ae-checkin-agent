@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 
 from interim_rules import tables
+from interim_rules.chartscan import CHARTSCAN_TABLE_NAMES
+from interim_rules.chartscan import RULE_IDS as CHARTSCAN_RULE_IDS
 from interim_rules.tables import TABLE_NAMES, TableError
 
 EXPECTED_ITEMS = [
@@ -49,7 +51,12 @@ def test_every_table_has_source_and_rationale(name: str) -> None:
 
 
 def test_table_names_cover_every_json_file_except_personas() -> None:
-    on_disk = {p.stem for p in tables.data_dir().glob("*.json")} - {"personas"}
+    # personas.json is owned by the eval harness and the chartscan_*.json tables by
+    # interim_rules.chartscan (CONTRACTS.md R2.4); neither is loaded through TABLE_NAMES.
+    on_disk = {p.stem for p in tables.data_dir().glob("*.json")} - {
+        "personas",
+        *CHARTSCAN_TABLE_NAMES,
+    }
     assert on_disk == set(TABLE_NAMES)
 
 
@@ -280,6 +287,7 @@ def test_rules_catalog_is_complete() -> None:
         "draft.ae",
         "draft.vs",
         "draft.cm",
+        *CHARTSCAN_RULE_IDS,
     }
     assert set(catalog) == expected
     categories = set(tables.load_table("rules_catalog")["categories"])

@@ -77,6 +77,7 @@ export const USAGE = `Usage: npm run bridge -- [options]
 
 Options (flag > env var > default):
   --source <mock|presage|arduino>   vitals source            (${ENV_VARS.source}, default ${DEFAULTS.source})
+                                    mock = simulated; presage = real camera (MEASURED); arduino = stub
   --scenario <name>                 mock scenario            (${ENV_VARS.scenario}, default ${DEFAULTS.scenario})
                                     one of: ${SCENARIO_NAMES.join(', ')}
   --api <url>                       Interim API base URL     (${ENV_VARS.apiBase}, default ${DEFAULTS.apiBase})
@@ -92,7 +93,12 @@ Options (flag > env var > default):
   --help, -h                        this text
   --version, -V                     print the bridge version
 
-Exit codes: 0 ok, 1 fatal (e.g. port in use), 2 source unavailable (presage/arduino stubs, unknown source).`;
+Presage source: needs the SDK (npm run install:presage) and PRESAGE_API_KEY in the environment;
+  optional PRESAGE_CAMERA_ID pins the camera (use an id from --list-cameras; Windows picks the
+  first discovered camera when unset).
+
+Exit codes: 0 ok, 1 fatal (e.g. port in use), 2 source unavailable (arduino stub, Presage SDK or
+  PRESAGE_API_KEY missing, unknown source).`;
 
 const VALUE_FLAGS = new Set([
   'source',

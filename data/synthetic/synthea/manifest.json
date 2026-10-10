@@ -1,0 +1,230 @@
+{
+  "source": "Synthea synthetic EHR (simulated): https://github.com/synthetichealth/synthea (Apache-2.0), jar sha256 018ad7f04f7aacb9..., imported by scripts/synthea/import_synthea.py v1.0.0",
+  "rationale": "Realistic but entirely synthetic NSCLC patients (FHIR R4) for chart-scan input and as an answer key built from the structured record. Every value is simulated. Labels P-001.. are assigned deterministically (birth date, then Synthea id) in Interim's participant label space; whether a chart is attached to the seeded kiosk participant with the same label is decided by the seed/API, not here (data/synthetic/synthea/README.md).",
+  "label": "Synthea synthetic EHR (simulated)",
+  "reference_date": "2026-10-10",
+  "importer_version": "1.0.0",
+  "generated_with": {
+    "jar_url": "https://github.com/synthetichealth/synthea/releases/download/master-branch-latest/synthea-with-dependencies.jar",
+    "jar_sha256": "018ad7f04f7aacb995804d7d4781c76d5fc714f7f23257ba50daa9eefae224ac",
+    "jar_bytes": 197025542,
+    "synthea_release": "master-branch-latest",
+    "synthea_version": "d9d07a6",
+    "docker_image": "eclipse-temurin:17-jre",
+    "population": 12,
+    "age": "50-80",
+    "seed": 20261010,
+    "clinician_seed": 20261010,
+    "reference_date": "20261010",
+    "state": "Massachusetts",
+    "years_of_history": 3,
+    "exporter_flags": {
+      "exporter.fhir.export": true,
+      "exporter.csv.export": true,
+      "exporter.clinical_note.export": true,
+      "exporter.years_of_history": 3,
+      "generate.only_alive_patients": true,
+      "generate.max_attempts_to_keep_patient": 5000
+    },
+    "keep_module": "keep_nsclc.json",
+    "top_up": {
+      "seed": 20261011,
+      "clinician_seed": 20261011,
+      "exporter_flags_override": {
+        "exporter.csv.export": false
+      }
+    }
+  },
+  "matcher_medlist_sha256": "abf9c8159ece2ff6d14dded8dd752e3ac3b119288937d286f8cac927e9c7688e",
+  "runs": [
+    {
+      "seed": 20261010,
+      "synthea_version": "d9d07a6",
+      "patient_count": 11,
+      "run_time_s": 896,
+      "csv_exported": true
+    },
+    {
+      "seed": 20261011,
+      "synthea_version": "d9d07a6",
+      "patient_count": 1,
+      "run_time_s": 45,
+      "csv_exported": false
+    }
+  ],
+  "inputs": [
+    {
+      "label": "P-001",
+      "run_seed": 20261010,
+      "bundle_sha256": "ba6aefc025ca6811e6243f8b6a74d5fe9d8e5c8ced5de9168f36f2e03a887243",
+      "bundle_bytes": 1504199
+    },
+    {
+      "label": "P-002",
+      "run_seed": 20261010,
+      "bundle_sha256": "cae7cd9a35b874cfaba471c4fdc9a86660a4780bdc76c60886958273835ac0c0",
+      "bundle_bytes": 2205290
+    },
+    {
+      "label": "P-003",
+      "run_seed": 20261010,
+      "bundle_sha256": "4e70253171e1d886745c68d226ea01fc7f3a7fe1521f75dcc4c03fa990b862af",
+      "bundle_bytes": 6782944
+    },
+    {
+      "label": "P-004",
+      "run_seed": 20261010,
+      "bundle_sha256": "03616eef218b8c6c569c1c5577bb8c0d2cfaa04a53d392aebdc850b940debb25",
+      "bundle_bytes": 5029358
+    },
+    {
+      "label": "P-005",
+      "run_seed": 20261010,
+      "bundle_sha256": "c021b45b042283f50a5c2f251e01cebf315c3107d49586ec763a2c548af7cccc",
+      "bundle_bytes": 944160
+    },
+    {
+      "label": "P-006",
+      "run_seed": 20261010,
+      "bundle_sha256": "2ac3f823de36aa17c4eb25f2b8d37422a354408e5a7edbde312e4659bde1904b",
+      "bundle_bytes": 13473230
+    },
+    {
+      "label": "P-007",
+      "run_seed": 20261011,
+      "bundle_sha256": "37bd6d6617aaf49ad9999ec2686c478baa9404df4421535074633a800942bbe5",
+      "bundle_bytes": 11402380
+    },
+    {
+      "label": "P-008",
+      "run_seed": 20261010,
+      "bundle_sha256": "dac09788d28776b29d3d46850da26ebcbea8d8ed48bbfaf5e5cb568f75a5ba5d",
+      "bundle_bytes": 7645778
+    },
+    {
+      "label": "P-009",
+      "run_seed": 20261010,
+      "bundle_sha256": "ea683242bcfc94624ded99fbd7ab2f6d16bad7a347c4449f80ebd6f92616fe70",
+      "bundle_bytes": 2790263
+    },
+    {
+      "label": "P-010",
+      "run_seed": 20261010,
+      "bundle_sha256": "fd3a2907f82c49131e45abeaa3b11c7b368c32872573a63bd0363ae018fa3564",
+      "bundle_bytes": 12706952
+    },
+    {
+      "label": "P-011",
+      "run_seed": 20261010,
+      "bundle_sha256": "71cc347f08543c019e94f9097151ce37d83243806fada3ec3b4d7b8809b15a68",
+      "bundle_bytes": 13454681
+    },
+    {
+      "label": "P-012",
+      "run_seed": 20261010,
+      "bundle_sha256": "537fd4b63d385c7940b501980294573a96a87a5ce00205c6290412fccd19dc90",
+      "bundle_bytes": 1729019
+    }
+  ],
+  "files": [
+    {
+      "path": "participants.json",
+      "sha256": "28032483e015cc76f3d3f6b7cdc39f7b515ff116a3beea979060bed9f8e35054",
+      "bytes": 111357,
+      "role": "output"
+    },
+    {
+      "path": "notes.json",
+      "sha256": "70a22b71723523e13ddd9544cb8f84523d2548df4ed7430ad860dc7d5e4e0ac2",
+      "bytes": 334914,
+      "role": "output"
+    },
+    {
+      "path": "condition_filter.json",
+      "sha256": "99d013360780b50fa7ee1a7d7fa519ca2c01537cbf48f8e826840087f4d7b5db",
+      "bytes": 2933,
+      "role": "table"
+    },
+    {
+      "path": "import_tables.json",
+      "sha256": "3a44e3720fd1754df1d23e851f81d9a50775d68c48a3d185aa02cf728d8a9c65",
+      "bytes": 4786,
+      "role": "table"
+    }
+  ],
+  "n_patients": 12,
+  "n_notes": 72,
+  "stats": {
+    "stage_distribution": {
+      "1": 12
+    },
+    "sex_distribution": {
+      "female": 3,
+      "male": 9
+    },
+    "age_range": [
+      50,
+      76
+    ],
+    "active_medications_per_participant": {
+      "min": 0,
+      "max": 5,
+      "mean": 3,
+      "total": 36
+    },
+    "notes_per_participant": {
+      "P-001": 6,
+      "P-002": 6,
+      "P-003": 6,
+      "P-004": 6,
+      "P-005": 6,
+      "P-006": 6,
+      "P-007": 6,
+      "P-008": 6,
+      "P-009": 6,
+      "P-010": 6,
+      "P-011": 6,
+      "P-012": 6
+    },
+    "emergency_notes": 7,
+    "conmed_matcher_on_active_medications": {
+      "n": 36,
+      "correct": 24,
+      "wrong": 2,
+      "unmatched": 10,
+      "pct_correct": 66.7,
+      "distinct_displays": {
+        "24 HR Metformin hydrochloride 500 MG Extended Release Oral Tablet": "correct",
+        "24 HR metoprolol succinate 100 MG Extended Release Oral Tablet": "correct",
+        "24 HR nicotine 0.292 MG/HR Transdermal System": "correct",
+        "72 HR Fentanyl 0.025 MG/HR Transdermal System": "unmatched",
+        "Acetaminophen 325 MG / HYDROcodone Bitartrate 7.5 MG Oral Tablet": "correct",
+        "Alendronic acid 10 MG Oral Tablet": "unmatched",
+        "Alteplase 100 MG Injection": "unmatched",
+        "Clopidogrel 75 MG Oral Tablet": "unmatched",
+        "FLUoxetine 20 MG Oral Capsule": "correct",
+        "Hydrochlorothiazide 25 MG Oral Tablet": "correct",
+        "Naproxen sodium 220 MG Oral Tablet": "correct",
+        "Nitroglycerin 0.4 MG/ACTUAT Mucosal Spray": "correct",
+        "Sertraline 100 MG Oral Tablet": "correct",
+        "Simvastatin 10 MG Oral Tablet": "correct",
+        "Simvastatin 20 MG Oral Tablet": "correct",
+        "Vitamin B12 5 MG/ML Injectable Solution": "wrong",
+        "acetaminophen 300 MG / hydrocodone bitartrate 10 MG Oral Tablet": "correct",
+        "amLODIPine 2.5 MG Oral Tablet": "correct",
+        "insulin isophane, human 70 UNT/ML / insulin, regular, human 30 UNT/ML Injectable Suspension [Humulin]": "unmatched",
+        "tramadol hydrochloride 50 MG Oral Tablet": "correct"
+      },
+      "definition": "correct = match_conmed(full RxNorm display) returns a generic equal to the display's parsed ingredient (salt words removed); wrong = a different drug; unmatched = no proposal"
+    },
+    "fhir_heuristic_vs_csv_on_selected_notes": {
+      "agree": 64,
+      "disagree": 2,
+      "definition": "for participants whose run exported CSV: does the FHIR-only active-medication heuristic give the same RxNorm set as Synthea's CSV stop dates on each selected note date"
+    },
+    "medication_interval_source": {
+      "fhir_status_heuristic": 1,
+      "synthea_csv": 11
+    }
+  }
+}

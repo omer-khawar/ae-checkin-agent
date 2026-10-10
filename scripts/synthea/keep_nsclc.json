@@ -1,0 +1,25 @@
+{
+  "name": "Keep living NSCLC patients (Interim)",
+  "remarks": [
+    "Keeps only patients with an active non-small cell lung cancer diagnosis, matching the demo study population (EMPOWER-Lung 1, NCT03088540).",
+    "Provenance: Synthea 'keep module' (generic module framework v2), passed to synthea-with-dependencies.jar with -k. Written by the Interim team on 2026-10-10; copied verbatim from the module used for the committed run, with this remarks line added. Codes are the SNOMED CT concepts Synthea's lung_cancer module assigns to NSCLC (unstaged and TNM stage 1-4). Used by scripts/synthea/run_synthea.py; the importer (scripts/synthea/import_synthea.py) reads the same codes from data/synthetic/synthea/import_tables.json and a test keeps the two lists equal."
+  ],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "conditional_transition": [
+        { "transition": "Keep", "condition": { "condition_type": "Or", "conditions": [
+          { "condition_type": "Active Condition", "codes": [ { "system": "SNOMED-CT", "code": "254637007", "display": "Non-small cell lung cancer (disorder)" } ] },
+          { "condition_type": "Active Condition", "codes": [ { "system": "SNOMED-CT", "code": "424132000", "display": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)" } ] },
+          { "condition_type": "Active Condition", "codes": [ { "system": "SNOMED-CT", "code": "425048006", "display": "Non-small cell carcinoma of lung, TNM stage 2 (disorder)" } ] },
+          { "condition_type": "Active Condition", "codes": [ { "system": "SNOMED-CT", "code": "422968005", "display": "Non-small cell carcinoma of lung, TNM stage 3 (disorder)" } ] },
+          { "condition_type": "Active Condition", "codes": [ { "system": "SNOMED-CT", "code": "423121009", "display": "Non-small cell carcinoma of lung, TNM stage 4 (disorder)" } ] }
+        ] } },
+        { "transition": "Terminal" }
+      ]
+    },
+    "Terminal": { "type": "Terminal" },
+    "Keep": { "type": "Terminal" }
+  },
+  "gmf_version": 2
+}

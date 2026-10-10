@@ -8,6 +8,7 @@ This directory is documentation. The generator is code:
 |---|---|---|
 | The demo study (real public record) | `scripts/fetch_public.py` → `data/public/study.json` (committed cache; bundled fallback) | `make fetch-public` (`--offline` uses the cache) |
 | 12 participants and their prior check-ins | `scripts/seed.py` (this README is its spec) | `make seed`, `make demo-reset`, `npm run seed`, `npm run demo-reset`, `python scripts/seed.py [--reset]`, Admin → "Reset demo data", or `POST /api/v1/admin/reset {"reseed": true}` |
+| 8 synthetic chart notes (§4.6) | `data/synthetic/chart_notes.json` = `packages/rules/data/chartscan_answer_key.json` (notes), ingested by `scripts/seed.py` | same commands as the participants (the seed ingests them last) |
 | Persona answer key (eval) | `packages/rules/data/personas.json` | hand-edited; replayed by `scripts/run_eval.py` (`make eval`) and by the Eval page |
 | Mock vitals scenarios (live kiosk) | `apps/vitals-bridge/src/sources/mock.ts` | n/a (deterministic per scenario) |
 
@@ -63,7 +64,7 @@ Attribute values are the integers the kiosk would send (`frequency`/`severity`/`
 | Participant | n | `days_ago` | Answers that are non-zero | Con-med gate | Camera consent | Intended tier(s) | Why this profile |
 |---|---|---|---|---|---|---|---|
 | **P-001** | 3 | 55, 34, 13 | `fatigue` severity 1, interference 0 on all three | — | Yes | 0, 0, 0 | A quiet, persistent G1 fatigue: the most common thing on a PD-1 inhibitor. Sparkline shows a flat line. |
-| **P-002** | 2 | 40, 12 | d40: `rash` presence 1. d12: `rash` presence 1, `itching` severity 2 | — | Yes | 0, 1 | Presence-only rash is always G1 (a documented limitation, `docs/WHAT_IT_GETS_WRONG.md` §1); itching Moderate makes the second check-in Tier 1. |
+| **P-002** | 2 | 40, **6** | d40: `rash` presence 1. d6: `rash` presence 1, `itching` severity 2 | — | Yes | 0, 1 | Presence-only rash is always G1 (a documented limitation, `docs/WHAT_IT_GETS_WRONG.md` §1); itching Moderate makes the second check-in Tier 1. The second check-in sits 6 days back (it was 12) so that chart note **N2** (2 days back, §4.6) finds Rash maculo-papular and Pruritus still open within the 7-day window and links as a **cross-source follow-up**. |
 | **P-003** | 4 | 52, 38, 24, 10 | `diarrhea` frequency 2 → 3 → 4 → 3 (Occasionally → Frequently → Almost constantly → Frequently) | d24: `conmed_changed = true`, `conmed_text = "loperamide"`, `conmed_direction = "started"` | Yes | 0, 1, **2**, 1 | A colitis-like trajectory: composites 1, 2, 3, 2 → G1 → G2 → G3 (Tier 2, nurse call, escalation acknowledged in the seed) → improving after loperamide (exact con-med match, 1.0). The frequency-only map is 0,1,1,2,3 (`composite_scoring.json` `single_attribute_by_attribute.frequency`), so "Rarely" and "Occasionally" are both G1 and only "Almost constantly" reaches G3. |
 | **P-004** | 2 | 45, 20 | none | — | Yes | 0, 0 | Entirely quiet. Shows the queue is not all alarms. |
 | **P-005** | 3 | 50, 29, 8 | d50: `nausea` frequency 1, severity 1. d29: `nausea` frequency 2, severity 2. d8: `nausea` frequency 1, severity 1 | d29: `conmed_changed = true`, `conmed_text = "Zofran"`, `conmed_direction = "started"` | Yes | 0, 1, 0 | Brand → generic normalization: `CMTRT = "Zofran"`, `CMDECOD = "ondansetron"`, match kind `case_insensitive`, confidence 1.0. |
@@ -75,7 +76,7 @@ Attribute values are the integers the kiosk would send (`frequency`/`severity`/`
 | **P-011** | 2 | 36, 11 | d36: `itching` severity 1. d11: `cough` severity 1, interference 0 | — | Yes | 0, 0 | Two different G1 symptoms; nothing escalates. |
 | **P-012** | 3 | 49, **28**, 4 | none | — | Yes, **No on d28**, Yes | 0, 0, 0 | The d28 session declines the camera: `consent_camera = false`, no vitals samples, `vitals_status = "declined"` on the session, `vitals.unavailable` in the Why panel ("no samples were captured for this session"), and **no VS rows at all** (`build_vs_drafts` returns nothing for a session with zero samples; `VSSTAT = "NOT DONE"` rows appear only when samples exist but a metric has no usable reading, e.g. the low-quality persona). Proves the product is fully functional with vitals off. |
 
-Totals: 34 check-ins; Tier 2 on exactly two of them (P-003 d24, P-009 d30); con-med changes on four participants (P-003, P-005, P-006, P-008); one open AE prepared for the demo (P-007 Cough). Every "intended tier" in the table was replayed through `interim_rules.engine.evaluate_checkin` on 2026-10-10 and matched; if a table under `packages/rules/data/` changes, replay again before trusting this column.
+Totals: 34 check-ins; Tier 2 on exactly two of them (P-003 d24, P-009 d30); con-med changes on four participants (P-003, P-005, P-006, P-008); one open AE prepared for the demo (P-007 Cough); plus the eight chart notes of §4.6 (42 queue rows in all). Every "intended tier" in the table was replayed through `interim_rules.engine.evaluate_checkin` on 2026-10-10 and matched; if a table under `packages/rules/data/` changes, replay again before trusting this column.
 
 ### 4.4 What the seed does after each prior check-in
 
@@ -95,6 +96,27 @@ For every seeded session with `consent_camera = true`, the seed posts a determin
 - The seed contains its own small pure-Python generator for this; it does not depend on the Node bridge (`docs/DECISIONS.md` D-005: the bridge's mock and the seed/persona samples describe the same physiology but are separate code).
 
 Nothing in the seed ever produces a vitals value outside the plausibility bounds (pulse 35–180, breathing 5–45); implausible and low-quality vitals are exercised by the personas (§5), not the seed.
+
+### 4.6 Chart notes (`chart_notes.json`; CONTRACTS.md R2.4)
+
+The eight synthetic clinician notes in `data/synthetic/chart_notes.json` (lineage and traps in that file's `_about`; the same eight cases live, text included, in `packages/rules/data/chartscan_answer_key.json`, kept identical by `packages/rules/tests/test_chartscan.py`) are ingested by the seed **after** the 34 check-ins, through the `/notes` service (`apps/api/interim_api/services/notes.py`) as actor `coordinator` with the admin-only `ingested_at_override`, so every note is audited (`note.ingested`, `note.scanned`, one `rule.fired` per rule, `draft.created`, …) exactly as a live ingestion. The seed reads the notes from the rules package's copy (`interim_rules.chartscan.answer_key()`), so a Docker image needs nothing from this directory.
+
+**Dates are re-anchored to the seed clock.** Each note keeps its distance from the answer key's reference date (`utterance_ref_date` = 2026-10-10): `days_ago = 2026-10-10 − note_date`, the stored `note_date` becomes `T0 − days_ago` (date), and `ingested_at` is that day at 09:00–17:00 UTC from the seeded RNG. N1 is therefore always 5 days back and N3/N7 always yesterday, whatever day the seed runs, and the cross-source follow-up links below hold on any seed date. Consequences: the stored `note_date` differs from the file's absolute date, and the literal "10/08" inside N6's text no longer matches its stored date on a seed day other than 2026-10-10 (cosmetic; the scanner does not read it).
+
+| Note (ingestion order) | Participant | Days back | What the scan yields | Tier | What the seed does |
+|---|---|---|---|---|---|
+| N8 | P-004 | 9 | four negated symptoms excluded; CM `amlodipine` (taking) | 1 | — |
+| N1 | P-001 | 5 | AE Diarrhea (grade hint 2 from "4-5 loose stools", onset 3 days before), AE Nausea (1); CM `loperamide` (started), `ondansetron` (taking) | 1 | opens the two AEs N7 links to |
+| N4 | P-004 | 4 | AE Sinusitis, Headache; CM `amoxicillin-clavulanate` (started) | 1 | — |
+| N2 | P-002 | 2 | AE Rash maculo-papular (hint 2, 15% BSA), Pruritus; CM `triamcinolone`, `cetirizine` (started) | 1 | **cross-source follow-ups**: both AEs link to the open AEs of P-002's d6 check-in |
+| N5 | P-005 | 2 | AE Headache, Mucositis oral; "hx of migraines" and "no nausea" excluded | 1 | — |
+| N6 | P-006 | 2 | AE Confusion, Anorexia (hints raised to 3 by "admitted"); CM `dexamethasone` (stopped); red flags `confusion`, `hospitalization` | **2** | **SAE clock** started at ingestion (`site_awareness_at = ingested_at`, due +24 h, so it is overdue by demo time until an investigator records `AESER`); escalation acknowledged by the coordinator 30–90 min later |
+| N3 | P-003 | 1 | AE Dyspnea (onset 7 days before), Cough (5 days); CM `lisinopril` (stopped); red flag `dyspnea` | **2** | escalation **left unacknowledged** so the Escalations page has live work |
+| N7 | P-001 | 1 | AE Diarrhea, Nausea ("resolved" flagged as `INTERIM_RESOLVED_CUE`); CM `loperamide` (taking) | 1 | **cross-note follow-ups**: both AEs link to N1's open AEs |
+
+Totals: 8 notes, 23 drafts (14 AE + 9 CM, no VS: a note has no vitals), 4 follow-up links, 2 Tier 2 note escalations (1 acknowledged), 1 SAE clock. Note drafts are left as `draft` so the queue shows note-sourced work next to the check-ins (`source: "chart_note"`, `session_id: null`). A note never produces Tier 3, a page or a stop screen (`docs/DECISIONS.md` D-017). The order above is chronological so the audit chain reads naturally; the check-ins are all seeded first, which is correct for this data set because no check-in dated after a note reports the same term as that note.
+
+Labeling: every note-sourced record carries `INTERIM_RECORD_SOURCE = "chart_note"` (and `INTERIM_SOURCE = "chart_note"` on its AE/CM fields), `INTERIM_NOTE_ID`, and `INTERIM_MATCH_KIND = "lexicon"` on CM rows (the scanner's lexicon is a pattern list, NOT RxNorm).
 
 ## 5. The persona answer key (`packages/rules/data/personas.json`)
 

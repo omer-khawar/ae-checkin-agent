@@ -1,0 +1,77 @@
+{
+  "source": "Hand-written by the Interim team (2026-10-10) for scripts/synthea/import_synthea.py. LOINC and SNOMED codes are the ones Synthea emits (checked against the committed run).",
+  "rationale": "Every code list, window and parsing word list the importer uses lives here (CLAUDE.md §13: code reads tables, it does not hardcode clinical numbers). Nothing in this file is used by the runtime rules engine; it shapes synthetic fixtures only.",
+  "label": "Synthea synthetic EHR (simulated)",
+  "nsclc": {
+    "rationale": "Same five codes as scripts/synthea/keep_nsclc.json (a test keeps them equal). Stage is read from the TNM-stage concept; the unstaged concept gives stage null.",
+    "codes": {
+      "254637007": null,
+      "424132000": "1",
+      "425048006": "2",
+      "422968005": "3",
+      "423121009": "4"
+    }
+  },
+  "windows": {
+    "rationale": "Notes and encounters 'in the last 12 months' means reference_date - 365 days < date <= reference_date. At most 6 notes per participant keeps the committed fixture small (size budget ~1.5 MB) while every emergency-encounter note is always included.",
+    "lookback_days": 365,
+    "max_notes_per_participant": 6,
+    "baseline_vitals_last_n": 3
+  },
+  "encounter_class": {
+    "rationale": "FHIR v3-ActCode encounter class -> the plain words used in the fixtures.",
+    "AMB": "ambulatory",
+    "EMER": "emergency",
+    "IMP": "inpatient",
+    "ACUTE": "inpatient",
+    "NONAC": "inpatient",
+    "OBSENC": "observation",
+    "HH": "home_health",
+    "VR": "virtual",
+    "FLD": "field"
+  },
+  "vitals": {
+    "rationale": "Baseline vitals from Synthea Observations (LOINC). Blood pressure comes from the components of the 85354-9 panel. Every value is simulated.",
+    "pulse_bpm": { "loinc": ["8867-4"], "unit": "beats/min" },
+    "breathing_bpm": { "loinc": ["9279-1"], "unit": "breaths/min" },
+    "systolic_bp": { "panel": "85354-9", "component": "8480-6", "unit": "mmHg" },
+    "diastolic_bp": { "panel": "85354-9", "component": "8462-4", "unit": "mmHg" },
+    "temp_c": { "loinc": ["8310-5", "8331-1"], "unit": "Cel" },
+    "spo2": { "loinc": ["2708-6", "59408-5"], "unit": "%" }
+  },
+  "smoking": {
+    "rationale": "Tobacco smoking status (LOINC 72166-2) answer concepts -> status. Fallback when no observation exists: the note's '# Social History' sentence, matched by the regexes below (first match wins).",
+    "loinc": "72166-2",
+    "snomed_status": {
+      "266919005": "never",
+      "8517006": "former",
+      "449868002": "current",
+      "428041000124106": "current",
+      "77176002": "current",
+      "266927001": "unknown"
+    },
+    "note_patterns": [
+      { "regex": "\\bhas never smoked\\b", "status": "never" },
+      { "regex": "\\b(?:is an ex-smoker|quit smoking|former smoker)\\b", "status": "former" },
+      { "regex": "\\b(?:is a smoker|smokes tobacco|currently smokes)\\b", "status": "current" }
+    ]
+  },
+  "cancer_therapy": {
+    "rationale": "A MedicationAdministration is cancer therapy when its reason (reasonReference display) names a malignancy. Dental fluoride and eye-exam drops are administrations too and are excluded by this rule.",
+    "reason_regex": "(?i)neoplasm|cancer|carcinoma|leukemia|lymphoma|malignan"
+  },
+  "ingredient": {
+    "rationale": "Documented heuristic for the 'leading ingredient' of an RxNorm clinical-drug display (e.g. '24 HR metoprolol succinate 100 MG Extended Release Oral Tablet' -> 'metoprolol'). Steps: (1) remove a trailing [Brand]; (2) split combinations on ' / ' (each part is one ingredient; the first is the leading ingredient); (3) per part, drop a leading package/duration quantity ('24 HR', '1 ML', '120 ACTUAT', 'NDA020503'); (4) keep the words before the first word that starts with a digit (the strength); (5) cut at the first comma ('insulin isophane, human' -> 'insulin isophane'); (6) lowercase; (7) drop trailing salt and formulation words, unless the first word is itself a salt word ('sodium fluoride' and 'sodium chloride' stay whole). It is a string heuristic, not RxNorm ingredient lookup (no RxNorm API, no licence).",
+    "leading_quantity_regex": "^(?:NDA\\d+\\s+)?(?:\\d+(?:\\.\\d+)?\\s+(?:HR|ML|MG|MCG|ACTUAT|UNT|G|L|DAY)\\s+)+",
+    "brand_regex": "\\s*\\[([^\\]]+)\\]\\s*$",
+    "combination_separator": " / ",
+    "salt_words": [
+      "acetate", "besylate", "bitartrate", "bromide", "calcium", "chloride", "citrate",
+      "dihydrate", "dipropionate", "disodium", "fumarate", "furoate", "hcl", "hyclate",
+      "hydrobromide", "hydrochloride", "magnesium", "maleate", "mesylate", "monohydrate",
+      "phosphate", "potassium", "propionate", "sodium", "succinate", "sulfate", "tartrate",
+      "trihydrate"
+    ],
+    "formulation_words": ["isophane", "regular", "human", "porcine", "extended", "release"]
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "source": "Ported from the RED_FLAGS table in backend/app/services/extract.py of omer-khawar/ae-checkin-agent (Omer Khawar, MIT), 2026-10-10 (CONTRACTS.md R2.4). Emergency categories follow the Regeneron starter-sheet list (chest pain, cannot breathe, fainting, seizure, anaphylaxis, stroke signs, bleeding, self-harm); urgent categories are the oncology-trial warning signs a research nurse must hear about the same day (neutropenic fever, worsening dyspnea, new confusion, GI bleeding, dehydration, jaundice, blistering, hospitalization). The temperature pattern inside the fever rule is identical to chartscan_lexicon.json temperature_high; the hospitalization pattern is identical to chartscan_lexicon.json hospital.",
+  "rationale": "A red flag is a phrase that needs escalation regardless of grading. Each pattern is compiled once as (?<!\\w)(?:pattern) with re.IGNORECASE and checked with the same NegEx-style exclusion as symptoms ('denies chest pain' does not fire). One flag per category, the first match in the text. In a participant utterance the level is the one written here; in a chart note every flag routes to the coordinator as 'urgent' (notes are retrospective, nobody is told to call 911, and a note never produces Tier 3: decision D-017). seriousness = true marks the category that makes the API suspect a serious AE and start the SAE clock at ingestion time (ICH E2A hospitalization criterion).",
+  "escalation_levels": ["none", "human_requested", "urgent", "emergency"],
+  "escalation_levels_note": "Ordered from lowest to highest; the escalation of a scan is the highest level among its red flags (and 'human_requested' when a person was asked for). The answer key's expected.escalation uses the same vocabulary.",
+  "levels": {
+    "emergency": "Participant-facing: the fixed 911 message (utterances only). Coordinator-facing: urgent.",
+    "urgent": "Coordinator / research nurse call today."
+  },
+  "rules": [
+    {
+      "category": "chest_pain",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "chest (?:pain|pressure|tightness)",
+      "reason": "Chest pain/pressure reported"
+    },
+    {
+      "category": "cannot_breathe",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "(?:can't|cannot|can not|couldn't|unable to) breathe|struggling to breathe|gasping|(?:lips|face) (?:turning |are |is )?blue",
+      "reason": "Severe breathing difficulty reported"
+    },
+    {
+      "category": "syncope",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "passed out|fainted|blacked out|unconscious|unresponsive|lost consciousness",
+      "reason": "Loss of consciousness reported"
+    },
+    {
+      "category": "seizure",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "seizures?|convulsions?",
+      "reason": "Seizure reported"
+    },
+    {
+      "category": "anaphylaxis",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "(?:throat|tongue|lips?|face) (?:is |are |was |were )?(?:swelling|swollen|closing)|swelling (?:of|in) (?:my|his|her|the) (?:throat|tongue|lips|face)|anaphyla\\w*",
+      "reason": "Possible allergic reaction (swelling of face/throat)"
+    },
+    {
+      "category": "bleeding",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "(?:coughing|vomiting|throwing) up blood|won't stop bleeding|heavy bleeding",
+      "reason": "Serious bleeding reported"
+    },
+    {
+      "category": "stroke_signs",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "slurred speech|face (?:is )?droop\\w*|can't (?:move|feel) (?:my|his|her) (?:arm|leg|face)",
+      "reason": "Possible stroke signs reported"
+    },
+    {
+      "category": "self_harm",
+      "level": "emergency",
+      "seriousness": false,
+      "pattern": "suicid\\w*|kill (?:my|him|her)self|end (?:my|his|her) life|want to die|hurt (?:my|him|her)self",
+      "reason": "Possible self-harm risk"
+    },
+    {
+      "category": "dyspnea",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "(?:breath\\w*|(?-i:SOB)|dyspn\\w*)[^.;]{0,40}\\b(?:worse|worsening|getting worse)\\b|\\b(?:worse|worsening|increasing)\\b[^.;]{0,25}(?:short(?:ness)? of breath|(?-i:SOB)|dyspn\\w*|breathing)",
+      "reason": "Worsening shortness of breath"
+    },
+    {
+      "category": "fever",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "fevers?\\b|febrile|(?:temp(?:erature)?|t ?max|t)\\s*(?:of |was |is |to |at |up to |:\\s*)?(?:10[0-4](?:\\.\\d)?|3[89](?:\\.\\d)?|4[01](?:\\.\\d)?)|10[0-4](?:\\.\\d)?\\s*(?:°\\s*f?|degrees?)",
+      "reason": "Fever reported (oncology trials: possible infection / neutropenic fever)"
+    },
+    {
+      "category": "confusion",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "(?:new|increased|increasing|worsening|acute) confusion|altered mental status|disoriented|(?:he|she|they)(?:'s| is| has been| seems| seemed)? (?:very |really |more |so )?confused(?!\\s+(?:about|whether|if|by))",
+      "reason": "New confusion reported"
+    },
+    {
+      "category": "gi_bleed",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "(?:black|tarry|bloody) stools?|blood in (?:my |his |her |the )?(?:stool|urine|poop)",
+      "reason": "Possible GI/urinary bleeding"
+    },
+    {
+      "category": "dehydration",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "(?:can't|cannot|couldn't|unable to) keep (?:anything|food|fluids|water|liquids|(?:my |his |her )?(?:pills|meds|medicines?|medications?))\\s+down",
+      "reason": "Unable to keep fluids down"
+    },
+    {
+      "category": "jaundice",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "yellow(?:ing)? (?:of )?(?:my |his |her |the )?(?:skin|eyes)|jaundice\\w*",
+      "reason": "Yellowing of skin/eyes (possible liver toxicity)"
+    },
+    {
+      "category": "skin_blistering",
+      "level": "urgent",
+      "seriousness": false,
+      "pattern": "blister\\w*|peeling skin|skin (?:is )?peeling",
+      "reason": "Blistering/peeling skin (possible severe skin reaction)"
+    },
+    {
+      "category": "hospitalization",
+      "level": "urgent",
+      "seriousness": true,
+      "pattern": "\\b(?:admitted(?!\\s+(?:to\\s+)?(?:having|that|he|she|they|it|being|not|using|taking|drinking|smoking|missing|skipping|forgetting)\\b)|admission|hospitali[sz](?:ed|ation)|(?-i:ED|ER) (?:visit|course|eval(?:uation)?|physician|provider|stay|workup|note|trip)|emergency (?:room|department)|(?:went|taken|brought|presented|came|sent|transferred) to the (?:(?-i:ER|ED)|er|hospital)|(?:in|at|to|from|via) the (?-i:ER|ED)|in the hospital|inpatient)\\b",
+      "reason": "Hospitalization or ER visit (possible serious AE)"
+    }
+  ]
+}

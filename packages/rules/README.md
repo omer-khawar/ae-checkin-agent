@@ -279,3 +279,115 @@ install (`pip install ./packages/rules`, a Docker multi-stage image) ships them 
 * The averaging-window gate trusts the bridge's `windowS`; the engine cannot tell a genuine
   30 s window from a mislabeled one.
 * The 7-day dedup window and the 300 s clock-skew tolerance are heuristics.
+
+## Chart-note scanning (`chartscan.py`, Regeneron "Better" tier)
+
+Ported from `backend/app/services/extract.py` of `omer-khawar/ae-checkin-agent` (Omer Khawar,
+MIT), 2026-10-10 (CONTRACTS.md R2.4, decision D-014). A deterministic regex + NegEx-style
+scanner for clinician chart notes and participant utterances: no LLM, no network, no clock.
+Every finding keeps the exact quote and character offsets (`text[span_start:span_end] == quote`)
+so the dashboard can highlight it, plus a plain-English reason.
+
+```python
+from datetime import date
+from interim_rules import chartscan
+
+result = chartscan.scan_text(note.text, date.fromisoformat(note.note_date))
+payload = chartscan.scan_result_to_dict(result)  # JSON-safe
+rules = chartscan.rules_fired(result)  # chartscan.* firings, with quote + spans
+why = [r["description"] for r in rules]
+serious = chartscan.seriousness_suspected(result)  # hospitalization / ER mention
+level = chartscan.escalation_level(result, "note")  # none | urgent (a note is never an emergency)
+```
+
+| Output | What it is |
+|---|---|
+| `symptoms[]` | `SymptomFinding`: CTCAE v5 `term`, exact `quote` + `span_start/span_end`, `reason`, `grade_hint` (heuristic, 1–3; an explicit "grade 4/5" in the text is capped at `composite_to_grade.json` `max_assignable_grade` and the clinician's number is kept in `grade_basis`) + `grade_basis`, `onset_days` / `onset_date` (from `ref_date`), `worsening`, `resolved` (the text says it resolved; it still counts, and the API may propose `AEENDTC` from it) |
+| `excluded_symptoms[]` | the mentions that do not count, with `excluded_reason` (`negated`, `historical`, `hypothetical`) and `grade_hint = None` |
+| `meds[]` | `MedFinding`: lowercase generic `drug` (not RxNorm), `change` (`started` / `stopped` / `changed` / `taking`), quote, spans, `reason` (the verb used; the indication when written) |
+| `excluded_meds[]` | allergy listings and declined prescriptions (`allergy`, `negated`) |
+| `red_flags[]` | `RedFlag`: `level` (`emergency` / `urgent`), `category`, quote, spans, `reason` |
+| `human_requested` | only with `detect_human_request=True` (participant utterances, never clinician notes) |
+
+How it decides, per mention, in order: (0) map typographic punctuation to ASCII (U+2019 ->
+`'`, en dash -> `-`, non-breaking space -> space; `text_normalization` in the lexicon, one code
+point each, so every offset still indexes the caller's text and quotes are sliced from it);
+(1) find the term or drug with a lexicon regex; (2) NegEx-style exclusion: a negation cue in the
+clause before the term (cut at a terminator such as "but" or a comma followed by a severity /
+quantity word, at most `scope.negation_max_words` = 8 words, pseudo-negations like "can't stop"
+blanked first), a post-term "ruled out" / "Fever: no", a history cue ("hx of"), or an instruction /
+hypothetical cue starting earlier in the sentence ("call if", "monitor for", "PRN for", "go to the
+ER if"); (3) grade hint: an explicit "grade N" (capped at 3) > stools/day (diarrhea) or % BSA
+(rash) > the nearest severity word > default 1, and a hospital/ER word in the same sentence that
+passes the same exclusion check raises the hint to 3; (4) onset from "x5 days", "3 days of",
+"since yesterday"; (5) one finding per term (highest grade wins; onset, cues and `worsening`
+merge) and per drug (an action verb beats a bare mention; the first mention otherwise; "switched
+from X to Y" is X stopped, Y started). Red flags: one per category, first match, with the same
+exclusion check. Every regex, threshold, band, context window (`scope`) and reason text lives in
+`data/chartscan_lexicon.json` and `data/chartscan_red_flags.json` with `source` / `rationale`;
+the Python only validates, compiles (once per process) and applies them.
+
+Rule ids (category `chartscan`, listed in `rules_catalog.json`): `chartscan.symptom`,
+`chartscan.symptom_excluded`, `chartscan.med`, `chartscan.med_excluded`, `chartscan.red_flag`,
+`chartscan.hospitalization` (seriousness suspected; the API starts the SAE clock at ingestion).
+
+**Answer key.** `data/chartscan_answer_key.json` carries 39 synthetic cases: the 25 from the
+source repository (8 chart notes, 17 utterances; subject ids remapped to `P-001` … `P-006`) plus
+14 utterances (`T18`–`T31`, each with a `review_fix` note) added after the 2026-10-10 review, one
+per fix below. `chartscan.evaluate_answer_key()` reproduces the source repository's
+`scripts/evaluate.py` scoring (micro precision / recall for AE terms and con-med drugs, change
+accuracy, escalation recall, over-escalations, possible-SAE recall) and `tests/test_chartscan.py`
+pins the result: **AE terms P = R = 1.00 (38/38), con-meds P = R = 1.00 (17/17), 14/14
+urgent-or-emergency cases escalated, 3/3 emergencies, 3/3 possible-SAE cues, 0 over-escalations**;
+scored alone, the 25 original cases still give the source repository's exact numbers (31 terms,
+13 drugs, 11/11, 2/2). `evaluation_to_dict()` is the payload for `docs/eval/results.md` and
+`POST /eval/run`.
+
+Things the API must know:
+
+* Pass the note date as `ref_date`; the package never reads the clock. `AESTDTC` = `onset_date`
+  when present, else the note date.
+* A note escalates to Tier 2 at most (`escalation_level` returns `urgent`, never `emergency`);
+  notes never page or stop a kiosk (D-017). `human_requested` is for participant utterances.
+* `RuleFired.category` in `models.py` does not include `chartscan`; `rules_fired()` returns
+  plain dicts in the same shape (`rule_id, category, description, inputs, effect` plus
+  `quote, span_start, span_end`) for the API to wrap with `chart_note` evidence.
+* `TableError` (a `ValueError`) is raised on first use if a chartscan table is malformed.
+
+**Fixed after the 2026-10-10 review** (each with a table row, an answer-key case and a unit
+test; decisions to log in `docs/DECISIONS.md`):
+
+* Typographic apostrophes/quotes/dashes (U+2019 and friends, the default on Word, Outlook and
+  iOS) defeated every contraction-based cue; `text_normalization` maps them 1:1 before matching.
+* "No fever, mild diarrhea" lost the diarrhea: a comma followed by a severity / quantity /
+  positivity word now ends the negation scope; a bare comma still continues a negated list.
+* Review-of-systems negatives ("Nausea: no", "Fever - none") counted as findings and fired the
+  fever flag; they are post-term negations now (short cues only when they end the clause).
+* A negated hospital word ("Not admitted; has diarrhea") raised the grade hint to 3; the hospital
+  cue now passes the same context check as the red flag.
+* "grade 4" / "grade 5" in a note became `AETOXGR` 4/5; the hint is capped at
+  `composite_to_grade.json` `max_assignable_grade` (3) with the clinician's number in
+  `grade_basis` (**decision:** cap in the rules package rather than null in the API, so every
+  consumer sees the same hint and its basis).
+* "admitted to having", "the sob story about ED" started an SAE clock; `admitted` needs a
+  hospital sense and bare `ED`/`ER` need hospital context ("in the ED", "ER visit", "ER course");
+  "go to the ER if …" is an instruction (hypothetical cues may now run into the term).
+* "was not started on X" / "not on X" exclude the drug; "switched from X to Y" is X stopped and
+  Y started (a switch written with doses stays `changed`); "Tmax 101.3" is a fever; "Tylenol PRN
+  for fever" does not report a fever (an affirmative mention elsewhere still counts).
+* The NegEx scope (8 words) and the character windows live in the lexicon's `scope` section.
+* `SymptomFinding.resolved` is a machine-readable flag (**decision:** `ExcludedReason` keeps the
+  contract's `resolved` / `indication` values but the scanner never emits them; a resolved
+  symptom is a kept finding with `resolved = True`, so the API can propose `AEENDTC` without
+  parsing prose).
+
+What it still gets wrong (to be added to `docs/WHAT_IT_GETS_WRONG.md`, with `docs/NOT_BUILT.md`
+§1 and the PRD Good/Better/Best table, by the docs owner: `docs/ISSUES.md` #13): a hand-built
+lexicon (29 terms, 43 drugs) misses phrasings and misspellings outside its patterns; the grade
+hint is a heuristic for the investigator, not a validated grade; "No rash, itching on the legs"
+(a comma followed by a bare symptom) is read as a negated list; "admission" in any sense
+("Admission note: mild cough") is still a hospital cue; "Advised to go to the ER." without an
+"if" counts as a visit; a switch written with doses ("switched from Zofran 4 mg to Compazine")
+is a dose change for both drugs; the clause scope is 8 words, so a negation further back is
+missed; abbreviations are case-sensitive (`SOB`, `ER`), so a lower-case `er` on its own is not a
+hospital cue.

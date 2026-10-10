@@ -1,24 +1,25 @@
 /**
  * Source factory. `createSource(name)` is the only place the bridge decides which plugin runs.
  *
- * Fail-fast policy (CLAUDE.md §7.3): a stubbed source (presage, arduino) is constructed, then
- * refused with its own NotImplemented message plus a hint to switch to mock. An unknown name is
- * refused the same way. The CLI maps both to exit code 2 before opening any port.
+ * Fail-fast policy (CLAUDE.md §7.3/§7.4):
+ *  - a stubbed source (arduino) is constructed, then refused with its own NotImplemented message
+ *    plus a hint to switch to mock; an unknown name is refused the same way;
+ *  - a real source that needs something outside the repo (presage: the native SDK and an API
+ *    key) is handed out here and verified by the CLI through `preflight()` before any port opens.
+ * The CLI maps all three to exit code 2.
  */
 import { ArduinoVitalsSource } from './arduino.js';
 import { MockVitalsSource, type MockOptions } from './mock.js';
-import { PresageVitalsSource } from './presage.js';
+import { PresageVitalsSource, type PresageOptions } from './presage.js';
 import {
   isSourceName,
   isStubbed,
   NotImplementedError,
   SOURCE_NAMES,
+  SWITCH_TO_MOCK_HINT,
   type SourceName,
   type VitalsSource,
 } from './types.js';
-
-export const SWITCH_TO_MOCK_HINT =
-  'Switch to the mock source: --source mock (or VITALS_SOURCE=mock).';
 
 export class UnknownSourceError extends Error {
   override readonly name = 'UnknownSourceError';
@@ -31,6 +32,8 @@ export class UnknownSourceError extends Error {
 export interface CreateSourceOptions {
   /** Options forwarded to the mock source (seed, pacing); ignored for other sources. */
   mock?: MockOptions;
+  /** Options forwarded to the Presage source (api key, camera, logger); ignored for other sources. */
+  presage?: PresageOptions;
 }
 
 function construct(name: SourceName, opts: CreateSourceOptions): VitalsSource {
@@ -38,7 +41,7 @@ function construct(name: SourceName, opts: CreateSourceOptions): VitalsSource {
     case 'mock':
       return new MockVitalsSource(opts.mock);
     case 'presage':
-      return new PresageVitalsSource();
+      return new PresageVitalsSource(opts.presage);
     case 'arduino':
       return new ArduinoVitalsSource();
   }
@@ -48,6 +51,7 @@ function construct(name: SourceName, opts: CreateSourceOptions): VitalsSource {
  * Build the requested source or throw:
  *  - UnknownSourceError for a name outside mock | presage | arduino,
  *  - NotImplementedError (with the stub message + the switch-to-mock hint) for a stub.
+ * A Presage source is returned without touching the SDK; call `preflight()` to verify it.
  */
 export function createSource(name: string, opts: CreateSourceOptions = {}): VitalsSource {
   if (!isSourceName(name)) {
@@ -65,3 +69,4 @@ export function createSource(name: string, opts: CreateSourceOptions = {}): Vita
 export { MockVitalsSource, PresageVitalsSource, ArduinoVitalsSource };
 export * from './types.js';
 export * from './scenarios.js';
+export * from './presageMap.js';
