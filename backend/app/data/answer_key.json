@@ -1,0 +1,371 @@
+{
+  "_about": "Hand-written answer key for the synthetic notes and check-in texts. scripts/evaluate.py scores the scanner against it (precision/recall for AE terms and con-meds, and whether every urgent/emergency case was escalated). escalation = highest expected level: none | human_requested | urgent | emergency.",
+  "cases": [
+    {
+      "id": "N1",
+      "kind": "note",
+      "note_id": "N1",
+      "expected": {
+        "ae_terms": [
+          "Diarrhea",
+          "Nausea"
+        ],
+        "meds": [
+          [
+            "loperamide",
+            "started"
+          ],
+          [
+            "ondansetron",
+            "taking"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N2",
+      "kind": "note",
+      "note_id": "N2",
+      "expected": {
+        "ae_terms": [
+          "Rash maculo-papular",
+          "Pruritus"
+        ],
+        "meds": [
+          [
+            "triamcinolone",
+            "started"
+          ],
+          [
+            "cetirizine",
+            "started"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N3",
+      "kind": "note",
+      "note_id": "N3",
+      "expected": {
+        "ae_terms": [
+          "Dyspnea",
+          "Cough"
+        ],
+        "meds": [
+          [
+            "lisinopril",
+            "stopped"
+          ]
+        ],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "N4",
+      "kind": "note",
+      "note_id": "N4",
+      "expected": {
+        "ae_terms": [
+          "Sinusitis",
+          "Headache"
+        ],
+        "meds": [
+          [
+            "amoxicillin-clavulanate",
+            "started"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N5",
+      "kind": "note",
+      "note_id": "N5",
+      "expected": {
+        "ae_terms": [
+          "Headache",
+          "Mucositis oral"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N6",
+      "kind": "note",
+      "note_id": "N6",
+      "expected": {
+        "ae_terms": [
+          "Confusion",
+          "Anorexia"
+        ],
+        "meds": [
+          [
+            "dexamethasone",
+            "stopped"
+          ]
+        ],
+        "escalation": "urgent",
+        "serious": true
+      }
+    },
+    {
+      "id": "N7",
+      "kind": "note",
+      "note_id": "N7",
+      "expected": {
+        "ae_terms": [
+          "Diarrhea",
+          "Nausea"
+        ],
+        "meds": [
+          [
+            "loperamide",
+            "taking"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N8",
+      "kind": "note",
+      "note_id": "N8",
+      "expected": {
+        "ae_terms": [],
+        "meds": [
+          [
+            "amlodipine",
+            "taking"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T1",
+      "kind": "checkin_text",
+      "text": "I'm not sure if this counts but I've had headaches most afternoons.",
+      "expected": {
+        "ae_terms": [
+          "Headache"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T2",
+      "kind": "checkin_text",
+      "text": "I have chest pain right now and my left arm feels numb.",
+      "expected": {
+        "ae_terms": [
+          "Chest pain - cardiac"
+        ],
+        "meds": [],
+        "escalation": "emergency"
+      }
+    },
+    {
+      "id": "T3",
+      "kind": "checkin_text",
+      "text": "My wife says I've been really tired and I haven't been eating much.",
+      "expected": {
+        "ae_terms": [
+          "Fatigue",
+          "Anorexia"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T4",
+      "kind": "checkin_text",
+      "text": "No new symptoms, I feel pretty good. I did stop taking my Advil though.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [
+          [
+            "ibuprofen",
+            "stopped"
+          ]
+        ],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T5",
+      "kind": "checkin_text",
+      "text": "I threw up twice yesterday and I can't keep water down.",
+      "expected": {
+        "ae_terms": [
+          "Vomiting"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T6",
+      "kind": "checkin_text",
+      "text": "Can I talk to a real person please?",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "human_requested"
+      }
+    },
+    {
+      "id": "T7",
+      "kind": "checkin_text",
+      "text": "The rash is back and it's starting to blister on my arms. I took some Benadryl.",
+      "expected": {
+        "ae_terms": [
+          "Rash maculo-papular"
+        ],
+        "meds": [
+          [
+            "diphenhydramine",
+            "taking"
+          ]
+        ],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T8",
+      "kind": "checkin_text",
+      "text": "I'm confused about whether my tiredness counts as a side effect.",
+      "expected": {
+        "ae_terms": [
+          "Fatigue"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T9",
+      "kind": "checkin_text",
+      "text": "I haven't had any nausea or diarrhea this week.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T10",
+      "kind": "checkin_text",
+      "text": "Urgent care gave me a Z-pack for bronchitis and I've had a fever of 101.",
+      "expected": {
+        "ae_terms": [
+          "Bronchial infection",
+          "Fever"
+        ],
+        "meds": [
+          [
+            "azithromycin",
+            "started"
+          ]
+        ],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T11",
+      "kind": "checkin_text",
+      "text": "He's been sleeping most of the day, and he seems confused at times, more than usual.",
+      "expected": {
+        "ae_terms": [
+          "Fatigue",
+          "Confusion"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T12",
+      "kind": "checkin_text",
+      "text": "Honestly some days I just want to die, I'm so tired of this.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "emergency"
+      }
+    },
+    {
+      "id": "T13",
+      "kind": "checkin_text",
+      "text": "I can't stop coughing at night and I've been short of breath going up stairs.",
+      "expected": {
+        "ae_terms": [
+          "Cough",
+          "Dyspnea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "T14",
+      "kind": "checkin_text",
+      "text": "I went to the ER Sunday because my stomach pain was really bad, they kept me overnight.",
+      "expected": {
+        "ae_terms": [
+          "Abdominal pain"
+        ],
+        "meds": [],
+        "escalation": "urgent",
+        "serious": true
+      }
+    },
+    {
+      "id": "T15",
+      "kind": "checkin_text",
+      "text": "Temp was 38.6 at home last night so I took some Tylenol.",
+      "expected": {
+        "ae_terms": [
+          "Fever"
+        ],
+        "meds": [
+          [
+            "acetaminophen",
+            "taking"
+          ]
+        ],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T16",
+      "kind": "checkin_text",
+      "text": "Mom's been throwing up since last night and can't keep her pills down.",
+      "expected": {
+        "ae_terms": [
+          "Vomiting"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "T17",
+      "kind": "checkin_text",
+      "text": "No SOB at rest but gets breathless climbing stairs. Temp 37.1.",
+      "expected": {
+        "ae_terms": [
+          "Dyspnea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
+    }
+  ]
+}

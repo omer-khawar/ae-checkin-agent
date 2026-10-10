@@ -1,0 +1,37 @@
+{
+  "_about": "SYNTHETIC clinic notes written for this demo, in the indirect style the starter sheet describes ('pt reports 3 days of diarrhea, started loperamide'). They include deliberate traps: negations, history, patient-education text, brand names, and the same AE showing up in a note and a check-in (de-duplication). To scale up, generate more patients/medication lists with Synthea (https://github.com/synthetichealth/synthea).",
+  "notes": [
+    {
+      "id": "N1", "subject_id": "101-001", "note_date": "2026-10-05", "author": "J. Rivera, NP", "note_type": "progress_note",
+      "text": "Oncology follow-up. Pt reports 3 days of diarrhea, 4-5 loose stools per day, started loperamide OTC. Mild nausea persists, taking ondansetron as needed. Denies fever, chills, or vomiting. Pt educated to call for fever > 100.4 or bloody stools."
+    },
+    {
+      "id": "N2", "subject_id": "101-002", "note_date": "2026-10-08", "author": "Dermatology telehealth", "note_type": "consult",
+      "text": "Maculopapular rash over trunk and upper arms, approx 15% BSA, pruritic. Started triamcinolone 0.1% cream BID and cetirizine 10 mg daily. No mucosal involvement, no blistering."
+    },
+    {
+      "id": "N3", "subject_id": "101-003", "note_date": "2026-10-09", "author": "Triage RN", "note_type": "phone_note",
+      "text": "Daughter called: pt with increasing SOB over the past week, now with exertion after one flight of stairs. Dry cough x5 days. Advised to come in for evaluation. Holding lisinopril per PCP due to cough."
+    },
+    {
+      "id": "N4", "subject_id": "101-004", "note_date": "2026-10-06", "author": "Outside urgent care record", "note_type": "outside_record",
+      "text": "Urgent care visit: dx acute sinusitis, prescribed amoxicillin-clavulanate 875 mg BID x10 days. Afebrile. Also reports mild headache."
+    },
+    {
+      "id": "N5", "subject_id": "101-005", "note_date": "2026-10-08", "author": "Infusion RN", "note_type": "progress_note",
+      "text": "Infusion visit. Pt c/o intermittent headaches, mild, and two small oral ulcers. Hx of migraines in her 20s. No nausea or vomiting. Continue current regimen."
+    },
+    {
+      "id": "N6", "subject_id": "101-006", "note_date": "2026-10-08", "author": "Hospital ED", "note_type": "ed_note",
+      "text": "ED visit 10/08: brought in by wife for new confusion and decreased appetite x1 week. Admitted overnight for IV fluids. Dexamethasone discontinued."
+    },
+    {
+      "id": "N7", "subject_id": "101-001", "note_date": "2026-10-09", "author": "Research RN", "note_type": "phone_note",
+      "text": "Nurse call: diarrhea improved on loperamide, now 2 stools/day. Nausea resolved."
+    },
+    {
+      "id": "N8", "subject_id": "101-004", "note_date": "2026-10-01", "author": "J. Rivera, NP", "note_type": "progress_note",
+      "text": "Routine visit. Feels well overall. Denies nausea, diarrhea, cough, or shortness of breath. Afebrile. Continue amlodipine."
+    }
+  ]
+}

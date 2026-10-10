@@ -1,0 +1,19 @@
+# One-click deploy on Render: New + > Blueprint > pick this repo.
+# SQLite lives on the instance's disk, so data resets on each deploy and the demo data re-seeds itself.
+# For persistent data, add a Render Postgres database and set DATABASE_URL.
+services:
+  - type: web
+    name: ae-capture-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SEED_ON_STARTUP
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
