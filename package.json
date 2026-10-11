@@ -1,0 +1,41 @@
+{
+  "name": "interim-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interim: between-visit AE check-in with contactless vitals as eSource (HackRU 2026, Regeneron track)",
+  "license": "MIT",
+  "scripts": {
+    "py": "node -e \"const cp=require('child_process'),path=require('path'),fs=require('fs');const a=process.argv.slice(1);const cwd=path.resolve(a.shift()||'.');const env=Object.assign({},process.env);while(a.length&&/^[A-Z_]+=/.test(a[0])){const kv=a.shift();const i=kv.indexOf('=');env[kv.slice(0,i)]=kv.slice(i+1);}const w=process.platform==='win32';let py=path.resolve(w?'.venv/Scripts/python.exe':'.venv/bin/python');if(!fs.existsSync(py)){py=w?'python':'python3';console.error('[py] .venv not found; falling back to '+py+' on PATH (create it: make install, or see README)');}const r=cp.spawnSync(py,a,{cwd:cwd,env:env,stdio:'inherit'});if(r.error){console.error('[py] '+r.error.message);process.exit(1);}process.exit(r.status===null?1:r.status);\" --",
+    "install:all": "npm ci --no-audit --no-fund && npm --prefix apps/web ci --no-audit --no-fund && npm --prefix apps/vitals-bridge ci --no-audit --no-fund",
+    "dev": "concurrently -k -n api,web,bridge -c blue,green,magenta \"npm run api\" \"npm run web\" \"npm run bridge\"",
+    "api": "npm run -s py -- apps/api -m uvicorn interim_api.main:app --reload --host 0.0.0.0 --port 8000",
+    "web": "npm --prefix apps/web run dev",
+    "bridge": "npm --prefix apps/vitals-bridge run bridge -- --source mock --scenario resting --api http://localhost:8000 --ws-port 8787",
+    "test": "npm run test:rules && npm run test:api && npm run test:scripts && npm run test:bridge && npm run test:web",
+    "test:rules": "npm run -s py -- packages/rules -m pytest -q --cov=interim_rules --cov-branch --cov-report=term --cov-fail-under=95",
+    "test:api": "npm run -s py -- apps/api -m pytest -q",
+    "test:scripts": "npm run -s py -- . scripts/fetch_public.py --offline --strict && npm run -s py -- scripts -m pytest -q && npm run -s py -- . scripts/synthea/import_synthea.py --check && npm run -s py -- . scripts/synthea/eval_synthea.py --check",
+    "test:bridge": "npm --prefix apps/vitals-bridge test",
+    "test:web": "npm --prefix apps/web test",
+    "lint": "npm run lint:py && npm run lint:js",
+    "lint:py": "npm run lint:rules && npm run lint:api && npm run lint:scripts",
+    "lint:rules": "npm run -s py -- packages/rules -m ruff check . && npm run -s py -- packages/rules -m ruff format --check . && npm run -s py -- packages/rules -m mypy --strict interim_rules",
+    "lint:api": "npm run -s py -- apps/api -m ruff check . && npm run -s py -- apps/api -m ruff format --check .",
+    "lint:scripts": "npm run -s py -- scripts -m ruff check . && npm run -s py -- scripts -m ruff format --check . && npm run -s py -- scripts MYPYPATH=../packages/rules -m mypy",
+    "lint:js": "npm --prefix apps/vitals-bridge run lint && npm --prefix apps/vitals-bridge run typecheck && npm --prefix apps/web run lint && npm --prefix apps/web run typecheck",
+    "eval": "npm run -s py -- . scripts/run_eval.py --start-server --include-hidden --strict --out docs/eval/results.md",
+    "eval:live": "npm run -s py -- . scripts/run_eval.py --api http://localhost:8000",
+    "seed": "npm run -s py -- . scripts/seed.py",
+    "demo-reset": "npm run -s py -- . scripts/seed.py --reset",
+    "fetch-public": "npm run -s py -- . scripts/fetch_public.py",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down -v"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

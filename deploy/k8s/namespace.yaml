@@ -1,0 +1,7 @@
+# Interim runs in its own namespace. Every participant in the demo is synthetic.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: interim
+  labels:
+    app.kubernetes.io/part-of: interim

@@ -1,0 +1,81 @@
+{
+  "source": "EMPOWER-Lung 1 protocol R2810-ONC-1624 Amendment 9, §9.3.4 (printed page 91) and §9.4.3 (printed page 92), which name the types of AE 'known to be potentially immune-related (eg, rash, colitis, elevated transaminases, or endocrine)', and CLAUDE.md §00.1, which maps Interim's ten kiosk items onto those types (rash, itching, diarrhea/colitis, shortness of breath/pneumonitis, joint pain, fatigue as an endocrine signal). The protocol's detailed irAE guidance (§7.3.1.2 and Appendix 3, referenced on pages 91 and 92) is not part of the cached excerpt, so the pneumonitis and musculoskeletal rows rest on the Interim team's reading of the class of drug (PD-1 inhibitor) and are labeled as such.",
+  "rationale": "Only the investigator can call an AE immune-related (protocol §9.3.4). Interim needs a fixed, visible answer to a narrower question: could this symptom be the kind of AE the protocol treats as potentially immune-related? A 'true' row lets the protocol rules suspect an AESI (grade 3 or more, or any grade after a PI 3-K inhibitor; protocol_rules.json aesi.criteria) and label it 'possible AESI, investigator to confirm'. 'false' rows are not claims that the symptom cannot be immune-related; they keep the AESI clock for the symptoms the protocol and the brief name.",
+  "protocol_quote": {
+    "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+    "quote": "For any AE that is of a type known to be potentially immune-related (eg, rash, colitis, elevated transaminases, or endocrine) but is deemed not to be an irAE by the investigator, the sponsor may request additional information."
+  },
+  "categories": ["pneumonitis", "colitis", "dermatologic", "endocrine", "musculoskeletal", "mucosal", "none"],
+  "items": [
+    {
+      "item_id": "shortness_of_breath",
+      "potentially_immune_related": true,
+      "irae_category": "pneumonitis",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "Shortness of breath is the participant-reportable sign of pneumonitis, a known immune-related AE of PD-1 inhibitors. Pneumonitis is not among the protocol's four examples ('eg' list); it is included per CLAUDE.md §00.1 and the class label (Interim team reading)."
+    },
+    {
+      "item_id": "cough",
+      "potentially_immune_related": false,
+      "irae_category": "none",
+      "protocol_ref": null,
+      "rationale": "Cough alone is non-specific in lung cancer; pneumonitis is followed through shortness of breath (CLAUDE.md §00.1 does not list cough)."
+    },
+    {
+      "item_id": "fatigue",
+      "potentially_immune_related": true,
+      "irae_category": "endocrine",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "The protocol names 'endocrine' AEs as potentially immune-related; fatigue is the common participant-reported sign of an immune-related endocrine AE (thyroid, adrenal, pituitary). A signal only: fatigue has many other causes."
+    },
+    {
+      "item_id": "nausea",
+      "potentially_immune_related": false,
+      "irae_category": "none",
+      "protocol_ref": null,
+      "rationale": "Not among the protocol's examples or CLAUDE.md §00.1's list; usually related to chemotherapy."
+    },
+    {
+      "item_id": "diarrhea",
+      "potentially_immune_related": true,
+      "irae_category": "colitis",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "The protocol names 'colitis'; diarrhea is its participant-reported sign."
+    },
+    {
+      "item_id": "rash",
+      "potentially_immune_related": true,
+      "irae_category": "dermatologic",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "The protocol names 'rash'. Note: the kiosk asks rash as present / absent, so its provisional grade is at most 1; a grade 3 rash can only come from a chart note or the investigator."
+    },
+    {
+      "item_id": "itching",
+      "potentially_immune_related": true,
+      "irae_category": "dermatologic",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "Itching (pruritus) is a skin AE of the same family as the protocol's 'rash' example (CLAUDE.md §00.1 lists it)."
+    },
+    {
+      "item_id": "joint_pain",
+      "potentially_immune_related": true,
+      "irae_category": "musculoskeletal",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+      "rationale": "Joint pain can be immune-related arthritis on a PD-1 inhibitor. Not among the protocol's four examples ('eg' list); included per CLAUDE.md §00.1 (Interim team reading)."
+    },
+    {
+      "item_id": "fever_or_chills",
+      "potentially_immune_related": false,
+      "irae_category": "none",
+      "protocol_ref": null,
+      "rationale": "Fever usually points to infection first; the protocol asks to rule out infectious causes before labeling an AE an irAE (§9.4.3, p. 92). Not in CLAUDE.md §00.1's list."
+    },
+    {
+      "item_id": "mouth_sores",
+      "potentially_immune_related": false,
+      "irae_category": "mucosal",
+      "protocol_ref": null,
+      "rationale": "Mouth sores (oral mucositis) can be immune-related but more often follow chemotherapy; neither the protocol's examples nor CLAUDE.md §00.1 list it, so it does not start an AESI clock. The category is kept so a site can switch the row on in one place."
+    }
+  ]
+}

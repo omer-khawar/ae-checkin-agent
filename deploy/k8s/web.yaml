@@ -1,0 +1,66 @@
+# Interim web: the static React build served by nginx (apps/web/Dockerfile). nginx proxies /api to
+# the API Service, so the browser talks to one origin. The vitals bridge is NOT deployed here: it
+# runs on the kiosk laptop next to the webcam (docs/VITALS_SOURCES.md).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interim-web
+  labels:
+    app.kubernetes.io/name: interim-web
+    app.kubernetes.io/part-of: interim
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: interim-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: interim-web
+        app.kubernetes.io/part-of: interim
+    spec:
+      containers:
+        - name: web
+          image: interim-web
+          imagePullPolicy: IfNotPresent
+          env:
+            # nginx resolves this per request (apps/web/nginx.conf). Use the fully qualified name:
+            # per-request DNS lookups do not apply the pod's search domains.
+            - name: API_UPSTREAM
+              value: "http://interim-api.interim.svc.cluster.local:8000"
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interim-web
+  labels:
+    app.kubernetes.io/name: interim-web
+    app.kubernetes.io/part-of: interim
+spec:
+  selector:
+    app.kubernetes.io/name: interim-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,248 @@
+# Interim CI: every push and pull request runs lint, type checks, unit/integration tests, the
+# deterministic evaluation (must be 100%) and a Docker build + compose smoke test.
+# No secrets are used or needed: the Presage SDK is never installed and no job touches the network
+# at runtime beyond package registries (public data comes from the committed cache).
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  rules:
+    name: rules (ruff, mypy --strict, pytest + coverage gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rules
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: packages/rules/pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m mypy --strict interim_rules
+      - name: pytest (branch coverage >= 95%)
+        run: python -m pytest -q --cov=interim_rules --cov-branch --cov-report=term-missing --cov-fail-under=95
+
+  api:
+    name: api (ruff, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/rules/pyproject.toml
+            apps/api/pyproject.toml
+      - run: python -m pip install -e ../../packages/rules -e ".[dev]"
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m pytest -q
+
+  scripts:
+    name: scripts (fetch_public offline, tests, Synthea checks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/rules/pyproject.toml
+            scripts/pyproject.toml
+      - name: install (rules package + pinned script deps from scripts/pyproject.toml)
+        run: python -m pip install -e packages/rules openpyxl==3.1.5 httpx==0.28.1 pytest==9.1.1 ruff==0.17.0 mypy==2.4.0
+      - name: public-data cache is complete and real (no network)
+        run: python scripts/fetch_public.py --offline --strict
+      - name: ruff
+        working-directory: scripts
+        run: python -m ruff check . && python -m ruff format --check .
+      - name: mypy --strict
+        working-directory: scripts
+        # mypy does not follow setuptools' editable-install finder; point it at the package source.
+        env:
+          MYPYPATH: ../packages/rules
+        run: python -m mypy
+      - name: pytest
+        working-directory: scripts
+        run: python -m pytest -q
+      - name: Synthea import + eval reproduce the committed outputs
+        run: |
+          if [ -d scripts/synthea ]; then
+            python scripts/synthea/import_synthea.py --check
+            python scripts/synthea/eval_synthea.py --check
+          else
+            echo "scripts/synthea not present; skipping"
+          fi
+
+  bridge:
+    name: vitals-bridge (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/vitals-bridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/vitals-bridge/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: presage fails fast without the SDK (exit 2, before any port opens)
+        run: |
+          set +e
+          node dist/cli.js --source presage --ws-port 0 > out.txt 2>&1
+          code=$?
+          cat out.txt
+          test "$code" -eq 2
+
+  web:
+    name: web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  eval:
+    name: eval (personas + chart-note answer key through the real API, must be 100%)
+    runs-on: ubuntu-latest
+    needs: [rules, api]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/rules/pyproject.toml
+            apps/api/pyproject.toml
+      - run: python -m pip install -e packages/rules -e "apps/api[dev]"
+      # Flags spelled out (they are also the --start-server defaults) so a change of default can
+      # never silently drop the five hidden judge personas or the leaked-eval-row check.
+      - name: run_eval.py --start-server --include-hidden --strict (29 personas + chart notes, 100% or fail)
+        run: python scripts/run_eval.py --start-server --include-hidden --strict --out docs/eval/results.md
+      # The harness's own tests need httpx + interim_api + uvicorn, which only this job installs
+      # (in the scripts job they would be skipped by importorskip).
+      - name: eval harness unit/integration tests
+        working-directory: scripts
+        run: python -m pytest -q tests/test_run_eval.py
+      - name: results document
+        if: always()
+        run: |
+          if [ -f docs/eval/results.md ]; then head -n 60 docs/eval/results.md; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: docs/eval/results.md
+          if-no-files-found: warn
+
+  docker:
+    name: docker (compose build + cold-start smoke)
+    runs-on: ubuntu-latest
+    needs: [api, web, bridge]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kubernetes manifests render (deploy/k8s, used by Argo CD and the Jenkinsfile)
+        run: kubectl kustomize deploy/k8s > /dev/null
+      - name: compose build (no .env, defaults only, exactly like a clean clone)
+        run: docker compose build
+      - name: compose up and wait for health
+        run: docker compose up -d --wait --wait-timeout 180
+      - name: smoke
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/api/v1/health
+          echo
+          curl -fsS -o /dev/null -w "web / -> %{http_code}\n" http://localhost:5173/
+          curl -fsS -o /dev/null -w "web /kiosk (SPA fallback) -> %{http_code}\n" http://localhost:5173/kiosk
+          curl -fsS http://localhost:5173/api/v1/study | head -c 300
+          echo
+          token=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+            -H 'content-type: application/json' \
+            -d '{"username":"admin","password":"interim-demo"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -fsS -H "authorization: Bearer $token" http://localhost:8000/api/v1/audit/verify \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d); sys.exit(0 if d["ok"] else 1)'
+      - name: vitals path (kiosk WebSocket -> bridge -> batched POST -> API audit trail)
+        run: |
+          set -euo pipefail
+          sid=$(curl -fsS -X POST http://localhost:8000/api/v1/sessions \
+            -H 'content-type: application/json' -d '{"usubjid":"P-007","consent_camera":true}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          echo "session $sid"
+          # Play the kiosk: open the bridge WebSocket, start capture for the session, stop after
+          # 8 s (the bridge POSTs a batch every 2 s and flushes on stop). Runs inside the bridge
+          # container, which already has the `ws` client library.
+          docker compose exec -T -e SID="$sid" bridge node -e "
+            const WebSocket = require('ws');
+            const ws = new WebSocket('ws://127.0.0.1:8787');
+            let n = 0;
+            ws.on('open', () => ws.send(JSON.stringify({ type: 'start', sessionId: process.env.SID })));
+            ws.on('message', (m) => {
+              const d = JSON.parse(m);
+              if (d.type === 'sample') n++;
+              if (d.type === 'error') { console.error('bridge error', d); process.exit(1); }
+            });
+            ws.on('error', (e) => { console.error(e.message); process.exit(1); });
+            setTimeout(() => {
+              ws.send(JSON.stringify({ type: 'stop' }));
+              setTimeout(() => { console.log('samples received over WS:', n); process.exit(n > 0 ? 0 : 1); }, 3000);
+            }, 8000);
+          "
+          token=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+            -H 'content-type: application/json' \
+            -d '{"username":"admin","password":"interim-demo"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -fsS -H "authorization: Bearer $token" "http://localhost:8000/api/v1/audit?entity_id=$sid&limit=100" \
+            | python3 -c 'import json,sys; ev=json.load(sys.stdin)["items"]; n=sum(e["action"]=="vitals.batch" for e in ev); print("vitals.batch events persisted:", n); sys.exit(0 if n > 0 else 1)'
+          curl -fsS -H "authorization: Bearer $token" http://localhost:8000/api/v1/audit/verify \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d); sys.exit(0 if d["ok"] else 1)'
+      - name: logs
+        if: always()
+        run: docker compose logs --no-color --tail 80
+      - name: down
+        if: always()
+        run: docker compose down -v

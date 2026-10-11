@@ -1,0 +1,105 @@
+{
+  "source": "Weekly figure: Clinical Trial Vanguard, 'Mednet AI Intake Tool Automates EHR-to-EDC Data Entry in Clinical Trials' (16 Sep 2026), citing Mednet (https://www.clinicaltrialvanguard.com/?p=32325; original: https://www.mednetsolutions.com/blog/ai-emr-intake-breaking-down-data-silos-in-clinical-research/): research coordinators spend 12 to 15 hours per week per study copying EHR data into the EDC. Structured-field rate: Memorial Sloan Kettering + IgniteData time-and-motion study (https://www.mskcc.org/announcements/msk-presents-significant-data-study-findings-to-fda; AACI CRI 2025 abstract https://www.aaci-cancer.org/Files/Admin/CRI/2025/122%2DAbstract%2DScaling%2DEHR%2DTo%2DEDC%2DAcross%2Dthe%2DClinical%2DResearch%2DPortfolio%2DLessons%2Dfrom%2DMSK%2Epdf): 5 data managers entered 3023 lab/vital data points by hand in 5 data-manager-hours vs 4768 with EHR-to-EDC (58% more; MSK calls it a 58% productivity gain). Error context only: Garza MY et al., 'Error Rates of Data Processing Methods in Clinical Research: A Systematic Review and Meta-Analysis' (2023, doi:10.21203/rs.3.rs-2386986/v2, https://pmc.ncbi.nlm.nih.gov/articles/PMC10775420/): pooled medical-record-abstraction error rate 6.57% (95% CI 5.51-7.72).",
+  "rationale": "Interim shows coordinator time removed as an ESTIMATE (CLAUDE.md §00.5, CONTRACTS.md R3.1). No published source states minutes per AE, CM or SAE-form field, so those values are ASSUMPTIONS, each written as a multiple of the one sourced per-field rate (MSK: 60 min / (3023 / 5) data points per hour = 0.099 min per structured lab/vital field, rounded to 0.1). Free-text work (narrative paragraph, brief section) is an assumption in minutes per unit. A pre-filled field that a person had to edit earns no saving. The weekly 12-15 h figure is shown only as context ('compare with ...'), never multiplied into the estimate. The 6.57% abstraction error rate is context for why pre-filling with evidence matters; it is not used in any arithmetic.",
+  "disclaimer": "estimate",
+  "disclaimer_text": "Time saved is an estimate: minutes per field are assumptions anchored to one published data-entry rate, not a measurement at this site.",
+  "weekly_baseline": {
+    "hours_low": 12,
+    "hours_high": 15,
+    "per": "study per week",
+    "what": "coordinator time spent copying data that already exists in the EHR into the EDC",
+    "basis": "source",
+    "source": "Clinical Trial Vanguard, 16 Sep 2026, citing Mednet: https://www.clinicaltrialvanguard.com/?p=32325",
+    "rationale": "Context for the on-screen estimate. The lower bound (12 h = 720 min) is the conservative comparison; the estimate itself is built from per-field minutes, not from this figure."
+  },
+  "anchor_rate": {
+    "name": "manual structured-field entry rate",
+    "data_points": 3023,
+    "person_hours": 5,
+    "minutes_per_field": 0.099,
+    "basis": "source",
+    "source": "MSK + IgniteData time-and-motion study (5 data managers x 1 hour manual entry of labs and vitals): https://www.mskcc.org/announcements/msk-presents-significant-data-study-findings-to-fda",
+    "rationale": "60 min / (3023 / 5) = 0.099 min per field. The only published per-field figure found; it measures copying already-structured numbers, the fastest kind of entry, so it is a floor for everything else."
+  },
+  "categories": {
+    "AE": {
+      "minutes_per_unit": 1.0,
+      "unit_singular": "AE field",
+      "unit_plural": "AE fields",
+      "basis": "assumption",
+      "derivation": "Assumption: 10 x the MSK structured-field rate (0.1 min x 10 = 1.0 min). An AE field means reading a note or the check-in, choosing the CTCAE term, working out the onset date and the grade; that is reading and judgment, not copying a number.",
+      "source": "Assumption anchored to the MSK rate above; no published per-AE-field time was found."
+    },
+    "CM": {
+      "minutes_per_unit": 0.75,
+      "unit_singular": "medication field",
+      "unit_plural": "medication fields",
+      "basis": "assumption",
+      "derivation": "Assumption: 7.5 x the MSK structured-field rate (0.1 min x 7.5 = 0.75 min). Medication name, dose, unit, frequency, indication and dates are usually on a medication list, but the generic name and the start/stop dates must be looked up.",
+      "source": "Assumption anchored to the MSK rate above; no published per-CM-field time was found."
+    },
+    "VS": {
+      "minutes_per_unit": 0.1,
+      "unit_singular": "vitals field",
+      "unit_plural": "vitals fields",
+      "basis": "source",
+      "derivation": "Derived from the MSK study: 60 min / (3023 / 5) data points = 0.099 min per field, rounded to 0.1 min.",
+      "source": "MSK + IgniteData time-and-motion study: https://www.mskcc.org/announcements/msk-presents-significant-data-study-findings-to-fda"
+    },
+    "SAE_FORM": {
+      "minutes_per_unit": 1.5,
+      "unit_singular": "serious or special-interest event report field",
+      "unit_plural": "serious or special-interest event report fields",
+      "basis": "assumption",
+      "derivation": "Assumption: 15 x the MSK structured-field rate (0.1 min x 15 = 1.5 min). A report field for a serious event or an event of special interest is cross-checked against several sources under a 24-hour deadline.",
+      "source": "Assumption anchored to the MSK rate above; no published per-field time for SAE forms was found.",
+      "protocol_ref": { "section": "9.4.2", "printed_page": 91 }
+    },
+    "NARRATIVE_PARAGRAPH": {
+      "minutes_per_unit": 10.0,
+      "unit_singular": "narrative paragraph",
+      "unit_plural": "narrative paragraphs",
+      "basis": "assumption",
+      "derivation": "Assumption: 10 minutes to write one paragraph of an event narrative from the chart and the check-in (gather facts, order them in time, write, re-read).",
+      "source": "Assumption; no published per-paragraph time was found."
+    },
+    "BRIEF_SECTION": {
+      "minutes_per_unit": 5.0,
+      "unit_singular": "visit brief section",
+      "unit_plural": "visit brief sections",
+      "basis": "assumption",
+      "derivation": "Assumption: 5 minutes to assemble one section of a pre-visit summary (new side effects, open AEs, medication changes, alerts, notes, questions) by searching the chart and the EDC.",
+      "source": "Assumption; no published per-section time was found."
+    }
+  },
+  "aliases": {
+    "AESI_FORM": "SAE_FORM",
+    "SAE": "SAE_FORM",
+    "AESI": "SAE_FORM",
+    "PACKET": "SAE_FORM",
+    "NARRATIVE": "NARRATIVE_PARAGRAPH",
+    "BRIEF": "BRIEF_SECTION"
+  },
+  "countable_fields": {
+    "source": "CDISC SDTM AE/VS/CM variables a coordinator types into an EDC by hand; CM list follows the protocol's CM CRF requirement (generic name, dose, dose unit, frequency, indication, start/stop date).",
+    "rationale": "Identifiers the EDC fills itself (STUDYID, USUBJID, --SEQ), INTERIM_* bookkeeping and investigator-only fields (AESER, AEREL) are not counted as time saved. A field counts as pre-filled only when its value is not empty.",
+    "protocol_ref": { "section": "7.7", "printed_page": 69 },
+    "AE": ["AETERM", "AEDECOD", "AESTDTC", "AEENDTC", "AEONGO", "AETOXGR", "AEACN", "AEOUT"],
+    "VS": ["VSTESTCD", "VSORRES", "VSORRESU", "VSDTC", "VSMETHOD", "VSSTAT"],
+    "CM": ["CMTRT", "CMDECOD", "CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC", "CMSTDTC", "CMENDTC"]
+  },
+  "context_sources": [
+    {
+      "id": "abstraction_error_rate",
+      "value": "6.57% (95% CI 5.51-7.72) pooled error rate for manual medical record abstraction",
+      "source": "Garza MY et al., Error Rates of Data Processing Methods in Clinical Research: A Systematic Review and Meta-Analysis (2023), doi:10.21203/rs.3.rs-2386986/v2, https://pmc.ncbi.nlm.nih.gov/articles/PMC10775420/",
+      "rationale": "Context only: why every pre-filled field carries its evidence. Not used in the time arithmetic."
+    },
+    {
+      "id": "msk_productivity",
+      "value": "58% more data entered per hour with EHR-to-EDC than by hand (3023 vs 4768 data points); errors 100 -> 1",
+      "source": "https://www.mskcc.org/announcements/msk-presents-significant-data-study-findings-to-fda",
+      "rationale": "Context and the anchor rate for structured fields. A 5-person, 1-hour study of labs and vitals; not a measurement of AE work."
+    }
+  ]
+}

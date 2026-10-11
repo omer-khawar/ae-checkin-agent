@@ -1,0 +1,583 @@
+{
+  "source": "Ported from backend/app/services/extract.py of omer-khawar/ae-checkin-agent (Omer Khawar, MIT), 2026-10-10 (CONTRACTS.md R2.4, decision D-014). Symptom term names are NCI CTCAE v5.0 term names (evs.nci.nih.gov, 2017-11-27). Grade thresholds for diarrhea (stools/day over baseline) and maculo-papular rash (% body surface area) are the CTCAE v5.0 grade definitions. The exclusion approach follows NegEx (Chapman WW et al., J Biomed Inform 2001;34(5):301-310): a negation cue before the term within the same clause, cut at a scope terminator, plus a small pseudo-negation list.",
+  "rationale": "Every regular expression the chart-note scanner uses is data in this table (CLAUDE.md section 13: code reads tables, code does not hardcode clinical patterns). interim_rules.chartscan compiles each pattern once per process with re.IGNORECASE; (?-i:...) marks a case-sensitive abbreviation (SOB, N/V, ER). symptom_patterns and med_patterns are wrapped as \\b(?:pattern)\\b by the loader; every other pattern is used exactly as written. Before matching, the scanner maps the typographic punctuation listed in text_normalization to ASCII (one code point each, so offsets are preserved) and reads its context windows from scope. Adding a symptom, drug or cue means adding a row here and a case to chartscan_answer_key.json, then re-running tests/test_chartscan.py. This is a hand-built lexicon for a demo: it is not MedDRA, not RxNorm, and misses spellings and phrasings outside the patterns (docs/WHAT_IT_GETS_WRONG.md).",
+  "regex_notes": "A temperature in fever range (Fahrenheit 100-104.x or Celsius 38-41.x) is the temperature_high pattern; it appears verbatim inside symptom_patterns.Fever and inside the fever rule of chartscan_red_flags.json, and tests/test_chartscan.py checks the three copies stay identical.",
+  "temperature_high": {
+    "pattern": "(?:temp(?:erature)?|t ?max|t)\\s*(?:of |was |is |to |at |up to |:\\s*)?(?:10[0-4](?:\\.\\d)?|3[89](?:\\.\\d)?|4[01](?:\\.\\d)?)|10[0-4](?:\\.\\d)?\\s*(?:°\\s*f?|degrees?)",
+    "source": "Original scanner. Fever threshold 100.4 F / 38.0 C is the usual oncology neutropenic-fever cut-off (NCCN); the pattern accepts 100.0 F upward so a note that writes 'temp 100' is not missed.",
+    "rationale": "A written temperature is a fever report even when the word 'fever' is absent ('Temp was 38.6 at home'). 'Tmax 101.3' (maximum temperature, common in inpatient and nursing notes) counts too (added after review, 2026-10-10)."
+  },
+  "text_normalization": {
+    "source": "Unicode punctuation that word processors and phones substitute automatically: U+2018/U+2019 single quotation marks and U+02BC/U+00B4 apostrophe look-alikes (Word, Outlook, iOS smart punctuation), U+201C/U+201D double quotation marks, U+2010/U+2011/U+2013 hyphen/dash variants, U+00A0 non-breaking space. Added after review, 2026-10-10.",
+    "rationale": "Every cue in this table is written with ASCII punctuation (haven't, can't keep water down, amoxicillin-clavulanate). Text pasted from Word or typed on a phone carries the typographic variants, which silently defeated every contraction-based negation, pseudo-negation, declined-medication and red-flag cue. The scanner maps each listed code point to its ASCII equivalent before matching. Every entry is one code point to one code point (the loader rejects anything else), so span_start/span_end still index the caller's original text and quotes are sliced from it unchanged.",
+    "map": {
+      "‘": "'",
+      "’": "'",
+      "ʼ": "'",
+      "´": "'",
+      "“": "\"",
+      "”": "\"",
+      "‐": "-",
+      "‑": "-",
+      "–": "-",
+      " ": " "
+    }
+  },
+  "scope": {
+    "source": "NegEx (Chapman 2001) scopes a negation over the following 5-6 tokens; the original scanner (Omer Khawar) used 8 words before the term and fixed character windows around it. Values unchanged from the original; moved here from module constants after review, 2026-10-10 (CLAUDE.md section 13: a threshold that decides which cue counts for a finding is data).",
+    "rationale": "negation_max_words: how many words before the term (after the last terminator, same sentence) a negation or history cue may sit. grade_window_chars: how far from the term an explicit 'grade N' or a worsening word counts. severity_before_chars / severity_after_chars: how far a severity word may sit from the term. onset_before_chars / onset_after_chars: how far a duration ('x5 days') or relative phrase may sit. allergy_lookback_chars: how far before a drug an allergy word still marks it as an allergy listing. med_negated_lookahead_chars: how far after a drug a declined/not-started cue is looked for. med_verb_lookahead_chars: how far after a drug a start/stop/change verb is looked for (before the drug, the whole clause counts). All windows stop at the sentence boundary.",
+    "negation_max_words": 8,
+    "grade_window_chars": 60,
+    "severity_before_chars": 30,
+    "severity_after_chars": 25,
+    "onset_before_chars": 30,
+    "onset_after_chars": 35,
+    "allergy_lookback_chars": 40,
+    "med_negated_lookahead_chars": 30,
+    "med_verb_lookahead_chars": 40
+  },
+  "provenance": {
+    "symptom_patterns": {
+      "source": "Original scanner lexicon (Omer Khawar). Term names: NCI CTCAE v5.0. Ten of the terms (Dyspnea, Cough, Fatigue, Nausea, Diarrhea, Rash maculo-papular, Pruritus, Arthralgia, Fever, Mucositis oral) are the same AEDECOD values the kiosk items use (ctcae_terms.json), so a note finding and a check-in finding can be de-duplicated by term; the remaining terms are valid CTCAE v5.0 terms that notes commonly mention.",
+      "rationale": "Lay phrasings, clinician shorthand and abbreviations for each term. Lookaheads stop the commonest false friends: 'tired of this' is not fatigue; 'confused about whether' is not confusion."
+    },
+    "med_patterns": {
+      "source": "Original scanner lexicon (Omer Khawar): generic name -> brand names, abbreviations and common misspellings. Not RxNorm.",
+      "rationale": "Keyed by the lowercase generic so a brand mention ('Zofran') normalizes to its generic ('ondansetron'), matching CMDECOD conventions. 'amoxicillin' excludes the combination product so 'amoxicillin-clavulanate' is one drug, not two."
+    }
+  },
+  "symptom_patterns": {
+    "Nausea": [
+      "nause(?:a|ous|ated)",
+      "queasy",
+      "sick to (?:my|his|her|their|the) stomach",
+      "(?-i:N/V)",
+      "nausea/vomiting"
+    ],
+    "Vomiting": [
+      "vomit(?:ing|ed|s)?",
+      "throw(?:ing|s)? up",
+      "threw up",
+      "emesis",
+      "(?-i:N/V)"
+    ],
+    "Diarrhea": [
+      "diarrh(?:o)?ea",
+      "loose (?:stools?|bowel movements|(?-i:BMs?))",
+      "watery (?:stools?|bowel movements)",
+      "the runs"
+    ],
+    "Constipation": [
+      "constipat(?:ed|ion)"
+    ],
+    "Rash maculo-papular": [
+      "rash(?:es)?",
+      "(?:red|itchy) (?:spots|bumps|patches)"
+    ],
+    "Pruritus": [
+      "itch(?:y|ing|iness)",
+      "prurit(?:us|ic)"
+    ],
+    "Urticaria": [
+      "hives",
+      "urticaria"
+    ],
+    "Dyspnea": [
+      "short(?:ness)? of breath",
+      "(?-i:SOB)",
+      "(?-i:DOE)",
+      "dyspn(?:o)?ea",
+      "(?:can't|cannot|can not|couldn't) catch (?:my|his|her|their|the) breath",
+      "winded",
+      "breathless(?:ness)?",
+      "(?:trouble|difficulty|hard time) breathing",
+      "hard to breathe",
+      "out of breath"
+    ],
+    "Fatigue": [
+      "fatigue(?:d)?",
+      "tired(?:ness)?(?!\\s+of\\b)",
+      "exhaust(?:ed|ion)",
+      "(?:no|low|lack of|zero) energy",
+      "letharg(?:y|ic)",
+      "sleep(?:ing|s)? (?:all|most of) (?:the )?day",
+      "wiped out",
+      "worn out"
+    ],
+    "Cough": [
+      "cough(?:ing|s|ed)?"
+    ],
+    "Headache": [
+      "headaches?",
+      "(?-i:HA)",
+      "migraines?"
+    ],
+    "Anorexia": [
+      "(?:decreased|poor|low|no|loss of|lost (?:my|his|her|their|the)) appetite",
+      "not (?:eating|hungry)",
+      "(?:hasn't|haven't|has not|have not) been eating"
+    ],
+    "Fever": [
+      "fevers?",
+      "feverish",
+      "febrile",
+      "(?:temp(?:erature)?|t ?max|t)\\s*(?:of |was |is |to |at |up to |:\\s*)?(?:10[0-4](?:\\.\\d)?|3[89](?:\\.\\d)?|4[01](?:\\.\\d)?)|10[0-4](?:\\.\\d)?\\s*(?:°\\s*f?|degrees?)"
+    ],
+    "Chills": [
+      "chills",
+      "rigors"
+    ],
+    "Dizziness": [
+      "dizz(?:y|iness)",
+      "light-?headed(?:ness)?",
+      "vertigo"
+    ],
+    "Mucositis oral": [
+      "(?:mouth|oral|aphthous) (?:sores?|ulcers?)",
+      "sores? in (?:my|his|her|their|the) mouth",
+      "stomatitis",
+      "mucositis"
+    ],
+    "Chest pain - cardiac": [
+      "chest (?:pain|pressure|tightness)"
+    ],
+    "Abdominal pain": [
+      "(?:abdominal|stomach|belly|abd) (?:pain|cramps?|cramping)",
+      "stomach ?ache"
+    ],
+    "Arthralgia": [
+      "joint (?:pain|aches?)",
+      "arthralgias?"
+    ],
+    "Myalgia": [
+      "muscle (?:aches?|pain)",
+      "myalgias?"
+    ],
+    "Insomnia": [
+      "insomnia",
+      "(?:can't|cannot|couldn't) sleep",
+      "trouble sleeping"
+    ],
+    "Edema limbs": [
+      "(?:leg|ankle|feet|foot) swelling",
+      "swollen (?:legs?|ankles?|feet|foot)",
+      "(?:pedal|peripheral|lower extremity|(?-i:LE)) edema"
+    ],
+    "Confusion": [
+      "(?:new|increased|increasing|worsening|acute) confusion",
+      "altered mental status",
+      "(?-i:AMS)",
+      "disoriented",
+      "confused(?!\\s+(?:about|whether|if|by|on|as to|why|what))"
+    ],
+    "Sinusitis": [
+      "sinusitis",
+      "sinus infection"
+    ],
+    "Upper respiratory infection": [
+      "(?-i:URI)",
+      "upper respiratory infection",
+      "head cold",
+      "chest cold"
+    ],
+    "Urinary tract infection": [
+      "(?-i:UTI)",
+      "urinary tract infection",
+      "bladder infection"
+    ],
+    "Pneumonitis": [
+      "pneumonitis"
+    ],
+    "Bronchial infection": [
+      "bronchitis"
+    ],
+    "Colitis": [
+      "colitis"
+    ]
+  },
+  "med_patterns": {
+    "ondansetron": [
+      "ondansetron",
+      "zofran"
+    ],
+    "loperamide": [
+      "loperamide",
+      "imodium"
+    ],
+    "amoxicillin-clavulanate": [
+      "augmentin",
+      "amoxicillin[- /]clavulanate",
+      "amox[- /]clav"
+    ],
+    "amoxicillin": [
+      "amoxicillin(?![- /]clav)",
+      "amoxil"
+    ],
+    "azithromycin": [
+      "azithromycin",
+      "zithromax",
+      "z-?pac?k"
+    ],
+    "doxycycline": [
+      "doxycycline"
+    ],
+    "cephalexin": [
+      "cephalexin",
+      "keflex"
+    ],
+    "ciprofloxacin": [
+      "cipro(?:floxacin)?"
+    ],
+    "levofloxacin": [
+      "levofloxacin",
+      "levaquin"
+    ],
+    "nitrofurantoin": [
+      "nitrofurantoin",
+      "macrobid"
+    ],
+    "prednisone": [
+      "prednisone"
+    ],
+    "methylprednisolone": [
+      "methylprednisolone",
+      "solu-?medrol",
+      "medrol"
+    ],
+    "dexamethasone": [
+      "dexamethasone",
+      "decadron"
+    ],
+    "hydrocortisone": [
+      "hydrocortisone"
+    ],
+    "triamcinolone": [
+      "triamcinolone"
+    ],
+    "diphenhydramine": [
+      "diphenhydramine",
+      "benadryl"
+    ],
+    "cetirizine": [
+      "cetirizine",
+      "zyrtec"
+    ],
+    "loratadine": [
+      "loratadine",
+      "claritin"
+    ],
+    "acetaminophen": [
+      "acetaminophen",
+      "tylenol",
+      "paracetamol"
+    ],
+    "ibuprofen": [
+      "ibuprofen",
+      "advil",
+      "motrin"
+    ],
+    "naproxen": [
+      "naproxen",
+      "aleve"
+    ],
+    "omeprazole": [
+      "omeprazole",
+      "prilosec"
+    ],
+    "famotidine": [
+      "famotidine",
+      "pepcid"
+    ],
+    "metoclopramide": [
+      "metoclopramide",
+      "reglan"
+    ],
+    "prochlorperazine": [
+      "prochlorperazine",
+      "compazine"
+    ],
+    "albuterol": [
+      "albuterol",
+      "ventolin",
+      "proair"
+    ],
+    "benzonatate": [
+      "benzonatate",
+      "tessalon"
+    ],
+    "guaifenesin": [
+      "guaifenesin",
+      "mucinex"
+    ],
+    "dextromethorphan": [
+      "dextromethorphan",
+      "robitussin"
+    ],
+    "oseltamivir": [
+      "oseltamivir",
+      "tamiflu"
+    ],
+    "fluconazole": [
+      "fluconazole",
+      "diflucan"
+    ],
+    "lorazepam": [
+      "lorazepam",
+      "ativan"
+    ],
+    "melatonin": [
+      "melatonin"
+    ],
+    "oxycodone": [
+      "oxycodone"
+    ],
+    "docusate": [
+      "docusate",
+      "colace"
+    ],
+    "senna": [
+      "senna",
+      "senokot"
+    ],
+    "polyethylene glycol": [
+      "polyethylene glycol",
+      "miralax"
+    ],
+    "bismuth subsalicylate": [
+      "bismuth subsalicylate",
+      "pepto(?:-?bismol)?"
+    ],
+    "lisinopril": [
+      "lisinopril"
+    ],
+    "metformin": [
+      "metformin"
+    ],
+    "atorvastatin": [
+      "atorvastatin",
+      "lipitor"
+    ],
+    "levothyroxine": [
+      "levothyroxine",
+      "synthroid"
+    ],
+    "amlodipine": [
+      "amlodipine",
+      "norvasc"
+    ]
+  },
+  "negation": {
+    "pattern": "\\b(?:no|not|never|none|denies|denied|deny|denying|without|negative for|free of|absence of)\\b|\\w+n't\\b",
+    "source": "NegEx pre-term negation cues (Chapman 2001) plus clinic shorthand ('denies', 'negative for') and contractions ('haven't').",
+    "rationale": "A cue in the scope before the term (same clause, at most 8 words, cut at the last terminator) negates the mention."
+  },
+  "pseudo_negation": {
+    "pattern": "\\b(?:can't stop|cannot stop|won't stop|couldn't stop|not only|not sure|no change in|not improved|not better|no improvement|didn't help|doesn't help|won't go away|not going away|no relief|not gone)\\b",
+    "source": "NegEx pseudo-negation list, adapted to patient speech.",
+    "rationale": "Phrases that contain a negation word but do not negate the symptom ('I can't stop coughing', 'not sure if this counts'). They are blanked out of the scope before the negation check."
+  },
+  "terminators": {
+    "pattern": "\\b(?:but|however|although|though|except|aside from|apart from|reports?|reported|reporting|endorses?|endorsed|complains?|complained|c/o|presents?|presented|states?|stated|says|said|notes?|noted|now|which|who|with|started|starting|began|positive for)\\b|[;:]|,\\s*(?:and\\s+)?(?:(?:has|had|is|was|now|mild|moderate|severe|very severe|significant|some|slight|minimal|new|worsening|increasing|persistent|intermittent|ongoing|occasional|positive)\\b|\\d|\\+)",
+    "source": "NegEx scope terminators plus clinical reporting verbs. The comma rule was extended after review, 2026-10-10.",
+    "rationale": "A negation only reaches the next terminator: 'No fever but has diarrhea' negates fever, not diarrhea. A bare comma does NOT end the scope, so 'Denies nausea, vomiting, diarrhea' negates the whole list; but a comma followed by a severity, quantity or positivity word ('No fever, mild diarrhea', 'no vomiting, 3 loose stools/day', 'No rash, + pruritus') starts a new affirmative clause and ends the scope. Trade-off: 'No rash, itching on the legs' (a comma followed by a bare symptom) is still read as a negated list; a human reader would hesitate there too."
+  },
+  "historical": {
+    "pattern": "\\b(?:history of|hx of|h/o|previously had|prior history of|in the past had)\\b",
+    "source": "NegEx/ConText historical cues.",
+    "rationale": "'Hx of migraines in her 20s' is history, not a current adverse event."
+  },
+  "hypothetical": {
+    "pattern": "\\b(?:call (?:if|for|with)|(?:call|dial) (?:911|9-1-1|(?:the |your )?(?:doctor|clinic|office|study team|care team|team|nurse|oncologist|provider)|us) (?:if|should)|return (?:if|for)|seek (?:emergency |immediate |urgent |medical )?(?:care|attention|help|medical attention) if|go to the (?:er|ed|emergency (?:room|department)|hospital|nearest (?:er|ed|emergency (?:room|department)|hospital)) if|return to (?:the )?(?:er|ed|emergency (?:room|department)|hospital)(?= (?:if|for|with|should)\\b)|if (?:\\w+ ){0,3}(?:worsens?|worsening|gets? worse|feels? worse|feeling worse|becomes? worse|persists?|recurs?|(?:does|do)(?: not|n't) (?:improve|resolve|go away))|should (?:you|he|she|they|pt|patient|the patient) (?:develop|experience|have|notice|get)|precautions|monitor(?:ing)? for|watch for|educated|education|instructed|warning signs|in case of|risk of|side effects? (?:include|such as|of)|counsell?ed|if (?:he|she|they|you|pt|patient) (?:develops?|experiences?|has|have|notices?|gets?)|prn for|as needed for)\\b",
+    "source": "ConText hypothetical cues plus patient-education phrasing common in oncology notes. 'prn for' / 'as needed for' added after review, 2026-10-10. Discharge-advice cues ('if symptoms worsen', 'should you develop', 'return to the ER if', 'go to the emergency room if') added 2026-10-11 after the judge review (ISSUES #25): discharge advice was starting SAE clocks. 'call 911 if' / 'call your doctor if', 'if you feel worse' and 'seek emergency care if' added the same day; 'call 911 for X' is deliberately not a cue ('had to call 911 for chest pain' reports an event).",
+    "rationale": "'Pt educated to call for fever > 100.4' is an instruction; the fever did not happen. 'Tylenol PRN for fever' is a standing as-needed order, not a fever report. Checked over the sentence: every cue that starts before the term counts, including one that runs into the term ('go to the ER if' silences the ER cue). A symptom that is also mentioned affirmatively elsewhere in the text still counts (the affirmative mention wins)."
+  },
+  "post_negation": {
+    "pattern": "^\\W{0,4}(?:was |were |is )?(?:(?:ruled out|absent|negative)\\b|(?:no|none|nil|neg|denied)\\s*(?:[.;,)]|$))",
+    "source": "NegEx post-term negation cues; review-of-systems checklist negatives ('Nausea: no', 'Fever - none') added after review, 2026-10-10.",
+    "rationale": "'Pneumonitis ruled out' is a negated mention even though the cue follows the term. Templated EHR notes list symptoms as 'Term: no' / 'Term - none'; the short cues (no, none, nil, neg, denied) count only when they end the clause (followed by punctuation or the end of the sentence), so 'rash, no blistering' still reports the rash."
+  },
+  "resolved": {
+    "pattern": "^\\W{0,3}(?:has |have |had )?(?:resolved|went away|gone away|is gone|improved)\\b",
+    "source": "Original scanner.",
+    "rationale": "A resolved symptom is still a reportable AE (it happened); the cue is recorded in the finding's reason so the coordinator can set an end date. It never excludes the mention (answer-key note N7 expects 'Nausea resolved' to count)."
+  },
+  "severity_words": {
+    "source": "Original scanner; the three buckets mirror CTCAE's mild / moderate / severe language.",
+    "rationale": "Nearest severity word to the term wins (within scope.severity_before_chars before or scope.severity_after_chars after, same sentence). It is a grade hint for the investigator, never a validated grade.",
+    "words": [
+      {
+        "pattern": "\\b(?:very severe|severe|significant|intractable|debilitating|unbearable|terrible)\\b",
+        "grade": 3
+      },
+      {
+        "pattern": "\\bmoderate\\b",
+        "grade": 2
+      },
+      {
+        "pattern": "\\b(?:mild|slight|minimal|a little|a bit of)\\b",
+        "grade": 1
+      }
+    ]
+  },
+  "explicit_grade": {
+    "pattern": "\\b(?:grade\\s*([1-5])|(?-i:G([1-5])))\\b",
+    "source": "Original scanner; the cap was added after review, 2026-10-10 (CLAUDE.md section 3.4(b): grades 4 and 5 are never assigned by this system).",
+    "rationale": "A clinician who wrote 'grade 3 diarrhea' or 'G2 rash' has graded it; that wins over every other cue (searched within scope.grade_window_chars of the term). A transcribed grade above composite_to_grade.json max_assignable_grade (3) is capped at that value and the grade_basis says what the clinician wrote, so AETOXGR never carries a 4 or 5 that software put there; the investigator sets the final grade."
+  },
+  "default_grade": {
+    "grade": 1,
+    "basis": "mentioned without a severity word -> provisional grade 1",
+    "source": "Original scanner; CTCAE v5.0 grade 1 = mild, asymptomatic or mild symptoms.",
+    "rationale": "A mentioned symptom with no severity cue is hinted at grade 1 so the AE draft has a provisional value the investigator must confirm or change."
+  },
+  "stool_count": {
+    "pattern": "(\\d+)\\s*(?:x|times|episodes|stools|loose stools|(?-i:BMs?)|bowel movements)\\s*(?:a|per|/)?\\s*(?:day|d)\\b",
+    "term": "Diarrhea",
+    "bands": [
+      {
+        "grade": 1,
+        "upper": 4,
+        "inclusive": false
+      },
+      {
+        "grade": 2,
+        "upper": 6,
+        "inclusive": true
+      },
+      {
+        "grade": 3,
+        "upper": null,
+        "inclusive": true
+      }
+    ],
+    "basis": "{n} stools/day -> CTCAE v5 diarrhea grade {grade} (assumes baseline ~0 over usual)",
+    "source": "NCI CTCAE v5.0 Diarrhea: grade 1 increase of <4 stools per day over baseline; grade 2 increase of 4-6; grade 3 increase of >=7.",
+    "rationale": "Applies to Diarrhea only. The count in the note is read as the increase over baseline (baseline assumed ~0), which the basis text says explicitly."
+  },
+  "bsa": {
+    "pattern": "(\\d+(?:\\.\\d+)?)\\s*%\\s*(?:of\\s+)?(?:(?-i:BSA)|body surface area)",
+    "term": "Rash maculo-papular",
+    "bands": [
+      {
+        "grade": 1,
+        "upper": 10,
+        "inclusive": false
+      },
+      {
+        "grade": 2,
+        "upper": 30,
+        "inclusive": true
+      },
+      {
+        "grade": 3,
+        "upper": null,
+        "inclusive": true
+      }
+    ],
+    "basis": "{match} -> CTCAE v5 maculo-papular rash grade {grade} (<10% G1, 10-30% G2, >30% G3)",
+    "source": "NCI CTCAE v5.0 Rash maculo-papular: grade 1 <10% BSA; grade 2 10-30% BSA; grade 3 >30% BSA.",
+    "rationale": "Applies to Rash maculo-papular only; the percentage is searched over the whole sentence."
+  },
+  "worsening": {
+    "pattern": "\\b(?:worse|worsening|getting worse|increasing|increased|progressive)\\b",
+    "source": "Original scanner.",
+    "rationale": "A worsening cue within 60 characters of the term sets the finding's worsening flag for the coordinator; it does not change the grade hint."
+  },
+  "hospital": {
+    "pattern": "\\b(?:admitted(?!\\s+(?:to\\s+)?(?:having|that|he|she|they|it|being|not|using|taking|drinking|smoking|missing|skipping|forgetting)\\b)|admission|hospitali[sz](?:ed|ation)|(?-i:ED|ER) (?:visit|course|eval(?:uation)?|physician|provider|stay|workup|note|trip)|emergency (?:room|department)|(?:went|taken|brought|presented|came|sent|transferred) to the (?:(?-i:ER|ED)|er|hospital)|(?:in|at|to|from|via) the (?-i:ER|ED)|in the hospital|inpatient)\\b",
+    "raise_grade_to": 3,
+    "basis_suffix": "; raised to 3 because hospitalization/ER is mentioned",
+    "source": "ICH E2A: hospitalization or prolongation of hospitalization is a seriousness criterion; CTCAE grade 3 = severe or medically significant, hospitalization indicated.",
+    "rationale": "A symptom in the same sentence as a hospital/ER mention is hinted at grade 3, but only when the hospital mention itself passes the same negation / history / hypothetical check as the symptom ('Not admitted; has diarrhea' stays grade 1; fixed after review, 2026-10-10). The same pattern is the hospitalization red flag in chartscan_red_flags.json (kept identical; checked by tests). Tightened after review, 2026-10-10: 'admitted' is not a hospital cue when followed by 'to having', 'that', a pronoun or a verb ('admitted to having mild nausea'); 'ED' / 'ER' alone count only with hospital context ('in the ED', 'ER visit', 'ER course'), so 'the sob story about ED' does not start an SAE clock. Residual ambiguity: 'admission' in any sense ('admission note') still counts."
+  },
+  "number_words": {
+    "source": "Original scanner.",
+    "rationale": "Spelled-out counts in durations ('a couple of days' = 2, 'a few days' = 3, 'several days' = 4).",
+    "values": {
+      "one": 1,
+      "two": 2,
+      "three": 3,
+      "four": 4,
+      "five": 5,
+      "six": 6,
+      "seven": 7,
+      "eight": 8,
+      "nine": 9,
+      "ten": 10,
+      "a couple of": 2,
+      "a couple": 2,
+      "a few": 3,
+      "several": 4
+    }
+  },
+  "duration": {
+    "pattern": "(?:(?<=x)|\\b)(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|a couple(?: of)?|a few|several)\\s*(days?|d|weeks?|wks?)\\b",
+    "source": "Original scanner.",
+    "rationale": "'x5 days', '3 days of', 'two weeks': the count times 7 for weeks gives onset_days, searched within 30 characters before and 35 after the term."
+  },
+  "relative_days": {
+    "source": "Original scanner.",
+    "rationale": "Relative phrases map to a day count when no explicit duration is written; 'yesterday' and 'since yesterday' = 1, 'today' = 0, 'past week' = 7, 'past few days' = 3.",
+    "phrases": [
+      {
+        "pattern": "\\b(?:since yesterday|yesterday|last night)\\b",
+        "days": 1
+      },
+      {
+        "pattern": "\\b(?:this morning|today|tonight)\\b",
+        "days": 0
+      },
+      {
+        "pattern": "\\b(?:last|past|over the past|over the last) week\\b",
+        "days": 7
+      },
+      {
+        "pattern": "\\b(?:last|past) (?:few|couple of|several) days\\b",
+        "days": 3
+      },
+      {
+        "pattern": "\\b(?:last|past) (?:two|2) weeks\\b",
+        "days": 14
+      },
+      {
+        "pattern": "\\b(?:last|past) month\\b",
+        "days": 30
+      }
+    ]
+  },
+  "med_started": {
+    "pattern": "\\b(?:start(?:ed|s|ing)?|began|begun|begin(?:ning)?|initiat(?:ed|e)|prescribed|given|gave me|put (?:him |her |me )?on|added|rx'?d|(?-i:Rx)|new prescription|new rx|picked up|got (?:a prescription|prescribed)|switch(?:ed|ing)? (?:from [a-z][\\w-]* )?to)\\b",
+    "source": "Original scanner; 'switched (from X) to' added after review, 2026-10-10.",
+    "rationale": "Action verbs meaning a medication was started (-> CMSTDTC). The nearest verb to the drug in the same clause wins: the last one before it, else the first within scope.med_verb_lookahead_chars after it. 'Switched from Zofran to Compazine' reads as Zofran stopped (med_stopped 'switched from') and Compazine started; a switch written with doses ('switched from 4 mg to 8 mg') is a dose change and stays 'changed'."
+  },
+  "med_stopped": {
+    "pattern": "\\b(?:stop(?:ped|s|ping)?|discontinu(?:ed|e)|d/c'?d|d/c|(?-i:DC'?d)|held|holding|hold|quit|ran out|no longer taking|not taking|off of|came off|switch(?:ed|ing)? from(?=\\s+[a-z][\\w-]*\\s+to\\b))\\b",
+    "source": "Original scanner; 'switched from <drug> to' added after review, 2026-10-10.",
+    "rationale": "Action verbs meaning a medication was stopped or held (-> CMENDTC)."
+  },
+  "med_changed": {
+    "pattern": "\\b(?:increas(?:ed|e)|decreas(?:ed|e)|reduc(?:ed|e)|titrat(?:ed|e)|doubled|halved|switched|changed (?:the )?dose)\\b",
+    "source": "Original scanner.",
+    "rationale": "Dose changes are reported as change = 'changed' so the coordinator records a new CM row."
+  },
+  "med_negated": {
+    "pattern": "\\b(?:did not start|didn't start|declined|refused|not prescribed|never started|(?:was |were |is |are )?not (?:yet )?started on|not (?:currently |yet )?on|isn't on|is not on|wasn't started|has not been started|hasn't been started)\\b",
+    "source": "Original scanner; 'not started on' / 'not on' forms added after review, 2026-10-10.",
+    "rationale": "A declined or never-started prescription is not a concomitant medication; the mention is returned as excluded ('negated'). 'Patient was not started on prednisone' and 'not on prednisone' are negations, not starts; the cue is looked for in the drug's clause and scope.med_negated_lookahead_chars after it."
+  },
+  "allergy": {
+    "pattern": "\\ballerg",
+    "source": "Original scanner.",
+    "rationale": "A drug within 40 characters after an allergy word, or in a sentence that starts with one ('Allergies: penicillin'), is an allergy listing, not a medication taken; excluded ('allergy')."
+  },
+  "indication": {
+    "pattern": "\\bfor\\s+(?:(?:the|his|her|my|a|an|possible|presumed|suspected|likely)\\s+)*([a-z][a-z /-]{2,40}?)(?=[,.;)]|\\s+(?:and|with|since|started|starting|today|yesterday|x\\s*\\d|\\d)\\b|$)",
+    "source": "Original scanner.",
+    "rationale": "'X for <reason>' right after the drug (stopping at the next action verb), else a 'for <reason>' earlier in the same sentence when no other drug precedes it ('for a sinus infection, they put me on X'). The reason is run through the symptom lexicon and recorded in the medication finding's reason text; it never excludes a symptom finding (answer-key case T10 expects 'bronchitis' in 'Z-pack for bronchitis' to count as an AE term)."
+  },
+  "human_request": {
+    "pattern": "\\b(?:speak|talk|connect me|transfer me)\\s+(?:to|with)\\s+(?:a |an |the |my )?(?:real |actual |live )?(?:person|human|nurse|doctor|someone|somebody|representative|coordinator)\\b|\\breal person\\b|\\bhuman\\b|\\brepresentative\\b|\\boperator\\b",
+    "source": "Original scanner; Regeneron starter-sheet invariant 'talk to a person at any point -> human_requested escalation'.",
+    "rationale": "Only checked when the caller asks for it (utterances typed or spoken by a participant); clinician notes mention representatives and operators in other senses."
+  }
+}

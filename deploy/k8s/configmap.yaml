@@ -1,0 +1,25 @@
+# Non-secret configuration for the API (same variables as .env.example and docker-compose.yml).
+# Secrets (AUTH_SECRET, DEMO_PASSWORD, BRIDGE_TOKEN) come from the Secret "interim-secrets",
+# which is created out of band and never committed: see deploy/README.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: interim-api-config
+  labels:
+    app.kubernetes.io/name: interim-api
+    app.kubernetes.io/part-of: interim
+data:
+  # SQLite on the PersistentVolumeClaim in api.yaml. For Postgres, put DATABASE_URL in the
+  # Secret instead (it carries a password) and delete this key.
+  DATABASE_URL: "sqlite:////var/lib/interim/interim.db"
+  # The browser reaches the API through the web Service's nginx proxy (same origin), so CORS is
+  # only needed if the API gets its own public hostname. Never "*".
+  CORS_ORIGINS: "https://interim.example.org"
+  SEED_ON_START: "true"
+  # Admin -> Reset drops the audit chain. Keep "true" only for a demo environment.
+  ALLOW_DEMO_RESET: "true"
+  DEMO_NCT_ID: "NCT03088540"
+  VITALS_SOURCE: "mock"
+  VITALS_SCENARIO: "resting"
+  TOKEN_TTL_HOURS: "12"
+  LOG_LEVEL: "info"

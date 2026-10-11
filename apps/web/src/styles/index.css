@@ -1,0 +1,156 @@
+/*
+ * Global stylesheet. Imported once from main.tsx.
+ *
+ * 1. Self-hosted fonts (@fontsource, OFL; no network fetch, works offline):
+ *    Inter variable for the console and landing, Atkinson Hyperlegible for the kiosk.
+ * 2. Design tokens (CSS variables, two surfaces): ./tokens.css.
+ * 3. Tailwind layers + a few token-driven utilities (.glass, .tabular, .focus-ring).
+ * See src/ui/README.md for the rules (glass is for chrome only) and contrast table.
+ */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    background-color: rgb(var(--background));
+    color: rgb(var(--text));
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply min-h-screen font-sans;
+  }
+
+  /* A surface root re-declares the font, canvas and text colour so a subtree
+     (e.g. the kiosk) picks up its own scope even inside the console shell. */
+  [data-surface] {
+    font-family: var(--font-sans);
+    color: rgb(var(--text));
+  }
+
+  [data-surface="kiosk"] {
+    font-size: var(--k-root);
+    line-height: 1.45;
+  }
+
+  /* Focus Not Obscured (WCAG 2.4.11): reserve room for the sticky glass KioskActionBar so
+     focus moves and scrollIntoView stop above it. --k-actionbar-live is the bar's measured
+     height (set by the bar; wraps taller at the 24px text size), else the 88px token.
+     Applies to a kiosk scroll container and to <html> when the document is the scroller. */
+  [data-surface="kiosk"],
+  html:has([data-slot="kiosk-action-bar"][data-position="sticky"]) {
+    scroll-padding-bottom: calc(
+      var(--k-actionbar-live, var(--k-actionbar-h, 88px)) + env(safe-area-inset-bottom, 0px) + 16px
+    );
+  }
+
+  /* One focus style everywhere: 2px teal outline, 2px offset (console);
+     3px blue outline, 3px offset (kiosk, so focus never reads as "selected"). */
+  :focus-visible {
+    outline: var(--focus-width) solid rgb(var(--focus));
+    outline-offset: var(--focus-offset);
+  }
+
+  ::selection {
+    background-color: rgb(var(--accent-subtle));
+    color: rgb(var(--text));
+  }
+}
+
+@layer utilities {
+  /* Tabular numerals for vitals, timers, IDs and table figures. */
+  .tabular,
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* For composite widgets that draw the ring on a wrapper (focus-within) or need
+     the ring re-applied after a reset. */
+  .focus-ring:focus-visible,
+  .focus-ring-within:focus-within {
+    outline: var(--focus-width) solid rgb(var(--focus));
+    outline-offset: var(--focus-offset);
+  }
+
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    @apply sr-only;
+  }
+
+  /*
+   * Frosted glass. CHROME ONLY: app header, command palette, sheets, toasts, kiosk
+   * question/welcome/login cards, kiosk action bar. Never on tables, forms,
+   * evidence or drafts (those use the opaque bg-surface).
+   *
+   * Default (no backdrop-filter support, or the user prefers reduced transparency):
+   * a near-opaque white fill. With support: 78% white + blur + saturate, which keeps
+   * text and text-muted at >= 4.5:1 even over the darkest token beneath.
+   * Accent-coloured text on glass needs .glass-strong (92%).
+   */
+  .glass,
+  .glass-strong {
+    background-color: rgb(var(--glass-fill) / var(--glass-alpha-fallback));
+    border: 1px solid rgb(var(--glass-border) / 0.7);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    color: rgb(var(--text));
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .glass {
+      background-color: rgb(var(--glass-fill) / var(--glass-alpha));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    }
+
+    .glass-strong {
+      background-color: rgb(var(--glass-fill) / var(--glass-alpha-strong));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .glass,
+    .glass-strong {
+      background-color: rgb(var(--glass-fill) / var(--glass-alpha-fallback));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Colour/opacity transitions only, capped at 200ms. */
+  .transition-calm {
+    transition-property: color, background-color, border-color, opacity, box-shadow;
+    transition-duration: var(--motion-base);
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
+/* A modal sheet sets pointer-events:none on <body>; visible toasts stay clickable so their
+   Undo still works while a sheet is open (src/ui/sheet.tsx, src/ui/toaster.tsx). */
+[data-sonner-toast]:not([data-visible="false"]) {
+  pointer-events: auto;
+}
+
+/* Respect reduced-motion preferences everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

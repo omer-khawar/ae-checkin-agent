@@ -1,0 +1,258 @@
+{
+  "source": "EMPOWER-Lung 1 clinical study protocol R2810-ONC-1624 Amendment 9 (Regeneron Pharmaceuticals, Inc.; NCT03088540), posted publicly on ClinicalTrials.gov at https://cdn.clinicaltrials.gov/large-docs/40/NCT03088540/Prot_000.pdf (pdf sha256 f80249119e17839ad53f432d4bc6ed591aa42221b596feb7c5ca89047d6f0ae7). Every 'quote', 'exception_text' and 'condition' below is copied verbatim from the cached excerpt data/public/empower_lung1_protocol_excerpt.json at the cited printed page (tests/test_protocol_tables.py checks this, whitespace-normalized). Brand aliases and the non-systemic qualifiers are the Interim team's additions, labeled in each entry's rationale.",
+  "rationale": "Interim follows a real protocol's reporting and medication rules instead of generic ones (CLAUDE.md §00.1, decision D-025). The table is the only place these numbers and lists live: interim_rules.protocol reads it to (1) suspect an adverse event of special interest (AESI) and start a 24-hour clock, (2) classify a newly reported medication as prohibited, discouraged or permitted, and (3) list the CM fields the protocol requires that the kiosk did not collect. Every outcome is a suggestion for the study team: 'possible AESI, investigator to confirm', 'possible protocol deviation, coordinator to confirm'. Nothing here changes a grade.",
+  "protocol": {
+    "protocol_id": "R2810-ONC-1624",
+    "amendment": "Amendment 9",
+    "nct_id": "NCT03088540",
+    "sponsor": "Regeneron Pharmaceuticals, Inc.",
+    "source_url": "https://cdn.clinicaltrials.gov/large-docs/40/NCT03088540/Prot_000.pdf",
+    "pdf_sha256": "f80249119e17839ad53f432d4bc6ed591aa42221b596feb7c5ca89047d6f0ae7",
+    "excerpt_file": "data/public/empower_lung1_protocol_excerpt.json"
+  },
+
+  "sae_reporting_hours": 24,
+  "sae_reporting": {
+    "protocol_ref": { "section": "9.4.2", "printed_page": 91 },
+    "quote": "All SAEs, regardless of assessment of causal relationship to study drug, must be reported to the sponsor (or designee) within 24 hours.",
+    "rationale": "Informational: the SAE clock itself is still driven by seriousness.json (site_to_sponsor_hours = 24); this entry records that the protocol states the same 24 hours, so the two agree. tests/test_protocol_tables.py asserts they are equal."
+  },
+
+  "ae_reporting_window_days_after_last_dose": 90,
+  "ae_reporting_window": {
+    "protocol_ref": { "section": "9.4.1", "printed_page": 91 },
+    "quote": "The investigator (or designee) will seek information on AEs at each patient contact, and record all AEs that occur from the time the informed consent is signed until 90 days after the last dose of study drug, or until the patient commences another anti-cancer systemic therapy, whichever is earlier.",
+    "rationale": "Informational only (shown on the participant header): when the caller passes the participant's last_dose_date, the assessment reports the last day of the AE reporting window (last dose + 90 days, or protocol_context.new_anticancer_therapy_date when that is earlier) and whether the check-in falls inside it. It never suppresses an AE draft; the investigator decides. Without a last dose date no window is computed, even if a new therapy date is known."
+  },
+
+  "aesi": {
+    "reporting_hours": 24,
+    "label": "possible AESI, investigator to confirm",
+    "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+    "quote": "All AESI, serious and nonserious, must be reported within 24 hours of identification using the same reporting process as for SAE reporting, per Section 9.4.2.",
+    "rationale": "The protocol reports AESIs exactly like SAEs: within 24 hours of identification. Interim therefore starts a clock of kind 'aesi' at the moment the site learns of the possible AESI (check-in completion), with the same machinery as the SAE clock. Interim cannot decide that an event is immune-related (only the investigator can, protocol §9.3.4), so a 'possible AESI' rests on the item mapping in irae_mapping.json and is always labeled for investigator confirmation.",
+    "criteria": [
+      {
+        "id": "infusion_reaction_grade2",
+        "quote": "Grade 2 or greater infusion-related reactions",
+        "min_grade": 2,
+        "applies_to": "infusion_related_reaction",
+        "requires_context": null,
+        "detectable_from_kiosk": false,
+        "rationale": "None of the ten kiosk items asks about an infusion reaction (protocol §9.3.5: any AE during the infusion or within 1 day after it). Listed so the table is complete; the chart-note path or the coordinator may set it later."
+      },
+      {
+        "id": "allergic_reaction_grade2",
+        "quote": "Grade 2 or greater allergic/hypersensitivity reactions",
+        "min_grade": 2,
+        "applies_to": "allergic_reaction",
+        "requires_context": null,
+        "detectable_from_kiosk": false,
+        "rationale": "No kiosk item asks about an allergic or hypersensitivity reaction; a rash or itching answer is not enough to call one. Listed so the table is complete; not evaluated by the kiosk rules."
+      },
+      {
+        "id": "irae_grade3",
+        "quote": "Grade 3 or greater irAEs",
+        "min_grade": 3,
+        "applies_to": "potentially_immune_related",
+        "requires_context": null,
+        "detectable_from_kiosk": true,
+        "rationale": "A provisional grade of 3 or more on an item that irae_mapping.json marks potentially immune-related. The grade is the provisional, participant-reported one (investigator to confirm), so the AESI is 'possible'."
+      },
+      {
+        "id": "irae_any_grade_prior_pi3k",
+        "quote": "An irAE of any grade in a patient previously treated with a PI 3-K inhibitor",
+        "min_grade": 1,
+        "applies_to": "potentially_immune_related",
+        "requires_context": "prior_pi3k_inhibitor",
+        "detectable_from_kiosk": true,
+        "rationale": "Any provisional grade (1 or more) on a potentially immune-related item when the participant's protocol context says prior_pi3k_inhibitor = true. The kiosk never asks this; the API supplies it from the participant record."
+      }
+    ]
+  },
+
+  "conmeds": {
+    "rationale": "Drug names are lowercase generics; 'aliases' are brand and biosimilar names added by the Interim team so a participant typing a brand is recognized even when medlist.json does not list it. A drug is recognized when the medlist match (ConMedMatch.matched_name) equals the generic or an alias, or when a whole word or phrase of the verbatim text equals the generic, an alias or one of 'match_terms'. Entries with is_category = true (investigational agents, palliative radiation) name a class or a procedure, never a generic name, so they never fill CMDECOD. Exact words only (no edit distance): a misspelled prohibited drug is missed and is listed in docs/WHAT_IT_GETS_WRONG.md.",
+    "prohibited_tier_floor": 2,
+    "prohibited_reason": "possible protocol deviation",
+    "prohibited": [
+      {
+        "drug": "bevacizumab",
+        "aliases": ["avastin", "mvasi", "zirabev", "alymsys", "vegzelma", "avzivi"],
+        "match_terms": [],
+        "protocol_ref": { "section": "7.7.1", "printed_page": 69 },
+        "quote": "Treatment with bevacizumab or necitumumab is not one of the protocol–defined treatment options.",
+        "rationale": "Named in §7.7.1 Prohibited Medications. Aliases: Avastin and its US biosimilars (Interim team addition)."
+      },
+      {
+        "drug": "necitumumab",
+        "aliases": ["portrazza"],
+        "match_terms": [],
+        "protocol_ref": { "section": "7.7.1", "printed_page": 69 },
+        "quote": "Treatment with bevacizumab or necitumumab is not one of the protocol–defined treatment options.",
+        "rationale": "Named in §7.7.1 Prohibited Medications. Alias: Portrazza (Interim team addition)."
+      },
+      {
+        "drug": "investigational anti-tumor agent",
+        "is_category": true,
+        "aliases": [],
+        "match_terms": ["investigational", "experimental drug", "experimental treatment", "another trial", "another study", "clinical trial drug"],
+        "protocol_ref": { "section": "7.7.1", "printed_page": 69 },
+        "quote": "While participating in this study, a patient may not receive any investigational agent for treatment of a tumor other than cemiplimab as monotherapy or the study’s specified chemotherapy regimens.",
+        "rationale": "The protocol prohibits a category, not a named drug. Interim recognizes only explicit phrases a participant might type ('another trial', 'investigational'); it cannot know whether an unnamed drug is investigational. Coordinator to confirm."
+      }
+    ],
+    "discouraged": [
+      {
+        "drug": "hydrocortisone",
+        "aliases": ["cortef", "solu-cortef", "a-hydrocort"],
+        "match_terms": [],
+        "systemic_only": true,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "It is recommended that patients do not receive concomitant systemic corticosteroids such as hydrocortisone, prednisone, prednisolone, or dexamethasone at any time throughout the study, except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "exception_text": "except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "further_exceptions_text": "Physiologic replacement doses of systemic corticosteroids are permitted, even if >10 mg/day prednisone equivalents. A brief course of corticosteroids for prophylaxis (eg, contrast dye allergy) or for treatment of non-autoimmune conditions (eg, delayed-type hypersensitivity reaction caused by contact allergen) is permitted.",
+        "rationale": "Named in §7.7.2. Systemic use only: hydrocortisone cream or ointment is common for itching and is not a systemic corticosteroid (see non_systemic_qualifiers)."
+      },
+      {
+        "drug": "prednisone",
+        "aliases": ["deltasone", "rayos"],
+        "match_terms": [],
+        "systemic_only": true,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "It is recommended that patients do not receive concomitant systemic corticosteroids such as hydrocortisone, prednisone, prednisolone, or dexamethasone at any time throughout the study, except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "exception_text": "except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "further_exceptions_text": "Physiologic replacement doses of systemic corticosteroids are permitted, even if >10 mg/day prednisone equivalents. A brief course of corticosteroids for prophylaxis (eg, contrast dye allergy) or for treatment of non-autoimmune conditions (eg, delayed-type hypersensitivity reaction caused by contact allergen) is permitted.",
+        "rationale": "Named in §7.7.2."
+      },
+      {
+        "drug": "prednisolone",
+        "aliases": ["orapred", "millipred", "pediapred"],
+        "match_terms": [],
+        "systemic_only": true,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "It is recommended that patients do not receive concomitant systemic corticosteroids such as hydrocortisone, prednisone, prednisolone, or dexamethasone at any time throughout the study, except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "exception_text": "except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "further_exceptions_text": "Physiologic replacement doses of systemic corticosteroids are permitted, even if >10 mg/day prednisone equivalents. A brief course of corticosteroids for prophylaxis (eg, contrast dye allergy) or for treatment of non-autoimmune conditions (eg, delayed-type hypersensitivity reaction caused by contact allergen) is permitted.",
+        "rationale": "Named in §7.7.2. Systemic use only: prednisolone eye drops are not systemic (see non_systemic_qualifiers)."
+      },
+      {
+        "drug": "dexamethasone",
+        "aliases": ["decadron", "hemady"],
+        "match_terms": [],
+        "systemic_only": true,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "It is recommended that patients do not receive concomitant systemic corticosteroids such as hydrocortisone, prednisone, prednisolone, or dexamethasone at any time throughout the study, except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "exception_text": "except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "further_exceptions_text": "Physiologic replacement doses of systemic corticosteroids are permitted, even if >10 mg/day prednisone equivalents. A brief course of corticosteroids for prophylaxis (eg, contrast dye allergy) or for treatment of non-autoimmune conditions (eg, delayed-type hypersensitivity reaction caused by contact allergen) is permitted.",
+        "rationale": "Named in §7.7.2. Note: dexamethasone is also a routine anti-nausea premedication with chemotherapy; the exception wording is shown so the coordinator can judge."
+      },
+      {
+        "drug": "methylprednisolone",
+        "aliases": ["medrol", "solu-medrol", "depo-medrol"],
+        "match_terms": [],
+        "systemic_only": true,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "It is recommended that patients do not receive concomitant systemic corticosteroids such as hydrocortisone, prednisone, prednisolone, or dexamethasone at any time throughout the study, except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "exception_text": "except in the case of a life-threatening emergency and/or to treat an irAE.",
+        "further_exceptions_text": "Physiologic replacement doses of systemic corticosteroids are permitted, even if >10 mg/day prednisone equivalents. A brief course of corticosteroids for prophylaxis (eg, contrast dye allergy) or for treatment of non-autoimmune conditions (eg, delayed-type hypersensitivity reaction caused by contact allergen) is permitted.",
+        "rationale": "Not named, but the protocol's list is introduced by 'such as', so other systemic corticosteroids fall under the same recommendation (Interim team reading). Methylprednisolone is the one most often used to treat irAEs, which is one of the stated exceptions."
+      }
+    ],
+    "non_systemic_qualifiers": {
+      "words": ["cream", "ointment", "lotion", "topical", "gel", "foam", "drops", "eyedrops", "inhaler", "inhaled", "nasal", "spray"],
+      "rationale": "Interim team addition. §7.7.2 concerns systemic corticosteroids. When the participant's text names a discouraged corticosteroid together with one of these words (e.g. 'hydrocortisone cream'), the form is likely topical, inhaled or eye/nose drops, so no discouraged flag is raised; the decision is recorded in the assessment's conmed_notes for the coordinator to see."
+    },
+    "permitted": [
+      {
+        "drug": "zoledronic acid",
+        "aliases": ["zometa", "reclast"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "A bisphosphonate (the protocol names the class). Generic and brand names are Interim team additions."
+      },
+      {
+        "drug": "pamidronate",
+        "aliases": ["aredia"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "A bisphosphonate (the protocol names the class)."
+      },
+      {
+        "drug": "alendronate",
+        "aliases": ["fosamax"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "A bisphosphonate (the protocol names the class)."
+      },
+      {
+        "drug": "ibandronate",
+        "aliases": ["boniva"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "A bisphosphonate (the protocol names the class)."
+      },
+      {
+        "drug": "risedronate",
+        "aliases": ["actonel", "atelvia"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "A bisphosphonate (the protocol names the class)."
+      },
+      {
+        "drug": "denosumab",
+        "aliases": ["xgeva", "prolia"],
+        "match_terms": [],
+        "condition": null,
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Treatments for bone metastases (bisphosphonates, denosumab) are permitted.",
+        "rationale": "Named in §7.7.2."
+      },
+      {
+        "drug": "pemetrexed",
+        "aliases": ["alimta", "pemfexy"],
+        "match_terms": [],
+        "condition": "Pemetrexed maintenance therapy is permitted for non-squamous NSCLC.",
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Pemetrexed maintenance therapy is permitted for non-squamous NSCLC.",
+        "rationale": "Named in §7.7.2, with a condition (maintenance therapy, non-squamous histology) that Interim cannot check; the condition is shown to the coordinator."
+      },
+      {
+        "drug": "palliative radiation",
+        "is_category": true,
+        "aliases": [],
+        "match_terms": ["radiation", "radiotherapy"],
+        "condition": "Radiation therapy with palliative intent is permitted.",
+        "protocol_ref": { "section": "7.7.2", "printed_page": 69 },
+        "quote": "Radiation therapy with palliative intent is permitted.",
+        "rationale": "A procedure, not a drug; recognized only by the words 'radiation' or 'radiotherapy'. Palliative intent is the condition; Interim cannot check it."
+      }
+    ]
+  },
+
+  "cm_required_fields": ["CMTRT", "CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC", "CMSTDTC", "CMENDTC"],
+  "cm_required_fields_detail": {
+    "protocol_ref": { "section": "7.7", "printed_page": 69 },
+    "quote": "All concomitant treatments must be recorded in the study CRF with the generic name, dose, dose unit, frequency, indication, and start/stop date, as appropriate.",
+    "fields": [
+      { "field": "CMTRT", "protocol_term": "generic name", "plain_label": "Medication name" },
+      { "field": "CMDOSE", "protocol_term": "dose", "plain_label": "Dose" },
+      { "field": "CMDOSU", "protocol_term": "dose unit", "plain_label": "Dose unit" },
+      { "field": "CMDOSFRQ", "protocol_term": "frequency", "plain_label": "How often it is taken" },
+      { "field": "CMINDC", "protocol_term": "indication", "plain_label": "What it is taken for" },
+      { "field": "CMSTDTC", "protocol_term": "start date", "plain_label": "Start date" },
+      { "field": "CMENDTC", "protocol_term": "stop date", "plain_label": "Stop date" }
+    ],
+    "rationale": "The kiosk asks only whether a medication was started or stopped and its name, so dose, unit, frequency and indication are always missing from a kiosk CM draft; the list tells the coordinator what to ask. 'As appropriate' is read as: a medication reported as started and still being taken needs no stop date; one reported as stopped needs its start date; when the direction is unknown, both dates are missing. CMTRT is missing only when the participant typed no name."
+  }
+}

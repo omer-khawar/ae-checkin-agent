@@ -1,19 +1,37 @@
 # One-click deploy on Render: New + > Blueprint > pick this repo.
+# Deploys the Interim API (Docker, repository root as build context) and the web app (static site).
 # SQLite lives on the instance's disk, so data resets on each deploy and the demo data re-seeds itself.
-# For persistent data, add a Render Postgres database and set DATABASE_URL.
+# For persistent data, add a Render Postgres database and set DATABASE_URL on interim-api.
+# If you rename the API service, update the /api/* rewrite on interim-web to its URL.
 services:
   - type: web
-    name: ae-capture-api
-    runtime: python
+    name: interim-api
+    runtime: docker
     plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.7
-      - key: SEED_ON_STARTUP
+      - key: SEED_ON_START
         value: "true"
       - key: CORS_ORIGINS
-        value: "*"
+        # The web service rewrites /api/* to the API, so the browser stays same-origin; only the
+        # web URL is allowed, never "*". Update it if you rename interim-web.
+        value: "https://interim-web.onrender.com"
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+
+  - type: web
+    name: interim-web
+    runtime: static
+    buildCommand: cd apps/web && npm ci && npm run build
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://interim-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -1,0 +1,127 @@
+{
+  "_about": "SYNTHETIC clinic notes for the Interim demo. No real patient, clinician or site. Lineage: backend/app/data/chart_notes.json of omer-khawar/ae-checkin-agent (Omer Khawar, MIT), ported 2026-10-10 (CONTRACTS.md R2.4, decision D-014); the texts are unchanged and the subject ids were remapped deterministically from the source's '101-00x' to Interim's participants 'P-00x' (last three digits -> P-<digits>; see subject_mapping). The notes are written in the indirect style the Regeneron starter sheet describes ('pt reports 3 days of diarrhea, started loperamide') and carry deliberate traps: negations, history, patient-education text, brand names, and the same AE in two notes for one participant (N1 and N7, P-001) so cross-note de-duplication links a follow-up. The seed ingests these eight notes for their mapped participants through POST /notes (backdated with ingested_at_override); scanning them with interim_rules.chartscan.scan_text yields exactly 'expected' (the same eight cases live, text included, in packages/rules/data/chartscan_answer_key.json, which tests/test_chartscan.py keeps identical to this file). expected.escalation: none | urgent (a note never produces an emergency message or Tier 3: decision D-017); expected.serious marks a hospitalization/ER mention (SAE clock starts at ingestion). To scale up, generate more notes by hand in this style or with Synthea (https://github.com/synthetichealth/synthea); every added note needs an answer-key case.",
+  "source": "omer-khawar/ae-checkin-agent backend/app/data/chart_notes.json (Omer Khawar, MIT), synthetic, ported 2026-10-10",
+  "subject_mapping": {
+    "101-001": "P-001",
+    "101-002": "P-002",
+    "101-003": "P-003",
+    "101-004": "P-004",
+    "101-005": "P-005",
+    "101-006": "P-006"
+  },
+  "notes": [
+    {
+      "id": "N1",
+      "usubjid_label": "P-001",
+      "source_subject_id": "101-001",
+      "note_date": "2026-10-05",
+      "author": "J. Rivera, NP",
+      "note_type": "progress_note",
+      "text": "Oncology follow-up. Pt reports 3 days of diarrhea, 4-5 loose stools per day, started loperamide OTC. Mild nausea persists, taking ondansetron as needed. Denies fever, chills, or vomiting. Pt educated to call for fever > 100.4 or bloody stools.",
+      "expected": {
+        "ae_terms": ["Diarrhea", "Nausea"],
+        "meds": [["loperamide", "started"], ["ondansetron", "taking"]],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N2",
+      "usubjid_label": "P-002",
+      "source_subject_id": "101-002",
+      "note_date": "2026-10-08",
+      "author": "Dermatology telehealth",
+      "note_type": "consult",
+      "text": "Maculopapular rash over trunk and upper arms, approx 15% BSA, pruritic. Started triamcinolone 0.1% cream BID and cetirizine 10 mg daily. No mucosal involvement, no blistering.",
+      "expected": {
+        "ae_terms": ["Rash maculo-papular", "Pruritus"],
+        "meds": [["triamcinolone", "started"], ["cetirizine", "started"]],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N3",
+      "usubjid_label": "P-003",
+      "source_subject_id": "101-003",
+      "note_date": "2026-10-09",
+      "author": "Triage RN",
+      "note_type": "phone_note",
+      "text": "Daughter called: pt with increasing SOB over the past week, now with exertion after one flight of stairs. Dry cough x5 days. Advised to come in for evaluation. Holding lisinopril per PCP due to cough.",
+      "expected": {
+        "ae_terms": ["Dyspnea", "Cough"],
+        "meds": [["lisinopril", "stopped"]],
+        "escalation": "urgent"
+      }
+    },
+    {
+      "id": "N4",
+      "usubjid_label": "P-004",
+      "source_subject_id": "101-004",
+      "note_date": "2026-10-06",
+      "author": "Outside urgent care record",
+      "note_type": "outside_record",
+      "text": "Urgent care visit: dx acute sinusitis, prescribed amoxicillin-clavulanate 875 mg BID x10 days. Afebrile. Also reports mild headache.",
+      "expected": {
+        "ae_terms": ["Sinusitis", "Headache"],
+        "meds": [["amoxicillin-clavulanate", "started"]],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N5",
+      "usubjid_label": "P-005",
+      "source_subject_id": "101-005",
+      "note_date": "2026-10-08",
+      "author": "Infusion RN",
+      "note_type": "progress_note",
+      "text": "Infusion visit. Pt c/o intermittent headaches, mild, and two small oral ulcers. Hx of migraines in her 20s. No nausea or vomiting. Continue current regimen.",
+      "expected": {
+        "ae_terms": ["Headache", "Mucositis oral"],
+        "meds": [],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N6",
+      "usubjid_label": "P-006",
+      "source_subject_id": "101-006",
+      "note_date": "2026-10-08",
+      "author": "Hospital ED",
+      "note_type": "ed_note",
+      "text": "ED visit 10/08: brought in by wife for new confusion and decreased appetite x1 week. Admitted overnight for IV fluids. Dexamethasone discontinued.",
+      "expected": {
+        "ae_terms": ["Confusion", "Anorexia"],
+        "meds": [["dexamethasone", "stopped"]],
+        "escalation": "urgent",
+        "serious": true
+      }
+    },
+    {
+      "id": "N7",
+      "usubjid_label": "P-001",
+      "source_subject_id": "101-001",
+      "note_date": "2026-10-09",
+      "author": "Research RN",
+      "note_type": "phone_note",
+      "text": "Nurse call: diarrhea improved on loperamide, now 2 stools/day. Nausea resolved.",
+      "expected": {
+        "ae_terms": ["Diarrhea", "Nausea"],
+        "meds": [["loperamide", "taking"]],
+        "escalation": "none"
+      }
+    },
+    {
+      "id": "N8",
+      "usubjid_label": "P-004",
+      "source_subject_id": "101-004",
+      "note_date": "2026-10-01",
+      "author": "J. Rivera, NP",
+      "note_type": "progress_note",
+      "text": "Routine visit. Feels well overall. Denies nausea, diarrhea, cough, or shortness of breath. Afebrile. Continue amlodipine.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [["amlodipine", "taking"]],
+        "escalation": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "source": "Synthea (https://github.com/synthetichealth/synthea), Apache-2.0, recommended by the Regeneron GDI judges; the starter sheet names it as the source of synthetic notes and medication lists for chart-scan input.",
+  "rationale": "Pins everything needed to regenerate data/synthetic/synthea/: the exact jar (sha256, because the master-branch-latest release asset moves), the container image, the population, seeds, reference date and exporter flags, and the keep module that restricts the population to living NSCLC patients like the demo study's (EMPOWER-Lung 1). All Synthea output is synthetic: 'Synthea synthetic EHR (simulated)'. Generation takes ~10-15 min because NSCLC is rare and the keep module rejects most simulated people; the primary run kept 11 of 12 before hitting max_attempts_to_keep_patient, so a 1-patient top-up run with the next seed completes the cohort.",
+  "jar_url": "https://github.com/synthetichealth/synthea/releases/download/master-branch-latest/synthea-with-dependencies.jar",
+  "jar_sha256": "018ad7f04f7aacb995804d7d4781c76d5fc714f7f23257ba50daa9eefae224ac",
+  "jar_bytes": 197025542,
+  "synthea_release": "master-branch-latest",
+  "synthea_version": "d9d07a6",
+  "retrieved_at": "2026-10-10T21:47:58Z",
+  "docker_image": "eclipse-temurin:17-jre",
+  "java_opts": ["-Xmx3g"],
+  "population": 12,
+  "age": "50-80",
+  "seed": 20261010,
+  "clinician_seed": 20261010,
+  "reference_date": "20261010",
+  "state": "Massachusetts",
+  "years_of_history": 3,
+  "exporter_flags": {
+    "exporter.fhir.export": true,
+    "exporter.csv.export": true,
+    "exporter.clinical_note.export": true,
+    "exporter.years_of_history": 3,
+    "generate.only_alive_patients": true,
+    "generate.max_attempts_to_keep_patient": 5000
+  },
+  "keep_module": "keep_nsclc.json",
+  "top_up": {
+    "rationale": "Runs only when the primary run keeps fewer than `population` patients (the committed primary run kept 11: Synthea gives up on a person after max_attempts_to_keep_patient rejections). Same jar, flags and keep module, next seed, population = the shortfall. The committed top-up was observed (out_topup/metadata) as seed 20261011, clinician seed 20261011, 1 patient, 45 s, and it wrote no csv/ directory, so CSV export was off for it; the flag override below reproduces that, which matters because the importer uses Synthea's CSV medication stop dates when they exist (see data/synthetic/synthea/README.md).",
+    "seed": 20261011,
+    "clinician_seed": 20261011,
+    "exporter_flags_override": {
+      "exporter.csv.export": false
+    }
+  },
+  "committed_runs": [
+    {
+      "role": "primary",
+      "seed": 20261010,
+      "population_requested": 12,
+      "patients_kept": 11,
+      "run_time_s": 896,
+      "command": "docker run --rm -v <scratch>:/work -w /work eclipse-temurin:17-jre java -Xmx3g -jar synthea-with-dependencies.jar -p 12 -a 50-80 -s 20261010 -cs 20261010 -r 20261010 -k keep_nsclc.json --exporter.baseDirectory=/work/out --exporter.fhir.export=true --exporter.csv.export=true --exporter.clinical_note.export=true --exporter.years_of_history=3 --generate.only_alive_patients=true --generate.max_attempts_to_keep_patient=5000 Massachusetts"
+    },
+    {
+      "role": "top_up",
+      "seed": 20261011,
+      "population_requested": 1,
+      "patients_kept": 1,
+      "run_time_s": 45,
+      "command": "as primary with -p 1 -s 20261011 -cs 20261011 and no CSV export (inferred from its output directory and metadata)"
+    }
+  ]
+}

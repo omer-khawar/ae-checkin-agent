@@ -1,0 +1,187 @@
+{
+  "source": "Interim team, hand-written. Item structure (attributes, 5-point response scales, 7-day recall window) is modeled on the NCI PRO-CTCAE item library (https://healthcaredelivery.cancer.gov/pro-ctcae/). Question wording is Interim's own plain language and is NOT the NCI item text; a production deployment licenses the official PRO-CTCAE items from NCI.",
+  "rationale": "Ten symptom items chosen for immune-related adverse-event relevance on PD-1 inhibitors such as cemiplimab (pneumonitis, colitis, dermatitis, arthritis, mucositis, fatigue, fever). Each item carries the PRO-CTCAE attribute pattern for that symptom (e.g. shortness of breath = severity + interference; nausea = frequency + severity; diarrhea = frequency only; rash = presence). Response labels map to the 0..4 integers the composite scoring table expects. The participant never sees grades or clinical terms; `label` is the symptom in plain words and `prompts` are the one-question-per-screen stems the kiosk shows.",
+  "recall_window": "in the last 7 days",
+  "response_scales": {
+    "frequency": { "Never": 0, "Rarely": 1, "Occasionally": 2, "Frequently": 3, "Almost constantly": 4 },
+    "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+    "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 },
+    "presence": { "No": 0, "Yes": 1 }
+  },
+  "items": [
+    {
+      "id": "shortness_of_breath",
+      "order": 1,
+      "label": "Shortness of breath",
+      "short_label": "Breathing",
+      "ctcae_term": "Dyspnea",
+      "attributes": ["severity", "interference"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad was your shortness of breath when it was at its worst?",
+        "interference": "In the last 7 days, how much did shortness of breath get in the way of your usual daily activities?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+        "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "cough",
+      "order": 2,
+      "label": "Cough",
+      "short_label": "Cough",
+      "ctcae_term": "Cough",
+      "attributes": ["severity", "interference"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad was your cough when it was at its worst?",
+        "interference": "In the last 7 days, how much did coughing get in the way of your usual daily activities?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+        "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "fatigue",
+      "order": 3,
+      "label": "Fatigue, tiredness or lack of energy",
+      "short_label": "Fatigue",
+      "ctcae_term": "Fatigue",
+      "attributes": ["severity", "interference"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad was your tiredness or lack of energy when it was at its worst?",
+        "interference": "In the last 7 days, how much did tiredness get in the way of your usual daily activities?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+        "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "nausea",
+      "order": 4,
+      "label": "Nausea",
+      "short_label": "Nausea",
+      "ctcae_term": "Nausea",
+      "attributes": ["frequency", "severity"],
+      "prompts": {
+        "frequency": "In the last 7 days, how often did you feel nauseous or sick to your stomach?",
+        "severity": "In the last 7 days, how bad was the nausea when it was at its worst?"
+      },
+      "response_options": {
+        "frequency": { "Never": 0, "Rarely": 1, "Occasionally": 2, "Frequently": 3, "Almost constantly": 4 },
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "diarrhea",
+      "order": 5,
+      "label": "Diarrhea or loose stools",
+      "short_label": "Diarrhea",
+      "ctcae_term": "Diarrhea",
+      "attributes": ["frequency"],
+      "prompts": {
+        "frequency": "In the last 7 days, how often did you have loose or watery stools?"
+      },
+      "response_options": {
+        "frequency": { "Never": 0, "Rarely": 1, "Occasionally": 2, "Frequently": 3, "Almost constantly": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "rash",
+      "order": 6,
+      "label": "Skin rash",
+      "short_label": "Rash",
+      "ctcae_term": "Rash maculo-papular",
+      "attributes": ["presence"],
+      "prompts": {
+        "presence": "In the last 7 days, did you have a rash anywhere on your skin?"
+      },
+      "response_options": {
+        "presence": { "No": 0, "Yes": 1 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "itching",
+      "order": 7,
+      "label": "Itchy skin",
+      "short_label": "Itching",
+      "ctcae_term": "Pruritus",
+      "attributes": ["severity"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad was any itching of your skin when it was at its worst?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "joint_pain",
+      "order": 8,
+      "label": "Joint pain or stiffness",
+      "short_label": "Joints",
+      "ctcae_term": "Arthralgia",
+      "attributes": ["severity", "interference"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad was any pain or stiffness in your joints when it was at its worst?",
+        "interference": "In the last 7 days, how much did joint pain get in the way of your usual daily activities?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+        "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    },
+    {
+      "id": "fever_or_chills",
+      "order": 9,
+      "label": "Fever or chills",
+      "short_label": "Fever",
+      "ctcae_term": "Fever",
+      "attributes": ["presence"],
+      "prompts": {
+        "presence": "In the last 7 days, did you have a fever or chills?"
+      },
+      "response_options": {
+        "presence": { "No": 0, "Yes": 1 }
+      },
+      "recall_window": "in the last 7 days",
+      "optional_fields": [
+        {
+          "id": "temp_c",
+          "label": "If you took your temperature, what was the highest reading? (optional)",
+          "type": "number",
+          "unit": "°C",
+          "min": 34.0,
+          "max": 43.0,
+          "stored_as": "gates.temp_c",
+          "note": "Participant-typed, not device-measured. Evidence only; it never changes the provisional grade."
+        }
+      ]
+    },
+    {
+      "id": "mouth_sores",
+      "order": 10,
+      "label": "Mouth or throat sores",
+      "short_label": "Mouth",
+      "ctcae_term": "Mucositis oral",
+      "attributes": ["severity", "interference"],
+      "prompts": {
+        "severity": "In the last 7 days, how bad were any sores in your mouth or throat when they were at their worst?",
+        "interference": "In the last 7 days, how much did mouth or throat sores get in the way of eating, drinking or talking?"
+      },
+      "response_options": {
+        "severity": { "None": 0, "Mild": 1, "Moderate": 2, "Severe": 3, "Very severe": 4 },
+        "interference": { "Not at all": 0, "A little bit": 1, "Somewhat": 2, "Quite a bit": 3, "Very much": 4 }
+      },
+      "recall_window": "in the last 7 days"
+    }
+  ]
+}

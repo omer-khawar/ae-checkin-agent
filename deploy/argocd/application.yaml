@@ -1,0 +1,23 @@
+# Argo CD Application: keeps the "interim" namespace in sync with deploy/k8s on main.
+# Jenkins (Jenkinsfile at the repo root) tests, builds and pushes the images, then commits the new
+# image tags to deploy/k8s/kustomization.yaml; Argo CD sees the commit and rolls the Deployments.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: interim
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/omer-khawar/ae-checkin-agent.git
+    targetRevision: main
+    path: deploy/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: interim
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

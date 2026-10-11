@@ -1,0 +1,3801 @@
+{
+  "source": "Synthea synthetic EHR (simulated): https://github.com/synthetichealth/synthea (Apache-2.0), jar sha256 018ad7f04f7aacb9..., imported by scripts/synthea/import_synthea.py v1.0.0",
+  "rationale": "Realistic but entirely synthetic NSCLC patients (FHIR R4) for chart-scan input and as an answer key built from the structured record. Every value is simulated. Labels P-001.. are assigned deterministically (birth date, then Synthea id) in Interim's participant label space; whether a chart is attached to the seeded kiosk participant with the same label is decided by the seed/API, not here (data/synthetic/synthea/README.md).",
+  "label": "Synthea synthetic EHR (simulated)",
+  "reference_date": "2026-10-10",
+  "generated_with": {
+    "jar_url": "https://github.com/synthetichealth/synthea/releases/download/master-branch-latest/synthea-with-dependencies.jar",
+    "jar_sha256": "018ad7f04f7aacb995804d7d4781c76d5fc714f7f23257ba50daa9eefae224ac",
+    "jar_bytes": 197025542,
+    "synthea_release": "master-branch-latest",
+    "synthea_version": "d9d07a6",
+    "docker_image": "eclipse-temurin:17-jre",
+    "population": 12,
+    "age": "50-80",
+    "seed": 20261010,
+    "clinician_seed": 20261010,
+    "reference_date": "20261010",
+    "state": "Massachusetts",
+    "years_of_history": 3,
+    "exporter_flags": {
+      "exporter.fhir.export": true,
+      "exporter.csv.export": true,
+      "exporter.clinical_note.export": true,
+      "exporter.years_of_history": 3,
+      "generate.only_alive_patients": true,
+      "generate.max_attempts_to_keep_patient": 5000
+    },
+    "keep_module": "keep_nsclc.json",
+    "top_up": {
+      "seed": 20261011,
+      "clinician_seed": 20261011,
+      "exporter_flags_override": {
+        "exporter.csv.export": false
+      }
+    },
+    "importer_version": "1.0.0"
+  },
+  "participants": [
+    {
+      "label": "P-001",
+      "synthea_ref": "cfd3a5854d96",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 76,
+      "nsclc": {
+        "diagnosis_date": "2026-08-05",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1975-03-25"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "1981-03-31"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "1984-04-03"
+        },
+        {
+          "display": "Ischemic heart disease (disorder)",
+          "snomed": "414545008",
+          "onset": "2007-02-27"
+        },
+        {
+          "display": "Leukemia, disease (disorder)",
+          "snomed": "93143009",
+          "onset": "2015-01-01"
+        },
+        {
+          "display": "History of autologous bone marrow transplant (situation)",
+          "snomed": "108631000119101",
+          "onset": "2015-06-06"
+        },
+        {
+          "display": "Polyp of colon (disorder)",
+          "snomed": "68496003",
+          "onset": "2026-03-25"
+        },
+        {
+          "display": "Primary malignant neoplasm of colon (disorder)",
+          "snomed": "93761005",
+          "onset": "2026-04-05"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR metoprolol succinate 100 MG Extended Release Oral Tablet",
+          "rxnorm": "866412",
+          "ingredient": "metoprolol",
+          "started": "2007-03-06",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "metoprolol",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Clopidogrel 75 MG Oral Tablet",
+          "rxnorm": "309362",
+          "ingredient": "clopidogrel",
+          "started": "2007-03-06",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Nitroglycerin 0.4 MG/ACTUAT Mucosal Spray",
+          "rxnorm": "705129",
+          "ingredient": "nitroglycerin",
+          "started": "2007-03-06",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "nitroglycerin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Simvastatin 20 MG Oral Tablet",
+          "rxnorm": "312961",
+          "ingredient": "simvastatin",
+          "started": "2007-03-06",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "simvastatin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Vitamin B12 5 MG/ML Injectable Solution",
+          "rxnorm": "2001499",
+          "ingredient": "vitamin b12",
+          "started": "1984-04-10",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "methylphenidate",
+            "match_kind": "levenshtein",
+            "confidence": 0.71,
+            "agrees_with_ingredient": false
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-08-07",
+          "last_date": "2026-09-16",
+          "n_administrations": 11
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-08-07",
+          "last_date": "2026-09-16",
+          "n_administrations": 11
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2026-03-25",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Screening for malignant neoplasm of colon (procedure)"
+        },
+        {
+          "date": "2026-04-01",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Polyp of colon (disorder)"
+        },
+        {
+          "date": "2026-04-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Primary malignant neoplasm of colon (disorder)"
+        },
+        {
+          "date": "2026-06-16",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-07-26",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-07-30",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-08-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-08-07",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-07",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-10",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2024-06-04",
+              "value": 61.0
+            },
+            {
+              "date": "2025-06-10",
+              "value": 89.0
+            },
+            {
+              "date": "2026-06-16",
+              "value": 82.0
+            }
+          ],
+          "median": 82.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2024-06-04",
+              "value": 14.0
+            },
+            {
+              "date": "2025-06-10",
+              "value": 15.0
+            },
+            {
+              "date": "2026-06-16",
+              "value": 13.0
+            }
+          ],
+          "median": 14.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-04",
+              "value": 110.0
+            },
+            {
+              "date": "2025-06-10",
+              "value": 111.0
+            },
+            {
+              "date": "2026-06-16",
+              "value": 103.0
+            }
+          ],
+          "median": 110.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-04",
+              "value": 66.0
+            },
+            {
+              "date": "2025-06-10",
+              "value": 70.0
+            },
+            {
+              "date": "2026-06-16",
+              "value": 69.0
+            }
+          ],
+          "median": 69.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "never",
+        "display": "Never smoked tobacco (finding)",
+        "snomed": "266919005",
+        "date": "2026-06-16",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P001-2026-06-16",
+        "SYN-P001-2026-07-26",
+        "SYN-P001-2026-07-30",
+        "SYN-P001-2026-08-05",
+        "SYN-P001-2026-08-07",
+        "SYN-P001-2026-09-10"
+      ],
+      "counts": {
+        "encounters_total": 27,
+        "encounters_last_12m": 10,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 22,
+        "comorbidities_excluded_by_filter": 9,
+        "medication_requests": 27,
+        "medication_administrations": 22,
+        "observations": 79,
+        "notes_total": 27,
+        "notes_last_12m": 10,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-002",
+      "synthea_ref": "011ccb55d538",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 71,
+      "nsclc": {
+        "diagnosis_date": "2026-03-24",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Adolescent idiopathic scoliosis (disorder)",
+          "snomed": "203646004",
+          "onset": "1966-06-15"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1993-06-30"
+        },
+        {
+          "display": "Osteoarthritis of knee (disorder)",
+          "snomed": "239873007",
+          "onset": "2007-02-19"
+        },
+        {
+          "display": "Ischemic heart disease (disorder)",
+          "snomed": "414545008",
+          "onset": "2020-10-21"
+        },
+        {
+          "display": "History of coronary artery bypass grafting (situation)",
+          "snomed": "399261000",
+          "onset": "2020-11-07"
+        },
+        {
+          "display": "Hyperlipidemia (disorder)",
+          "snomed": "55822004",
+          "onset": "2021-10-27"
+        },
+        {
+          "display": "Carcinoma in situ of prostate (disorder)",
+          "snomed": "92691004",
+          "onset": "2025-11-26"
+        },
+        {
+          "display": "Neoplasm of prostate (disorder)",
+          "snomed": "126906006",
+          "onset": "2025-11-26"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR metoprolol succinate 100 MG Extended Release Oral Tablet",
+          "rxnorm": "866412",
+          "ingredient": "metoprolol",
+          "started": "2020-10-28",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "metoprolol",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Clopidogrel 75 MG Oral Tablet",
+          "rxnorm": "309362",
+          "ingredient": "clopidogrel",
+          "started": "2020-10-28",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Nitroglycerin 0.4 MG/ACTUAT Mucosal Spray",
+          "rxnorm": "705129",
+          "ingredient": "nitroglycerin",
+          "started": "2020-10-28",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "nitroglycerin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Simvastatin 10 MG Oral Tablet",
+          "rxnorm": "314231",
+          "ingredient": "simvastatin",
+          "started": "2021-11-17",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "simvastatin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Simvastatin 20 MG Oral Tablet",
+          "rxnorm": "312961",
+          "ingredient": "simvastatin",
+          "started": "2020-10-28",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "simvastatin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "0.25 ML Leuprolide Acetate 30 MG/ML Prefilled Syringe",
+          "rxnorm": "752899",
+          "ingredient": "leuprolide",
+          "indications": [
+            "Neoplasm of prostate (disorder)"
+          ],
+          "first_date": "2025-11-26",
+          "last_date": "2026-02-25",
+          "n_administrations": 2
+        },
+        {
+          "display": "1 ML DOCEtaxel 20 MG/ML Injection",
+          "rxnorm": "1860480",
+          "ingredient": "docetaxel",
+          "indications": [
+            "Neoplasm of prostate (disorder)"
+          ],
+          "first_date": "2025-11-26",
+          "last_date": "2026-02-25",
+          "n_administrations": 2
+        },
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-03-26",
+          "last_date": "2026-09-18",
+          "n_administrations": 25
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-03-26",
+          "last_date": "2026-09-18",
+          "n_administrations": 25
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-11-19",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2025-11-26",
+          "type": "Encounter for symptom (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected prostate cancer (situation)"
+        },
+        {
+          "date": "2025-11-26",
+          "type": "Follow-up encounter (procedure)",
+          "class": "ambulatory",
+          "reason": "Hyperlipidemia (disorder)"
+        },
+        {
+          "date": "2025-11-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Neoplasm of prostate (disorder)"
+        },
+        {
+          "date": "2026-02-25",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Neoplasm of prostate (disorder)"
+        },
+        {
+          "date": "2026-03-14",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-03-23",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-03-24",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-03-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-03-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-30",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-08",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-10",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-12",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2023-11-08",
+              "value": 83.0
+            },
+            {
+              "date": "2024-11-13",
+              "value": 81.0
+            },
+            {
+              "date": "2025-11-19",
+              "value": 83.0
+            }
+          ],
+          "median": 83.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2023-11-08",
+              "value": 14.0
+            },
+            {
+              "date": "2024-11-13",
+              "value": 14.0
+            },
+            {
+              "date": "2025-11-19",
+              "value": 15.0
+            }
+          ],
+          "median": 14.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2023-11-08",
+              "value": 116.0
+            },
+            {
+              "date": "2024-11-13",
+              "value": 113.0
+            },
+            {
+              "date": "2025-11-19",
+              "value": 115.0
+            }
+          ],
+          "median": 115.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2023-11-08",
+              "value": 56.0
+            },
+            {
+              "date": "2024-11-13",
+              "value": 57.0
+            },
+            {
+              "date": "2025-11-19",
+              "value": 61.0
+            }
+          ],
+          "median": 57.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "never",
+        "display": "Never smoked tobacco (finding)",
+        "snomed": "266919005",
+        "date": "2025-11-19",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P002-2026-02-25",
+        "SYN-P002-2026-03-14",
+        "SYN-P002-2026-03-23",
+        "SYN-P002-2026-03-24",
+        "SYN-P002-2026-03-26",
+        "SYN-P002-2026-09-12"
+      ],
+      "counts": {
+        "encounters_total": 33,
+        "encounters_last_12m": 15,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 23,
+        "comorbidities_excluded_by_filter": 9,
+        "medication_requests": 64,
+        "medication_administrations": 55,
+        "observations": 199,
+        "notes_total": 33,
+        "notes_last_12m": 15,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-003",
+      "synthea_ref": "8a7d60834788",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 67,
+      "nsclc": {
+        "diagnosis_date": "2025-02-02",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Chronic sinusitis (disorder)",
+          "snomed": "40055000",
+          "onset": "1986-01-19"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "1990-06-03"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "1990-06-03"
+        },
+        {
+          "display": "Sleep disorder (disorder)",
+          "snomed": "39898005",
+          "onset": "2007-03-10"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "2007-04-15"
+        },
+        {
+          "display": "Obstructive sleep apnea syndrome (disorder)",
+          "snomed": "78275009",
+          "onset": "2007-04-22"
+        },
+        {
+          "display": "Essential hypertension (disorder)",
+          "snomed": "59621000",
+          "onset": "2009-03-22"
+        },
+        {
+          "display": "Chronic kidney disease stage 1 (disorder)",
+          "snomed": "431855005",
+          "onset": "2012-04-08"
+        },
+        {
+          "display": "Disorder of kidney due to diabetes mellitus (disorder)",
+          "snomed": "127013003",
+          "onset": "2012-04-08"
+        },
+        {
+          "display": "Chronic kidney disease stage 2 (disorder)",
+          "snomed": "431856006",
+          "onset": "2014-12-14"
+        },
+        {
+          "display": "Microalbuminuria due to type 2 diabetes mellitus (disorder)",
+          "snomed": "90781000119102",
+          "onset": "2014-12-14"
+        },
+        {
+          "display": "Metabolic syndrome X (disorder)",
+          "snomed": "237602007",
+          "onset": "2015-02-08"
+        },
+        {
+          "display": "Osteoporosis (disorder)",
+          "snomed": "64859006",
+          "onset": "2019-04-21"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "Alendronic acid 10 MG Oral Tablet",
+          "rxnorm": "904419",
+          "ingredient": "alendronic acid",
+          "started": "2023-08-13",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Alteplase 100 MG Injection",
+          "rxnorm": "1804799",
+          "ingredient": "alteplase",
+          "started": "2025-03-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Clopidogrel 75 MG Oral Tablet",
+          "rxnorm": "309362",
+          "ingredient": "clopidogrel",
+          "started": "2025-03-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Hydrochlorothiazide 25 MG Oral Tablet",
+          "rxnorm": "310798",
+          "ingredient": "hydrochlorothiazide",
+          "started": "2023-08-13",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "hydrochlorothiazide",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "insulin isophane, human 70 UNT/ML / insulin, regular, human 30 UNT/ML Injectable Suspension [Humulin]",
+          "rxnorm": "106892",
+          "ingredient": "insulin",
+          "brand": "Humulin",
+          "started": "2023-08-13",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2025-02-04",
+          "last_date": "2026-09-10",
+          "n_administrations": 106
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2025-02-04",
+          "last_date": "2026-09-10",
+          "n_administrations": 106
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-10-31",
+          "type": "Encounter for symptom (procedure)",
+          "class": "ambulatory",
+          "reason": "Acute viral pharyngitis (disorder)"
+        },
+        {
+          "date": "2025-11-09",
+          "type": "Urgent care clinic (environment)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2025-11-16",
+          "type": "Urgent care clinic (environment)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2025-11-23",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-06",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-02-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-03-15",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-04-07",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-10",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-05",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-07-19",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Gingivitis (disorder)"
+        },
+        {
+          "date": "2026-07-24",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-07",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-11-09",
+              "value": 86.0
+            },
+            {
+              "date": "2026-03-15",
+              "value": 66.0
+            },
+            {
+              "date": "2026-07-05",
+              "value": 83.0
+            }
+          ],
+          "median": 83.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-11-09",
+              "value": 13.0
+            },
+            {
+              "date": "2026-03-15",
+              "value": 12.0
+            },
+            {
+              "date": "2026-07-05",
+              "value": 15.0
+            }
+          ],
+          "median": 13.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-11-09",
+              "value": 158.0
+            },
+            {
+              "date": "2026-03-15",
+              "value": 144.0
+            },
+            {
+              "date": "2026-07-05",
+              "value": 145.0
+            }
+          ],
+          "median": 145.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-11-09",
+              "value": 97.0
+            },
+            {
+              "date": "2026-03-15",
+              "value": 96.0
+            },
+            {
+              "date": "2026-07-05",
+              "value": 104.0
+            }
+          ],
+          "median": 97.0,
+          "unit": "mmHg"
+        },
+        "temp_c": {
+          "values": [
+            {
+              "date": "2025-10-31",
+              "value": 37.2
+            }
+          ],
+          "median": 37.2,
+          "unit": "Cel"
+        },
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-07-05",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P003-2025-10-31",
+        "SYN-P003-2025-11-16",
+        "SYN-P003-2026-03-15",
+        "SYN-P003-2026-07-05",
+        "SYN-P003-2026-07-19",
+        "SYN-P003-2026-09-07"
+      ],
+      "counts": {
+        "encounters_total": 56,
+        "encounters_last_12m": 14,
+        "emergency_encounters_last_12m": 0,
+        "conditions_total": 44,
+        "comorbidities_excluded_by_filter": 7,
+        "medication_requests": 264,
+        "medication_administrations": 213,
+        "observations": 581,
+        "notes_total": 56,
+        "notes_last_12m": 14,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-004",
+      "synthea_ref": "6f482fb9c885",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "female",
+      "age_at_reference": 66,
+      "nsclc": {
+        "diagnosis_date": "2024-05-11",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1996-06-23"
+        },
+        {
+          "display": "Ischemic heart disease (disorder)",
+          "snomed": "414545008",
+          "onset": "2010-04-04"
+        },
+        {
+          "display": "History of coronary artery bypass grafting (situation)",
+          "snomed": "399261000",
+          "onset": "2010-05-08"
+        },
+        {
+          "display": "Opioid abuse",
+          "snomed": "5602001",
+          "onset": "2019-05-26"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR metoprolol succinate 100 MG Extended Release Oral Tablet",
+          "rxnorm": "866412",
+          "ingredient": "metoprolol",
+          "started": "2010-04-11",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "metoprolol",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Clopidogrel 75 MG Oral Tablet",
+          "rxnorm": "309362",
+          "ingredient": "clopidogrel",
+          "started": "2010-04-11",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Nitroglycerin 0.4 MG/ACTUAT Mucosal Spray",
+          "rxnorm": "705129",
+          "ingredient": "nitroglycerin",
+          "started": "2010-04-11",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "nitroglycerin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Simvastatin 20 MG Oral Tablet",
+          "rxnorm": "312961",
+          "ingredient": "simvastatin",
+          "started": "2010-04-11",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "simvastatin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-05-12",
+          "last_date": "2026-10-03",
+          "n_administrations": 144
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-05-12",
+          "last_date": "2026-10-03",
+          "n_administrations": 144
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-10-21",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-11-22",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-29",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-31",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-03-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-16",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-24",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-04",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-26",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-08-02",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Polyp of colon (disorder)"
+        },
+        {
+          "date": "2026-08-18",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-25",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2024-06-30",
+              "value": 90.0
+            },
+            {
+              "date": "2025-07-06",
+              "value": 62.0
+            },
+            {
+              "date": "2026-07-26",
+              "value": 72.0
+            }
+          ],
+          "median": 72.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2024-06-30",
+              "value": 16.0
+            },
+            {
+              "date": "2025-07-06",
+              "value": 15.0
+            },
+            {
+              "date": "2026-07-26",
+              "value": 14.0
+            }
+          ],
+          "median": 15.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-30",
+              "value": 110.0
+            },
+            {
+              "date": "2025-07-06",
+              "value": 95.0
+            },
+            {
+              "date": "2026-07-26",
+              "value": 103.0
+            }
+          ],
+          "median": 103.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-30",
+              "value": 79.0
+            },
+            {
+              "date": "2025-07-06",
+              "value": 86.0
+            },
+            {
+              "date": "2026-07-26",
+              "value": 88.0
+            }
+          ],
+          "median": 86.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "never",
+        "display": "Never smoked tobacco (finding)",
+        "snomed": "266919005",
+        "date": "2026-07-26",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P004-2026-05-24",
+        "SYN-P004-2026-07-04",
+        "SYN-P004-2026-07-26",
+        "SYN-P004-2026-08-02",
+        "SYN-P004-2026-08-18",
+        "SYN-P004-2026-09-25"
+      ],
+      "counts": {
+        "encounters_total": 46,
+        "encounters_last_12m": 12,
+        "emergency_encounters_last_12m": 0,
+        "conditions_total": 20,
+        "comorbidities_excluded_by_filter": 7,
+        "medication_requests": 292,
+        "medication_administrations": 288,
+        "observations": 40,
+        "notes_total": 46,
+        "notes_last_12m": 12,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-005",
+      "synthea_ref": "5a949c38bf38",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 64,
+      "nsclc": {
+        "diagnosis_date": "2026-07-30",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "2002-01-04"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "Vitamin B12 5 MG/ML Injectable Solution",
+          "rxnorm": "2001499",
+          "ingredient": "vitamin b12",
+          "started": "1965-09-21",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "methylphenidate",
+            "match_kind": "levenshtein",
+            "confidence": 0.71,
+            "agrees_with_ingredient": false
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-07-31",
+          "last_date": "2026-10-08",
+          "n_administrations": 10
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-07-31",
+          "last_date": "2026-10-08",
+          "n_administrations": 10
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2026-03-20",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-07-16",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-07-24",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-07-30",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-07-31",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-31",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-10-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2024-03-08",
+              "value": 80.0
+            },
+            {
+              "date": "2025-03-14",
+              "value": 61.0
+            },
+            {
+              "date": "2026-03-20",
+              "value": 86.0
+            }
+          ],
+          "median": 80.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2024-03-08",
+              "value": 15.0
+            },
+            {
+              "date": "2025-03-14",
+              "value": 13.0
+            },
+            {
+              "date": "2026-03-20",
+              "value": 14.0
+            }
+          ],
+          "median": 14.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2024-03-08",
+              "value": 100.0
+            },
+            {
+              "date": "2025-03-14",
+              "value": 100.0
+            },
+            {
+              "date": "2026-03-20",
+              "value": 103.0
+            }
+          ],
+          "median": 100.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2024-03-08",
+              "value": 81.0
+            },
+            {
+              "date": "2025-03-14",
+              "value": 87.0
+            },
+            {
+              "date": "2026-03-20",
+              "value": 86.0
+            }
+          ],
+          "median": 86.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "never",
+        "display": "Never smoked tobacco (finding)",
+        "snomed": "266919005",
+        "date": "2026-03-20",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P005-2026-03-20",
+        "SYN-P005-2026-07-16",
+        "SYN-P005-2026-07-24",
+        "SYN-P005-2026-07-30",
+        "SYN-P005-2026-07-31",
+        "SYN-P005-2026-10-05"
+      ],
+      "counts": {
+        "encounters_total": 17,
+        "encounters_last_12m": 8,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 13,
+        "comorbidities_excluded_by_filter": 8,
+        "medication_requests": 21,
+        "medication_administrations": 20,
+        "observations": 52,
+        "notes_total": 17,
+        "notes_last_12m": 8,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-006",
+      "synthea_ref": "8cbcee17fe91",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 64,
+      "nsclc": {
+        "diagnosis_date": "2023-05-12",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Major depressive disorder (disorder)",
+          "snomed": "370143000",
+          "onset": "1981-05-20"
+        },
+        {
+          "display": "Smokes tobacco daily (finding)",
+          "snomed": "449868002",
+          "onset": "1999-06-23"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "2023-05-12"
+        },
+        {
+          "display": "Concussion injury of brain (disorder)",
+          "snomed": "110030002",
+          "onset": "2026-10-05"
+        },
+        {
+          "display": "Concussion with no loss of consciousness (disorder)",
+          "snomed": "62106007",
+          "onset": "2026-10-05"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR nicotine 0.292 MG/HR Transdermal System",
+          "rxnorm": "198031",
+          "ingredient": "nicotine",
+          "started": "1996-06-19",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "nicotine",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "FLUoxetine 20 MG Oral Capsule",
+          "rxnorm": "310385",
+          "ingredient": "fluoxetine",
+          "started": "1981-09-08",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "fluoxetine",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Sertraline 100 MG Oral Tablet",
+          "rxnorm": "312938",
+          "ingredient": "sertraline",
+          "started": "1999-01-27",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "sertraline",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "acetaminophen 300 MG / hydrocodone bitartrate 10 MG Oral Tablet",
+          "rxnorm": "856980",
+          "ingredient": "acetaminophen",
+          "ingredients": [
+            "acetaminophen",
+            "hydrocodone"
+          ],
+          "started": "1999-01-27",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "acetaminophen",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2023-11-13",
+          "last_date": "2026-10-03",
+          "n_administrations": 163
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2023-11-13",
+          "last_date": "2026-10-03",
+          "n_administrations": 163
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-11-02",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-07",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-13",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-02-17",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-03-25",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-01",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-06",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-24",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-07-08",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Gingivitis (disorder)"
+        },
+        {
+          "date": "2026-07-14",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-29",
+          "type": "Urgent care clinic (environment)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-08-05",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-08-12",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Patient referral for dental care (procedure)"
+        },
+        {
+          "date": "2026-08-19",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-02",
+          "type": "Encounter for symptom (procedure)",
+          "class": "ambulatory",
+          "reason": "Viral sinusitis (disorder)"
+        },
+        {
+          "date": "2026-09-30",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-10-05",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Concussion injury of brain (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-06-18",
+              "value": 63.0
+            },
+            {
+              "date": "2026-06-24",
+              "value": 95.0
+            },
+            {
+              "date": "2026-07-29",
+              "value": 70.0
+            }
+          ],
+          "median": 70.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-06-18",
+              "value": 16.0
+            },
+            {
+              "date": "2026-06-24",
+              "value": 13.0
+            },
+            {
+              "date": "2026-07-29",
+              "value": 13.0
+            }
+          ],
+          "median": 13.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-06-18",
+              "value": 111.0
+            },
+            {
+              "date": "2026-06-24",
+              "value": 114.0
+            },
+            {
+              "date": "2026-07-29",
+              "value": 121.0
+            }
+          ],
+          "median": 114.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-06-18",
+              "value": 84.0
+            },
+            {
+              "date": "2026-06-24",
+              "value": 90.0
+            },
+            {
+              "date": "2026-07-29",
+              "value": 84.0
+            }
+          ],
+          "median": 84.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-07-29",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P006-2026-07-29",
+        "SYN-P006-2026-08-05",
+        "SYN-P006-2026-08-12",
+        "SYN-P006-2026-09-02",
+        "SYN-P006-2026-09-30",
+        "SYN-P006-2026-10-05"
+      ],
+      "counts": {
+        "encounters_total": 51,
+        "encounters_last_12m": 17,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 23,
+        "comorbidities_excluded_by_filter": 7,
+        "medication_requests": 332,
+        "medication_administrations": 327,
+        "observations": 1500,
+        "notes_total": 51,
+        "notes_last_12m": 17,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-007",
+      "synthea_ref": "4d8f8d99b698",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261011,
+      "sex": "male",
+      "age_at_reference": 61,
+      "nsclc": {
+        "diagnosis_date": "2024-06-05",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1987-06-23"
+        },
+        {
+          "display": "History of seizure (situation)",
+          "snomed": "1290882004",
+          "onset": "2011-07-11"
+        },
+        {
+          "display": "Seizure disorder (disorder)",
+          "snomed": "128613002",
+          "onset": "2011-07-11"
+        },
+        {
+          "display": "Epilepsy (disorder)",
+          "snomed": "84757009",
+          "onset": "2011-07-12"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "2013-04-30"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "2015-04-07"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "Acetaminophen 325 MG / HYDROcodone Bitartrate 7.5 MG Oral Tablet",
+          "rxnorm": "857005",
+          "ingredient": "acetaminophen",
+          "ingredients": [
+            "acetaminophen",
+            "hydrocodone"
+          ],
+          "started": "2026-09-02",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "acetaminophen",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "fhir_status_heuristic",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-06-08",
+          "last_date": "2026-09-19",
+          "n_administrations": 129
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-06-08",
+          "last_date": "2026-09-19",
+          "n_administrations": 129
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-11-04",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-11",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-17",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-02-20",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-04",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-11",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-23",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-06-30",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-14",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Gingivitis (disorder)"
+        },
+        {
+          "date": "2026-08-09",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-25",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-09-01",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Acute cholecystitis (disorder)"
+        },
+        {
+          "date": "2026-09-15",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Patient referral for dental care (procedure)"
+        },
+        {
+          "date": "2026-09-17",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-17",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Laparoscopic cholecystectomy (procedure)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-06-17",
+              "value": 90.0
+            },
+            {
+              "date": "2026-06-23",
+              "value": 72.0
+            },
+            {
+              "date": "2026-08-25",
+              "value": 98.0
+            }
+          ],
+          "median": 90.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-06-17",
+              "value": 16.0
+            },
+            {
+              "date": "2026-06-23",
+              "value": 14.0
+            },
+            {
+              "date": "2026-08-25",
+              "value": 16.0
+            }
+          ],
+          "median": 16.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-06-17",
+              "value": 108.0
+            },
+            {
+              "date": "2026-06-23",
+              "value": 104.0
+            },
+            {
+              "date": "2026-08-25",
+              "value": 109.0
+            }
+          ],
+          "median": 108.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-06-17",
+              "value": 85.0
+            },
+            {
+              "date": "2026-06-23",
+              "value": 84.0
+            },
+            {
+              "date": "2026-08-25",
+              "value": 85.0
+            }
+          ],
+          "median": 85.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-08-25",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P007-2026-07-14",
+        "SYN-P007-2026-08-25",
+        "SYN-P007-2026-09-01",
+        "SYN-P007-2026-09-15",
+        "SYN-P007-2026-09-17",
+        "SYN-P007-2026-09-17-2"
+      ],
+      "counts": {
+        "encounters_total": 43,
+        "encounters_last_12m": 15,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 28,
+        "comorbidities_excluded_by_filter": 10,
+        "medication_requests": 272,
+        "medication_administrations": 270,
+        "observations": 1206,
+        "notes_total": 43,
+        "notes_last_12m": 15,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-008",
+      "synthea_ref": "c77a16816bb9",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "female",
+      "age_at_reference": 59,
+      "nsclc": {
+        "diagnosis_date": "2025-07-21",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Recurrent urinary tract infection (disorder)",
+          "snomed": "197927001",
+          "onset": "1984-01-17"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "2006-08-07"
+        },
+        {
+          "display": "Bleeding from anus (disorder)",
+          "snomed": "6072007",
+          "onset": "2025-05-13"
+        },
+        {
+          "display": "Protracted diarrhea (finding)",
+          "snomed": "236077008",
+          "onset": "2025-05-13"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "2025-05-24"
+        },
+        {
+          "display": "Malignant neoplasm of colon (disorder)",
+          "snomed": "363406005",
+          "onset": "2025-06-16"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2025-08-04",
+          "last_date": "2026-10-05",
+          "n_administrations": 73
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2025-08-04",
+          "last_date": "2026-10-05",
+          "n_administrations": 73
+        },
+        {
+          "display": "10 ML oxaliplatin 5 MG/ML Injection",
+          "rxnorm": "1736776",
+          "ingredient": "oxaliplatin",
+          "indications": [
+            "Malignant neoplasm of colon (disorder)"
+          ],
+          "first_date": "2025-08-18",
+          "last_date": "2026-02-25",
+          "n_administrations": 6
+        },
+        {
+          "display": "Leucovorin 100 MG Injection",
+          "rxnorm": "1803932",
+          "ingredient": "leucovorin",
+          "indications": [
+            "Malignant neoplasm of colon (disorder)"
+          ],
+          "first_date": "2025-08-18",
+          "last_date": "2026-02-25",
+          "n_administrations": 6
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-10-12",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-11-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Malignant neoplasm of colon (disorder)"
+        },
+        {
+          "date": "2025-11-03",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Patient referral for dental care (procedure)"
+        },
+        {
+          "date": "2025-11-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Malignant neoplasm of colon (disorder)"
+        },
+        {
+          "date": "2026-01-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Malignant neoplasm of colon (disorder)"
+        },
+        {
+          "date": "2026-02-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-02-25",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Malignant neoplasm of colon (disorder)"
+        },
+        {
+          "date": "2026-03-21",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-22",
+          "type": "Encounter for symptom (procedure)",
+          "class": "ambulatory",
+          "reason": "Acute bronchitis (disorder)"
+        },
+        {
+          "date": "2026-04-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-01",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-10-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-05-26",
+              "value": 84.0
+            },
+            {
+              "date": "2025-06-09",
+              "value": 76.0
+            },
+            {
+              "date": "2025-10-06",
+              "value": 86.0
+            }
+          ],
+          "median": 84.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-05-26",
+              "value": 12.0
+            },
+            {
+              "date": "2025-06-09",
+              "value": 13.0
+            },
+            {
+              "date": "2025-10-06",
+              "value": 13.0
+            }
+          ],
+          "median": 13.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-05-26",
+              "value": 127.0
+            },
+            {
+              "date": "2025-06-09",
+              "value": 123.0
+            },
+            {
+              "date": "2025-10-06",
+              "value": 119.0
+            }
+          ],
+          "median": 123.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-05-26",
+              "value": 77.0
+            },
+            {
+              "date": "2025-06-09",
+              "value": 77.0
+            },
+            {
+              "date": "2025-10-06",
+              "value": 80.0
+            }
+          ],
+          "median": 77.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2025-10-06",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P008-2025-11-03",
+        "SYN-P008-2026-02-25",
+        "SYN-P008-2026-04-22",
+        "SYN-P008-2026-07-15",
+        "SYN-P008-2026-08-26",
+        "SYN-P008-2026-10-03"
+      ],
+      "counts": {
+        "encounters_total": 45,
+        "encounters_last_12m": 16,
+        "emergency_encounters_last_12m": 0,
+        "conditions_total": 25,
+        "comorbidities_excluded_by_filter": 5,
+        "medication_requests": 162,
+        "medication_administrations": 160,
+        "observations": 850,
+        "notes_total": 45,
+        "notes_last_12m": 16,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-009",
+      "synthea_ref": "1167dccbf0cb",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "female",
+      "age_at_reference": 57,
+      "nsclc": {
+        "diagnosis_date": "2026-05-03",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Essential hypertension (disorder)",
+          "snomed": "59621000",
+          "onset": "1991-12-13"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1997-01-10"
+        },
+        {
+          "display": "Loss of teeth (disorder)",
+          "snomed": "37320007",
+          "onset": "2012-04-27"
+        },
+        {
+          "display": "Ischemic heart disease (disorder)",
+          "snomed": "414545008",
+          "onset": "2026-10-09"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "amLODIPine 2.5 MG Oral Tablet",
+          "rxnorm": "308136",
+          "ingredient": "amlodipine",
+          "started": "2023-06-09",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "amlodipine",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-05-05",
+          "last_date": "2026-09-30",
+          "n_administrations": 20
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-05-05",
+          "last_date": "2026-09-30",
+          "n_administrations": 20
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2026-04-23",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-04-28",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-05-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-05-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-05-22",
+          "type": "Admission to hospice (procedure)",
+          "class": "home_health",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-09-18",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-10-09",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2024-06-14",
+              "value": 68.0
+            },
+            {
+              "date": "2025-06-20",
+              "value": 65.0
+            },
+            {
+              "date": "2026-10-09",
+              "value": 78.0
+            }
+          ],
+          "median": 68.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2024-06-14",
+              "value": 16.0
+            },
+            {
+              "date": "2025-06-20",
+              "value": 15.0
+            },
+            {
+              "date": "2026-10-09",
+              "value": 12.0
+            }
+          ],
+          "median": 15.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-14",
+              "value": 137.0
+            },
+            {
+              "date": "2025-06-20",
+              "value": 139.0
+            },
+            {
+              "date": "2026-10-09",
+              "value": 140.0
+            }
+          ],
+          "median": 139.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2024-06-14",
+              "value": 87.0
+            },
+            {
+              "date": "2025-06-20",
+              "value": 87.0
+            },
+            {
+              "date": "2026-10-09",
+              "value": 95.0
+            }
+          ],
+          "median": 87.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-10-09",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P009-2026-04-23",
+        "SYN-P009-2026-05-03",
+        "SYN-P009-2026-05-05",
+        "SYN-P009-2026-05-22",
+        "SYN-P009-2026-09-18",
+        "SYN-P009-2026-10-09"
+      ],
+      "counts": {
+        "encounters_total": 18,
+        "encounters_last_12m": 8,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 16,
+        "comorbidities_excluded_by_filter": 5,
+        "medication_requests": 44,
+        "medication_administrations": 40,
+        "observations": 143,
+        "notes_total": 18,
+        "notes_last_12m": 8,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-010",
+      "synthea_ref": "087d6aa7f7dd",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 55,
+      "nsclc": {
+        "diagnosis_date": "2022-06-28",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "1990-03-11"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "1990-03-11"
+        },
+        {
+          "display": "Ischemic heart disease (disorder)",
+          "snomed": "414545008",
+          "onset": "2017-01-29"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR metoprolol succinate 100 MG Extended Release Oral Tablet",
+          "rxnorm": "866412",
+          "ingredient": "metoprolol",
+          "started": "2017-02-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "metoprolol",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Clopidogrel 75 MG Oral Tablet",
+          "rxnorm": "309362",
+          "ingredient": "clopidogrel",
+          "started": "2017-02-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "Nitroglycerin 0.4 MG/ACTUAT Mucosal Spray",
+          "rxnorm": "705129",
+          "ingredient": "nitroglycerin",
+          "started": "2017-02-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "nitroglycerin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Simvastatin 20 MG Oral Tablet",
+          "rxnorm": "312961",
+          "ingredient": "simvastatin",
+          "started": "2017-02-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "simvastatin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2023-10-14",
+          "last_date": "2026-10-03",
+          "n_administrations": 149
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2023-10-14",
+          "last_date": "2026-10-03",
+          "n_administrations": 149
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-11-03",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-05",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-10",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-25",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Screening for malignant neoplasm of colon (procedure)"
+        },
+        {
+          "date": "2026-02-08",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-02-13",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-03-22",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-29",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-11",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-07-13",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-17",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-21",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-02-02",
+              "value": 79.0
+            },
+            {
+              "date": "2025-06-29",
+              "value": 70.0
+            },
+            {
+              "date": "2026-02-08",
+              "value": 82.0
+            }
+          ],
+          "median": 79.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-02-02",
+              "value": 14.0
+            },
+            {
+              "date": "2025-06-29",
+              "value": 15.0
+            },
+            {
+              "date": "2026-02-08",
+              "value": 16.0
+            }
+          ],
+          "median": 15.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-02-02",
+              "value": 105.0
+            },
+            {
+              "date": "2025-06-29",
+              "value": 109.0
+            },
+            {
+              "date": "2026-02-08",
+              "value": 105.0
+            }
+          ],
+          "median": 105.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-02-02",
+              "value": 62.0
+            },
+            {
+              "date": "2025-06-29",
+              "value": 62.0
+            },
+            {
+              "date": "2026-02-08",
+              "value": 64.0
+            }
+          ],
+          "median": 62.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-02-08",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P010-2026-01-25",
+        "SYN-P010-2026-02-08",
+        "SYN-P010-2026-06-11",
+        "SYN-P010-2026-07-13",
+        "SYN-P010-2026-08-17",
+        "SYN-P010-2026-09-21"
+      ],
+      "counts": {
+        "encounters_total": 48,
+        "encounters_last_12m": 12,
+        "emergency_encounters_last_12m": 0,
+        "conditions_total": 22,
+        "comorbidities_excluded_by_filter": 7,
+        "medication_requests": 305,
+        "medication_administrations": 299,
+        "observations": 1571,
+        "notes_total": 48,
+        "notes_last_12m": 12,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-011",
+      "synthea_ref": "23010fb5fb21",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 53,
+      "nsclc": {
+        "diagnosis_date": "2024-06-20",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "2010-02-03"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "2010-02-03"
+        },
+        {
+          "display": "Chronic low back pain (finding)",
+          "snomed": "278860009",
+          "onset": "2014-01-31"
+        },
+        {
+          "display": "Chronic pain (finding)",
+          "snomed": "82423001",
+          "onset": "2014-01-31"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "2015-02-18"
+        },
+        {
+          "display": "Diabetes mellitus type 2 (disorder)",
+          "snomed": "44054006",
+          "onset": "2015-02-18"
+        },
+        {
+          "display": "Hyperglycemia (disorder)",
+          "snomed": "80394007",
+          "onset": "2016-02-24"
+        },
+        {
+          "display": "Hypertriglyceridemia (disorder)",
+          "snomed": "302870006",
+          "onset": "2016-02-24"
+        },
+        {
+          "display": "Metabolic syndrome X (disorder)",
+          "snomed": "237602007",
+          "onset": "2016-02-24"
+        },
+        {
+          "display": "Neuropathy due to type 2 diabetes mellitus (disorder)",
+          "snomed": "368581000119106",
+          "onset": "2016-02-24"
+        },
+        {
+          "display": "Chronic kidney disease stage 1 (disorder)",
+          "snomed": "431855005",
+          "onset": "2024-04-10"
+        },
+        {
+          "display": "Disorder of kidney due to diabetes mellitus (disorder)",
+          "snomed": "127013003",
+          "onset": "2024-04-10"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "24 HR Metformin hydrochloride 500 MG Extended Release Oral Tablet",
+          "rxnorm": "860975",
+          "ingredient": "metformin",
+          "started": "2023-04-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "metformin",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "72 HR Fentanyl 0.025 MG/HR Transdermal System",
+          "rxnorm": "245134",
+          "ingredient": "fentanyl",
+          "started": "2023-04-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "insulin isophane, human 70 UNT/ML / insulin, regular, human 30 UNT/ML Injectable Suspension [Humulin]",
+          "rxnorm": "106892",
+          "ingredient": "insulin",
+          "brand": "Humulin",
+          "started": "2024-04-10",
+          "category": "community",
+          "interim_match": {
+            "matched_name": null,
+            "match_kind": "unmatched",
+            "confidence": 0.0,
+            "agrees_with_ingredient": null
+          }
+        },
+        {
+          "display": "tramadol hydrochloride 50 MG Oral Tablet",
+          "rxnorm": "835603",
+          "ingredient": "tramadol",
+          "started": "2023-04-05",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "tramadol",
+            "match_kind": "exact",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-06-22",
+          "last_date": "2026-09-25",
+          "n_administrations": 121
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2024-06-22",
+          "last_date": "2026-09-25",
+          "n_administrations": 121
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-11-05",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2025-11-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2025-12-18",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-01-07",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-01-21",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Gingivitis (disorder)"
+        },
+        {
+          "date": "2026-01-23",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-02-11",
+          "type": "Urgent care clinic (environment)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-02-26",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-06",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-04-22",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-05-06",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Patient referral for dental care (procedure)"
+        },
+        {
+          "date": "2026-05-18",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-06-28",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-08-04",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-02",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-09-09",
+          "type": "Ophthalmic examination and evaluation (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-09-16",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-10-07",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Patient referral for dental care (procedure)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2026-02-11",
+              "value": 62.0
+            },
+            {
+              "date": "2026-04-22",
+              "value": 78.0
+            },
+            {
+              "date": "2026-09-02",
+              "value": 71.0
+            }
+          ],
+          "median": 71.0,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2026-02-11",
+              "value": 15.0
+            },
+            {
+              "date": "2026-04-22",
+              "value": 15.0
+            },
+            {
+              "date": "2026-09-02",
+              "value": 13.0
+            }
+          ],
+          "median": 15.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2026-02-11",
+              "value": 149.0
+            },
+            {
+              "date": "2026-04-22",
+              "value": 141.0
+            },
+            {
+              "date": "2026-09-02",
+              "value": 136.0
+            }
+          ],
+          "median": 141.0,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2026-02-11",
+              "value": 86.0
+            },
+            {
+              "date": "2026-04-22",
+              "value": 95.0
+            },
+            {
+              "date": "2026-09-02",
+              "value": 93.0
+            }
+          ],
+          "median": 93.0,
+          "unit": "mmHg"
+        },
+        "temp_c": null,
+        "spo2": null,
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-09-02",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P011-2026-02-11",
+        "SYN-P011-2026-04-22",
+        "SYN-P011-2026-09-02",
+        "SYN-P011-2026-09-09",
+        "SYN-P011-2026-09-16",
+        "SYN-P011-2026-10-07"
+      ],
+      "counts": {
+        "encounters_total": 65,
+        "encounters_last_12m": 18,
+        "emergency_encounters_last_12m": 0,
+        "conditions_total": 46,
+        "comorbidities_excluded_by_filter": 8,
+        "medication_requests": 325,
+        "medication_administrations": 249,
+        "observations": 1973,
+        "notes_total": 65,
+        "notes_last_12m": 18,
+        "notes_selected": 6
+      }
+    },
+    {
+      "label": "P-012",
+      "synthea_ref": "2990ce571a7d",
+      "source": "Synthea synthetic EHR (simulated)",
+      "synthea_run_seed": 20261010,
+      "sex": "male",
+      "age_at_reference": 50,
+      "nsclc": {
+        "diagnosis_date": "2026-08-02",
+        "stage": "1",
+        "snomed": [
+          "254637007",
+          "424132000"
+        ],
+        "displays": [
+          "Non-small cell carcinoma of lung, TNM stage 1 (disorder)",
+          "Non-small cell lung cancer (disorder)"
+        ]
+      },
+      "comorbidities": [
+        {
+          "display": "Chronic sinusitis (disorder)",
+          "snomed": "40055000",
+          "onset": "1977-05-01"
+        },
+        {
+          "display": "Chronic pain (finding)",
+          "snomed": "82423001",
+          "onset": "1994-04-11"
+        },
+        {
+          "display": "Body mass index 30+ - obesity (finding)",
+          "snomed": "162864005",
+          "onset": "1998-02-10"
+        },
+        {
+          "display": "Localized, primary osteoarthritis of the hand (disorder)",
+          "snomed": "201834006",
+          "onset": "2013-03-26"
+        },
+        {
+          "display": "Prediabetes (finding)",
+          "snomed": "714628002",
+          "onset": "2019-12-24"
+        },
+        {
+          "display": "Anemia (disorder)",
+          "snomed": "271737000",
+          "onset": "2021-12-28"
+        },
+        {
+          "display": "Essential hypertension (disorder)",
+          "snomed": "59621000",
+          "onset": "2024-01-02"
+        }
+      ],
+      "allergies": [],
+      "active_medications": [
+        {
+          "display": "Hydrochlorothiazide 25 MG Oral Tablet",
+          "rxnorm": "310798",
+          "ingredient": "hydrochlorothiazide",
+          "started": "2024-01-02",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "hydrochlorothiazide",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        },
+        {
+          "display": "Naproxen sodium 220 MG Oral Tablet",
+          "rxnorm": "849574",
+          "ingredient": "naproxen",
+          "started": "2013-03-26",
+          "category": "community",
+          "interim_match": {
+            "matched_name": "naproxen",
+            "match_kind": "case_insensitive",
+            "confidence": 1.0,
+            "agrees_with_ingredient": true
+          }
+        }
+      ],
+      "medication_interval_source": "synthea_csv",
+      "cancer_therapy": [
+        {
+          "display": "Cisplatin 50 MG Injection",
+          "rxnorm": "1736854",
+          "ingredient": "cisplatin",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-09-15",
+          "last_date": "2026-09-19",
+          "n_administrations": 4
+        },
+        {
+          "display": "PACLitaxel 100 MG Injection",
+          "rxnorm": "583214",
+          "ingredient": "paclitaxel",
+          "indications": [
+            "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+          ],
+          "first_date": "2026-09-15",
+          "last_date": "2026-09-19",
+          "n_administrations": 4
+        }
+      ],
+      "encounters_last_12m": [
+        {
+          "date": "2025-12-09",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Screening for malignant neoplasm of colon (procedure)"
+        },
+        {
+          "date": "2026-01-13",
+          "type": "General examination of patient (procedure)",
+          "class": "ambulatory",
+          "reason": null
+        },
+        {
+          "date": "2026-01-27",
+          "type": "Encounter for check up (procedure)",
+          "class": "ambulatory",
+          "reason": "Gingivitis (disorder)"
+        },
+        {
+          "date": "2026-07-25",
+          "type": "Emergency room admission (procedure)",
+          "class": "emergency",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-07-28",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Suspected lung cancer (situation)"
+        },
+        {
+          "date": "2026-08-02",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-08-11",
+          "type": "Admission to hospice (procedure)",
+          "class": "home_health",
+          "reason": "Non-small cell lung cancer (disorder)"
+        },
+        {
+          "date": "2026-09-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "ambulatory",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        },
+        {
+          "date": "2026-09-15",
+          "type": "Encounter for problem (procedure)",
+          "class": "inpatient",
+          "reason": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"
+        }
+      ],
+      "baseline_vitals": {
+        "pulse_bpm": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 82.3
+            },
+            {
+              "date": "2025-05-13",
+              "value": 63.3
+            },
+            {
+              "date": "2026-01-13",
+              "value": 88.0
+            }
+          ],
+          "median": 82.3,
+          "unit": "beats/min"
+        },
+        "breathing_bpm": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 13.4
+            },
+            {
+              "date": "2025-05-13",
+              "value": 17.0
+            },
+            {
+              "date": "2026-01-13",
+              "value": 15.0
+            }
+          ],
+          "median": 15.0,
+          "unit": "breaths/min"
+        },
+        "systolic_bp": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 122.5
+            },
+            {
+              "date": "2025-05-13",
+              "value": 112.0
+            },
+            {
+              "date": "2026-01-13",
+              "value": 129.0
+            }
+          ],
+          "median": 122.5,
+          "unit": "mmHg"
+        },
+        "diastolic_bp": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 64.2
+            },
+            {
+              "date": "2025-05-13",
+              "value": 68.5
+            },
+            {
+              "date": "2026-01-13",
+              "value": 86.0
+            }
+          ],
+          "median": 68.5,
+          "unit": "mmHg"
+        },
+        "temp_c": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 38.3
+            },
+            {
+              "date": "2025-05-13",
+              "value": 37.9
+            }
+          ],
+          "median": 38.1,
+          "unit": "Cel"
+        },
+        "spo2": {
+          "values": [
+            {
+              "date": "2025-05-12",
+              "value": 99.9
+            },
+            {
+              "date": "2025-05-13",
+              "value": 99.2
+            }
+          ],
+          "median": 99.5,
+          "unit": "%"
+        },
+        "label": "Synthea synthetic EHR (simulated)",
+        "is_measured": false
+      },
+      "smoking": {
+        "status": "former",
+        "display": "Ex-smoker (finding)",
+        "snomed": "8517006",
+        "date": "2026-01-13",
+        "source": "fhir_observation_72166-2"
+      },
+      "note_ids": [
+        "SYN-P012-2026-07-25",
+        "SYN-P012-2026-07-28",
+        "SYN-P012-2026-08-02",
+        "SYN-P012-2026-08-11",
+        "SYN-P012-2026-09-15",
+        "SYN-P012-2026-09-15-2"
+      ],
+      "counts": {
+        "encounters_total": 26,
+        "encounters_last_12m": 9,
+        "emergency_encounters_last_12m": 1,
+        "conditions_total": 25,
+        "comorbidities_excluded_by_filter": 8,
+        "medication_requests": 16,
+        "medication_administrations": 9,
+        "observations": 157,
+        "notes_total": 26,
+        "notes_last_12m": 9,
+        "notes_selected": 6
+      }
+    }
+  ]
+}

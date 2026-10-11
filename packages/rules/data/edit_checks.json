@@ -1,0 +1,268 @@
+{
+  "source": "CONTRACTS.md Revision 4 §R4.4 (sponsor queries, step 7 of the life of a side effect, CLAUDE.md §00). Protocol-based checks cite EMPOWER-Lung 1 protocol R2810-ONC-1624 Amendment 9 (NCT03088540), quoted verbatim from the cached excerpt data/public/empower_lung1_protocol_excerpt.json at the printed page given in each check's protocol_ref (tests/test_queries.py checks every quote, whitespace-normalized). Data-consistency checks follow CDISC SDTM IG conventions for the AE, CM and VS domains (end date not before start date; an outcome of recovered/resolved implies an end date). Vital-sign plausibility bounds are not repeated here: they are read from vitals_corroboration.json (plausibility), the same bounds the vitals rules use.",
+  "rationale": "A sponsor's data manager runs edit checks on every record a site posts to the EDC and sends a query back for each failure; answering them is step 7 of a coordinator's work on one side effect. Interim runs the same kind of checks on the 'sponsor side' of its mock EDC so the coordinator sees each query with the exact record field, the evidence behind it and a drafted answer. Checks are declarative (condition objects evaluated by interim_rules.queries) so a reviewer can read every one here without reading code. A check never changes a record and never decides anything clinical: it asks a person to look. Query wording is plain English for a non-clinician reader and contains no medical advice.",
+  "version": 1,
+  "condition_grammar": {
+    "rationale": "Documentation of the condition objects interim_rules.queries evaluates. A condition is either a combinator ({\"all\": [...]}, {\"any\": [...]}, {\"not\": {...}}) or an operation ({\"op\": name, ...}). Unknown ops or parameters fail table validation at load time.",
+    "ops": {
+      "field_missing": "Fires when 'field', or any of 'fields', or any of the fields named by 'fields_from' (only 'protocol_rules.cm_required_fields' is supported) is empty (null, blank text or an empty list). 'not_required_when' maps a field name to a condition; when that condition holds, the field is not required. Slots: missing_fields (plain words), missing_codes (SDTM names).",
+      "field_equals": "Fires when 'field' equals one of 'values' (text compared case-insensitively, trimmed). Slot: value.",
+      "date_before": "Fires when the ISO 8601 date in 'field' is earlier than the one in 'before_field'. When both carry a time of day they are compared as UTC instants, otherwise as calendar dates. A value that is missing or not a full date never fires (another check owns missing values). Slots: value, other_value.",
+      "value_outside": "Fires when the number in 'field' is below 'min' or above 'max'. With 'bounds_from': 'vitals_corroboration.plausibility', the bounds come from that table, looked up through 'metric_for_key' using the value of 'key_field' (a key with no metric never fires). A value that is not a number never fires. Slots: value, low, high, unit.",
+      "flag_present_without_note": "Fires when 'flag_field' equals one of 'flag_values' and none of 'note_fields' holds text and the record is not listed in the context's noted_record_keys. Slot: flag.",
+      "aeser_y_without_signed_packet": "Fires when 'field' (AESER) equals one of 'values' and none of the record's keys (draft id, lineage id, open-AE id, the computed record key) is in the context's signed_packet_keys.",
+      "potentially_immune_related_and_irae_no": "Fires when the provisional grade in 'grade_field' is at least 'min_grade', the standard term in 'term_field' maps (through ctcae_terms.json and irae_mapping.json, or 'additional_terms' here) to a potentially immune-related category, and 'irae_field' equals one of 'no_values'. Slots: grade, term, irae_category."
+    }
+  },
+  "record_labels": {
+    "rationale": "How a query names the record it is about, in plain words. {FIELD} slots are the record's own values, shown through value_labels when a code has plain words (VSTESTCD PULSE reads 'pulse'); an empty value renders as 'not recorded'. SDTM variable names stay out of the sentence: they travel in the query's 'fields' and evidence (one click deeper in the UI).",
+    "AE": "side effect '{AETERM}' (record {AESEQ}) for participant {USUBJID}",
+    "CM": "medication '{CMTRT}' (record {CMSEQ}) for participant {USUBJID}",
+    "VS": "{VSTESTCD} reading (record {VSSEQ}) for participant {USUBJID}"
+  },
+  "field_labels": {
+    "rationale": "Plain labels for fields that plain_language.json does not (yet) cover; plain_language.json wins when it has a label.",
+    "INTERIM_IRAE": "Immune-related? (investigator decides)",
+    "INTERIM_INVESTIGATOR_NOTE": "Investigator note"
+  },
+  "value_labels": {
+    "rationale": "Plain words for coded values that appear in query text and drafted answers (CLAUDE.md §00 audience shift: plain language first, codes one click deeper). Keys are SDTM field names; codes are matched case-insensitively. The raw code is never lost: it stays on the record, and answer_facts passes it as 'code' beside the plain value. A code with no entry here is shown as recorded. Words must not trip narrative_templates.json validation (for example 'unknown' is filler there, so UNKNOWN reads 'outcome not known').",
+    "source": "CDISC controlled terminology: NY (C66742) for Y/N fields, OUT (C66768) for AEOUT, VSTESTCD (C66741) for the three Interim vital-sign codes, FREQ (C71113) for common CMDOSFRQ codes.",
+    "AESER": {
+      "Y": "yes",
+      "N": "no"
+    },
+    "AEONGO": {
+      "Y": "yes",
+      "N": "no"
+    },
+    "INTERIM_IRAE": {
+      "Y": "yes",
+      "N": "no"
+    },
+    "AEOUT": {
+      "RECOVERED/RESOLVED": "recovered",
+      "RECOVERED/RESOLVED WITH SEQUELAE": "recovered with lasting effects",
+      "RECOVERING/RESOLVING": "recovering",
+      "NOT RECOVERED/NOT RESOLVED": "not recovered",
+      "FATAL": "fatal",
+      "UNKNOWN": "outcome not known"
+    },
+    "VSTESTCD": {
+      "PULSE": "pulse",
+      "RESP": "breathing rate",
+      "HRV_RMSSD": "heart rate variability"
+    },
+    "CMDOSFRQ": {
+      "QD": "once a day",
+      "BID": "twice a day",
+      "TID": "three times a day",
+      "QID": "four times a day",
+      "QHS": "at bedtime",
+      "QW": "once a week",
+      "PRN": "as needed"
+    }
+  },
+  "answer_writer": {
+    "rationale": "Sentence templates for suggest_answer (kind 'query_answer', writer 'template'). Each sentence cites the evidence ids of the facts it was built from; a sentence whose facts are absent is left out. Evidence notes are shown inside double quotes, verbatim. 'source_kinds' lists the evidence kinds shown as sources (rule and table pointers are the check's own reasoning and are cited, not quoted). The draft is a starting point for the coordinator, who edits it before answering.",
+    "kind": "query_answer",
+    "writer": "template",
+    "sentence_separator": " ",
+    "max_source_sentences": 5,
+    "source_kinds": [
+      "pro_response",
+      "gate_answer",
+      "vitals_sample",
+      "chart_note"
+    ],
+    "kind_labels": {
+      "pro_response": "participant answer at the kiosk",
+      "gate_answer": "participant answer at the kiosk",
+      "vitals_sample": "vitals sample",
+      "chart_note": "chart note or call log"
+    },
+    "missing_value": "not recorded",
+    "templates": {
+      "opening": "This response concerns the {record_label}, field: {plain_label}.",
+      "field_value": "{plain_label}: {value}, as currently recorded.",
+      "field_value_grade": "{plain_label}: {value}, as currently recorded (provisional, investigator to confirm).",
+      "field_missing": "{plain_label}: not yet on the record.",
+      "source": "Source on file ({kind_label}, {when}): \"{note}\".",
+      "source_no_time": "Source on file ({kind_label}): \"{note}\".",
+      "extra": "{label}: {value}."
+    },
+    "grade_fields": [
+      "AETOXGR"
+    ]
+  },
+  "checks": [
+    {
+      "id": "query.ae_serious_no_signed_report",
+      "domain": "AE",
+      "field": "AESER",
+      "severity": "safety",
+      "condition": {
+        "op": "aeser_y_without_signed_packet",
+        "field": "AESER",
+        "values": [
+          "Y"
+        ]
+      },
+      "query_text": "The {record_label} is marked serious by the investigator, but no signed serious-event report is on file for it. The protocol requires every serious adverse event to be reported to the sponsor within 24 hours. Please submit the signed report or correct the seriousness entry.",
+      "answer_close": "The site will submit the signed serious-event report for the {record_label}, or correct the seriousness entry if the investigator changes it.",
+      "protocol_ref": {
+        "section": "9.4.2",
+        "printed_page": 91
+      },
+      "quote": "All SAEs, regardless of assessment of causal relationship to study drug, must be reported to the sponsor (or designee) within 24 hours.",
+      "source": "EMPOWER-Lung 1 protocol §9.4.2, printed page 91; Interim serious-event packet (CONTRACTS R3.2): a packet's signature is the site's record that the report was sent.",
+      "rationale": "A record that says 'serious' with no report behind it is the most common reason a sponsor's safety team calls a site. The context passes the keys of records whose packet is signed."
+    },
+    {
+      "id": "query.ae_irae_assessment_needs_detail",
+      "domain": "AE",
+      "field": "INTERIM_IRAE",
+      "severity": "safety",
+      "condition": {
+        "op": "potentially_immune_related_and_irae_no",
+        "grade_field": "AETOXGR",
+        "min_grade": 3,
+        "term_field": "AEDECOD",
+        "irae_field": "INTERIM_IRAE",
+        "no_values": [
+          "N"
+        ],
+        "additional_terms": {
+          "Colitis": "colitis",
+          "Pneumonitis": "pneumonitis",
+          "Urticaria": "dermatologic"
+        }
+      },
+      "query_text": "The {record_label} has a provisional grade of {grade} (investigator to confirm) and is a type of event the protocol lists as potentially immune-related ({irae_category}), but it is recorded as not immune-related. Please provide the investigator's reasoning for this assessment.",
+      "answer_close": "The site will add the investigator's reasoning for the immune-related assessment of the {record_label}.",
+      "protocol_ref": {
+        "section": "9.3.4",
+        "printed_page": 91
+      },
+      "quote": "For any AE that is of a type known to be potentially immune-related (eg, rash, colitis, elevated transaminases, or endocrine) but is deemed not to be an irAE by the investigator, the sponsor may request additional information.",
+      "source": "EMPOWER-Lung 1 protocol §9.3.4, printed page 91 (repeated in §9.4.3, printed page 92); irae_mapping.json for the ten kiosk items; additional_terms covers chart-note terms outside the ten items (Colitis and Pneumonitis are the protocol's and the drug class's immune-related examples; Urticaria is grouped with the dermatologic rows).",
+      "rationale": "The protocol says the sponsor may ask for more information when a potentially immune-related AE is called not immune-related; the threshold of grade 3 matches the protocol's AESI criterion for irAEs (§9.4.3, p. 92), where the question matters most. The check asks for reasoning; it never questions the investigator's decision itself."
+    },
+    {
+      "id": "query.ae_end_before_start",
+      "domain": "AE",
+      "field": "AEENDTC",
+      "severity": "data",
+      "condition": {
+        "op": "date_before",
+        "field": "AEENDTC",
+        "before_field": "AESTDTC"
+      },
+      "query_text": "The {record_label} ends on {value}, before it started on {other_value}. Please correct the start or end date.",
+      "answer_close": "The site will correct the start or end date of the {record_label} from the source documents.",
+      "source": "CDISC SDTM IG v3.4, AE domain: AEENDTC must not precede AESTDTC (standard EDC consistency check).",
+      "rationale": "An end date before the start date is always a data-entry error; the check names both dates so the coordinator can see which one to fix."
+    },
+    {
+      "id": "query.cm_required_fields_missing",
+      "domain": "CM",
+      "field": "CMDOSE",
+      "severity": "data",
+      "condition": {
+        "op": "field_missing",
+        "fields_from": "protocol_rules.cm_required_fields",
+        "not_required_when": {
+          "CMENDTC": {
+            "op": "field_equals",
+            "field": "INTERIM_DIRECTION",
+            "values": [
+              "started",
+              "taking",
+              "changed"
+            ]
+          }
+        }
+      },
+      "query_text": "The {record_label} is missing information the protocol requires for every medication: {missing_fields}. Please complete the record.",
+      "answer_close": "The site will ask the participant for the {missing_fields} and complete the medication record.",
+      "protocol_ref": {
+        "section": "7.7",
+        "printed_page": 69
+      },
+      "quote": "All concomitant treatments must be recorded in the study CRF with the generic name, dose, dose unit, frequency, indication, and start/stop date, as appropriate.",
+      "source": "EMPOWER-Lung 1 protocol §7.7, printed page 69; the required fields are read from protocol_rules.json cm_required_fields so the list exists once. 'As appropriate' is read as in protocol_rules.json: a medication reported as started (still taken) needs no stop date; chart-note CM records reported as 'taking' or 'changed' are also still taken and are read the same way.",
+      "rationale": "The kiosk asks only for a medication's name and whether it was started or stopped, so dose, unit, frequency and indication are missing on every kiosk CM record until the coordinator asks. One query per record lists every missing field; its 'field' is the first missing one (shown to the coordinator), while its stable key uses this check's 'field' (CMDOSE) so filling in one field does not turn the same open query into a new one."
+    },
+    {
+      "id": "query.cm_protocol_flag_no_note",
+      "domain": "CM",
+      "field": "INTERIM_PROTOCOL_FLAG",
+      "severity": "safety",
+      "condition": {
+        "op": "flag_present_without_note",
+        "flag_field": "INTERIM_PROTOCOL_FLAG",
+        "flag_values": [
+          "prohibited",
+          "discouraged"
+        ],
+        "note_fields": [
+          "INTERIM_INVESTIGATOR_NOTE"
+        ]
+      },
+      "query_text": "The {record_label} matches a medication the protocol lists as {flag}, and the record has no investigator note explaining its use. Please add the investigator's note.",
+      "answer_close": "The site will add the investigator's note on the use of the medication in the {record_label}.",
+      "protocol_ref": {
+        "section": "7.7.1-7.7.2",
+        "printed_page": 69
+      },
+      "source": "EMPOWER-Lung 1 protocol §7.7.1 (prohibited medications) and §7.7.2 (discouraged systemic corticosteroids, with exceptions), printed page 69, as encoded in protocol_rules.json; the flag itself is set by protocol.classify_conmed.",
+      "rationale": "A prohibited medication may be a protocol deviation, and a discouraged steroid is allowed only under the protocol's exceptions (a life-threatening emergency or treatment of an irAE); either way the sponsor expects the investigator's explanation on the record. The context passes the keys of records that have an investigator note stored outside the record's fields."
+    },
+    {
+      "id": "query.vs_value_implausible",
+      "domain": "VS",
+      "field": "VSORRES",
+      "severity": "data",
+      "condition": {
+        "op": "value_outside",
+        "field": "VSORRES",
+        "key_field": "VSTESTCD",
+        "bounds_from": "vitals_corroboration.plausibility",
+        "metric_for_key": {
+          "PULSE": "pulse",
+          "RESP": "breathing"
+        }
+      },
+      "query_text": "The {record_label} is {value} {unit}, outside the plausible range of {low} to {high} {unit}. Please confirm the reading or mark it not done.",
+      "answer_close": "The site will confirm the {record_label} against the source or mark it not done.",
+      "source": "vitals_corroboration.json plausibility bounds (pulse 35-180 beats/min, breathing 5-45 breaths/min), the same bounds the vitals rules use to ignore implausible samples.",
+      "rationale": "The vitals rules already ignore implausible samples, but a summary row can still be edited by hand; a sponsor would query a reading no person could have. HRV rows have no plausibility bounds and are never queried."
+    },
+    {
+      "id": "query.ae_resolved_without_end_date",
+      "domain": "AE",
+      "field": "AEENDTC",
+      "severity": "data",
+      "condition": {
+        "all": [
+          {
+            "op": "field_equals",
+            "field": "AEOUT",
+            "values": [
+              "RECOVERED/RESOLVED",
+              "RECOVERED/RESOLVED WITH SEQUELAE"
+            ]
+          },
+          {
+            "op": "field_missing",
+            "field": "AEENDTC"
+          }
+        ]
+      },
+      "query_text": "The {record_label} has the outcome {value}, but no end date. Please add the date the side effect ended.",
+      "answer_close": "The site will add the end date of the {record_label} from the source documents.",
+      "source": "CDISC SDTM IG v3.4, AE domain, and the CDISC controlled terminology codelist OUT (C66768): an outcome of recovered/resolved implies the event has an end date.",
+      "rationale": "A resolved side effect without an end date cannot be placed on the participant's timeline; sponsors query it routinely."
+    }
+  ]
+}
