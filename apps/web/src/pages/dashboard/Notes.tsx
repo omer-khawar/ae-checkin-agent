@@ -34,6 +34,7 @@ import { DraftsPanel } from "./notes/DraftsPanel";
 import { HighlightedNote } from "./notes/HighlightedNote";
 import { Outcome } from "./notes/Outcome";
 import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
+import { NoteErrorBanner } from "./notes/NoteErrorBanner";
 import { DEFAULT_SAMPLE, NOTE_TYPES, SAMPLE_NOTES, type SampleNote } from "./notes/sampleNotes";
 import { ScanTables } from "./notes/ScanTables";
 import { WhyPanel } from "./notes/WhyPanel";
@@ -436,7 +437,7 @@ export function Notes() {
               </div>
             )}
 
-            <ErrorBanner error={actionError} message="The request was not accepted" />
+            <NoteErrorBanner error={actionError} message="The request was not accepted" />
 
             <div className="flex flex-wrap items-center gap-2">
               <Button

@@ -352,9 +352,9 @@ export function buildAnswer(
 export const INVESTIGATOR_ONLY_FIELDS: readonly string[] = ["AESER", "AEREL", "INTERIM_IRAE"];
 
 /**
- * R3.1 `cm_required_fields` that the base CM edit list lacks. Offered only
- * when the draft actually carries the key (even as null): today's CM drafts
- * do not, and the API rejects unknown fields with 422.
+ * R3.1 `cm_required_fields` that the base CM edit list lacks. Offered when
+ * the draft carries the key (even as null) or the query covers the field (the
+ * API accepts a covered field as new); otherwise the API answers 422.
  */
 export const CM_DETAIL_FIELDS: readonly string[] = ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"];
 
@@ -369,12 +369,23 @@ export const CM_DETAIL_FIELDS: readonly string[] = ["CMDOSE", "CMDOSU", "CMDOSFR
  * With no draft loaded the base list is offered as-is (those fields exist on
  * every draft of the domain); the CM details need the draft to confirm them.
  */
-export function editableFields(draft: Draft | null, domain: Domain, queried: string): string[] {
+export function editableFields(
+  draft: Draft | null,
+  domain: Domain,
+  queried: string,
+  covered: readonly string[] = [],
+): string[] {
   const base = (EDITABLE_FIELDS as Record<string, string[] | undefined>)[domain] ?? [];
   const keys = draft ? new Set(Object.keys(draft.fields ?? {})) : null;
-  const allowed = base.filter((f) => keys === null || keys.has(f));
+  // The API lets an answer fill in a field the query itself covers even when the
+  // record has no key for it yet (`allow_new_fields` in services/queries.py), so
+  // a "dose is missing" query can be answered by entering the dose.
+  const coveredSet = new Set(covered);
+  const allowed = base.filter((f) => keys === null || keys.has(f) || coveredSet.has(f));
   if (domain === "CM" && keys) {
-    for (const f of CM_DETAIL_FIELDS) if (keys.has(f) && !allowed.includes(f)) allowed.push(f);
+    for (const f of CM_DETAIL_FIELDS) {
+      if ((keys.has(f) || coveredSet.has(f)) && !allowed.includes(f)) allowed.push(f);
+    }
   }
   const safe = allowed.filter((f) => !INVESTIGATOR_ONLY_FIELDS.includes(f));
   return safe.includes(queried) ? [queried, ...safe.filter((f) => f !== queried)] : safe;
@@ -391,6 +402,7 @@ export function queriedFieldBlock(
   domain: Domain,
   queried: string,
   role: Role | null,
+  covered: readonly string[] = [],
 ): FieldBlock | null {
   if (!queried) return null;
   if (INVESTIGATOR_ONLY_FIELDS.includes(queried)) {
@@ -402,7 +414,7 @@ export function queriedFieldBlock(
           : "An investigator records this, in the investigator box on the check-in. It cannot be changed from a query answer.",
     };
   }
-  if (editableFields(draft, domain, queried).includes(queried)) return null;
+  if (editableFields(draft, domain, queried, covered).includes(queried)) return null;
   if (draft && !(queried in (draft.fields ?? {}))) {
     return {
       kind: "not_on_record",

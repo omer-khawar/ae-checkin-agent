@@ -118,6 +118,17 @@ def require_role(*roles: str) -> Callable[..., Actor]:
     return _dep
 
 
+CLINICAL_ROLES: tuple[str, ...] = ("coordinator", "investigator")
+"""Roles that may make clinical decisions (ack an escalation, confirm/reject/edit a draft,
+edit a packet, answer a sponsor query). The admin/dev role (CLAUDE.md §3.1) runs settings,
+reset and eval only: it must not clear an urgent page or confirm an AE."""
+
+
+def require_clinical() -> Callable[..., Actor]:
+    """``Depends(require_clinical())``: coordinator or investigator only."""
+    return require_role(*CLINICAL_ROLES)
+
+
 def require_admin_for(actor: Actor | None, what: str) -> Actor:
     """403 unless ``actor`` is an admin; used for the override fields on kiosk endpoints."""
     if actor is None or not actor.is_admin:

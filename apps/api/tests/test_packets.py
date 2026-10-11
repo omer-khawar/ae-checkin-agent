@@ -20,6 +20,7 @@ from interim_api.services.packets import FOOTER
 from interim_rules.narrative import validate_written
 
 API = "/api/v1"
+SIGN_ATTEST = {"narrative_reviewed": True, "missing_info_acknowledged": True}
 
 
 @pytest.fixture
@@ -137,9 +138,10 @@ def test_packet_create_is_idempotent_and_role_checked(client) -> None:
     assert first.status_code == 201, first.text
     again = client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=inv)
     assert again.status_code == 200 and again.json()["id"] == first.json()["id"]
+    # The admin/dev role makes no clinical decisions (judge review 2026-10-11).
     assert (
-        client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=admin).json()["id"]
-        == first.json()["id"]
+        client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=admin).status_code
+        == 403
     )
     assert len(_audit(client, coord, action="packet.created")) == 1
     # The clock row now links to its packet.
@@ -268,8 +270,13 @@ def test_sign_stops_clock_posts_mock_edc_and_freezes_packet(client) -> None:
     pid = client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=coord).json()["id"]
 
     for headers in (coord, admin):
-        assert client.post(f"{API}/packets/{pid}/sign", json={}, headers=headers).status_code == 403
-    signed = client.post(f"{API}/packets/{pid}/sign", json={"note": "ok"}, headers=inv)
+        assert (
+            client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=headers).status_code
+            == 403
+        )
+    signed = client.post(
+        f"{API}/packets/{pid}/sign", json={"note": "ok", **SIGN_ATTEST}, headers=inv
+    )
     assert signed.status_code == 200, signed.text
     body = signed.json()
     assert body["status"] == "signed" and body["signed_by"] == "investigator"
@@ -288,7 +295,9 @@ def test_sign_stops_clock_posts_mock_edc_and_freezes_packet(client) -> None:
     stops = _audit(client, coord, action="sae_clock.stopped", entity_id=clock["id"])
     assert stops[0]["payload"]["path"] == "packet.sign"
     # Signed packets are frozen.
-    assert client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv).status_code == 409
+    assert (
+        client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv).status_code == 409
+    )
     frozen = client.patch(f"{API}/packets/{pid}", json={"narrative_text": "x"}, headers=coord)
     assert frozen.status_code == 409
     verify = client.get(f"{API}/audit/verify", headers=coord).json()
@@ -306,7 +315,9 @@ def test_follow_up_diff_missing_info_and_signing(client) -> None:
     client.patch(
         f"{API}/packets/{pid}", json={"fields": {"LAST_DOSE_DATE": "2026-10-01"}}, headers=coord
     )
-    assert client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv).status_code == 200
+    assert (
+        client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv).status_code == 200
+    )
 
     # After signing, the investigator assesses the AE as immune-related and possibly related.
     detail = client.get(f"{API}/checkins/{done['session_id']}", headers=coord).json()
@@ -343,7 +354,7 @@ def test_follow_up_diff_missing_info_and_signing(client) -> None:
     parent = client.get(f"{API}/packets/{pid}", headers=coord).json()
     assert parent["followup_packet_ids"] == [body["id"]]
     # Signing the follow-up: own audit action, mock EDC again, the clock stays as it was.
-    signed = client.post(f"{API}/packets/{body['id']}/sign", json={}, headers=inv)
+    signed = client.post(f"{API}/packets/{body['id']}/sign", json=SIGN_ATTEST, headers=inv)
     assert signed.status_code == 200, signed.text
     assert _audit(client, coord, action="packet.followup_signed", entity_id=body["id"])
     assert len(_audit(client, coord, action="mock_edc.posted")) == 2
@@ -478,3 +489,63 @@ def test_settings_public_reports_template_writer(client) -> None:
     body = client.get(f"{API}/settings/public").json()
     assert body["writer"] == "template" and body["llm_configured"] is False
     assert "anthropic_api_key" not in body
+
+
+def test_follow_up_keeps_a_person_correction_while_the_evidence_is_unchanged(client) -> None:
+    """Regression (e2e reporting walkthrough): a coordinator's correction of an
+    evidence-backed field on the signed report must not be silently reverted by the
+    follow-up and reported to the sponsor as a "change" back to the old value."""
+    done = _aesi_checkin(client)
+    coord = login(client, "coordinator")
+    inv = login(client, "investigator")
+    clock = _clocks(client, done["session_id"], coord)["aesi"]
+    packet = client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=coord).json()
+    pid = packet["id"]
+    original = {f["name"]: f["value"] for f in packet["fields"]}["AESTDTC"]
+    assert original
+    corrected = "2026-01-01"
+    assert corrected != original
+    patched = client.patch(
+        f"{API}/packets/{pid}", json={"fields": {"AESTDTC": corrected}}, headers=coord
+    )
+    assert patched.status_code == 200, patched.text
+    assert (
+        client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv).status_code == 200
+    )
+
+    fu = client.post(f"{API}/packets/{pid}/follow-up", headers=coord)
+    assert fu.status_code == 201, fu.text
+    body = fu.json()
+    fields = {f["name"]: f for f in body["fields"]}
+    assert fields["AESTDTC"]["value"] == corrected
+    assert fields["AESTDTC"]["edited"] is False  # not edited on the follow-up itself
+    assert any(e.get("kind") == "packet" for e in fields["AESTDTC"]["evidence"])
+    assert "AESTDTC" not in {c["field"] for c in body["changes_since_previous"]}
+
+
+def test_sign_requires_narrative_review_and_missing_info_acknowledgment(client) -> None:
+    """A generated narrative is never signed unread; open missing-information items need an
+    explicit acknowledgment, and the attestation lands in the packet.signed event."""
+    done = _aesi_checkin(client)
+    coord = login(client, "coordinator")
+    inv = login(client, "investigator")
+    clock = _clocks(client, done["session_id"], coord)["aesi"]
+    pid = client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=coord).json()["id"]
+    packet = client.get(f"{API}/packets/{pid}", headers=inv).json()
+
+    unread = client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv)
+    assert unread.status_code == 422 and "narrative" in unread.json()["detail"]
+    if packet["missing_information"]:
+        no_ack = client.post(
+            f"{API}/packets/{pid}/sign", json={"narrative_reviewed": True}, headers=inv
+        )
+        assert no_ack.status_code == 422 and "missing" in no_ack.json()["detail"]
+    assert client.get(f"{API}/packets/{pid}", headers=inv).json()["status"] != "signed"
+
+    ok = client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv)
+    assert ok.status_code == 200, ok.text
+    events = client.get(f"{API}/audit", params={"limit": 500}, headers=inv).json()
+    rows = events["items"] if isinstance(events, dict) else events
+    signed = [e for e in rows if e["action"] == "packet.signed" and e["entity_id"] == pid]
+    assert signed and signed[-1]["payload"]["narrative_reviewed"] is True
+    assert "aeser_on_record" in signed[-1]["payload"]

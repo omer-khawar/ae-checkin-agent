@@ -114,3 +114,27 @@ Format: date, decision, why, consequences. Newest at the bottom.
 ## 2026-10-10 — D-026: Per-session camera consent removed; vitals demoted
 **Decision:** The kiosk no longer asks for camera consent each session (consent is covered by the informed consent form at enrollment; sessions record `consent_basis: "enrollment_icf"`). Vitals stay as optional context; the UI, README and slides stop leading with "vitals as eSource".
 **Why:** Mentor guidance; Presage's documented valid pulse range ends at 110 bpm, so the pulse ≥ 110 corroboration rules cannot fire on its real readings (recorded in WHAT_IT_GETS_WRONG).
+
+## 2026-10-11 — D-027: Investigator-only fields are enforced on every write path
+**Decision:** AESER, AEREL and INTERIM_IRAE can be set only by the investigator, whether through attribution, a draft edit, a packet edit or a query's "also correct the field". Other roles get 403 before any other validation.
+**Why:** The safety reviewer showed a coordinator could set seriousness and causality through a plain draft edit.
+
+## 2026-10-11 — D-028: Signing a report requires an attestation
+**Decision:** Signing a packet requires `narrative_reviewed: true` and each open "information still needed" item to be marked "not available" by the investigator. The attestation (who, when, generated vs edited narrative, items marked unavailable) is stored on the packet and in the `packet.signed` audit event.
+**Why:** Generated text must never leave the system without a person reviewing it (CLAUDE.md §00), and missing facts must be an explicit decision, not an oversight.
+
+## 2026-10-11 — D-029: Overdue 24-hour clocks raise an alert once
+**Decision:** A lazy sweep on reads of the queue, clocks and escalations records `clock.due_soon` / `clock.breached` audit events once per clock, writes a mock page, and appends an overdue reason to the existing escalation (an acknowledged escalation is not reopened; the new reason and page make the breach visible).
+**Why:** A missed deadline must produce a system response, not just a red chip.
+
+## 2026-10-11 — D-030: The admin role is not a clinical role; demo reset is gated
+**Decision:** Admin can change settings, run eval, reset the demo (only when `ALLOW_DEMO_RESET` is true, the demo default) and act as the sponsor monitor for queries. Acknowledging escalations, confirming or rejecting drafts, editing or signing packets and answering queries require coordinator or investigator. A reset writes a genesis audit event that cites the previous chain head.
+**Why:** Role separation is a readiness criterion; an unaudited wipe of the audit chain is not acceptable even in a demo.
+
+## 2026-10-11 — D-031: Exports carry their evidence
+**Decision:** JSON exports include `INTERIM_EVIDENCE` per record; the bundle adds `evidence.json` and a long-format `evidence.csv`, both hashed in the manifest. Domain CSVs stay flat and SDTM-ordered.
+**Why:** "Every output shows its evidence" must survive leaving the system.
+
+## 2026-10-11 — D-032: Discharge advice is not a hospitalization
+**Decision:** The chart scanner's hypothetical cues now cover return precautions ("call 911 if", "seek emergency care if", "if you feel worse, go to the ER"), so they never start an SAE clock; an actual ER visit is still flagged. The answer key grew to 42 cases, all passing.
+**Why:** Judge and tester finding (ISSUES #25): false 24-hour clocks erode trust in real ones.

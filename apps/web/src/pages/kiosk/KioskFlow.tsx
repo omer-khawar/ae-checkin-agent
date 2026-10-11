@@ -423,6 +423,7 @@ export function KioskFlow() {
           item={currentItem}
           index={itemIndex}
           total={items.length}
+          screenTotal={totalScreens}
           recallWindow={recallWindow}
           values={currentValues}
           onSelect={(attr, value) => onSelect(currentItem.id, attr, value)}

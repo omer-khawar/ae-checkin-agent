@@ -17,7 +17,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Body, Depends, Query
 
 from ..audit import Actor
-from ..auth import require_role
+from ..auth import require_clinical, require_role
 from ..db import Database
 from ..deps import Pagination, get_database
 from ..schemas_queries import (
@@ -112,7 +112,7 @@ def post_query(
 def post_answer(
     query_id: str,
     body: AnswerQueryRequest,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.write_scope() as db:

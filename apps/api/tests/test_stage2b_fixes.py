@@ -25,6 +25,7 @@ from interim_api.services.evaluation import compare
 from interim_api.util import load_json
 
 API = "/api/v1"
+SIGN_ATTEST = {"narrative_reviewed": True, "missing_info_acknowledged": True}
 
 
 @pytest.fixture
@@ -123,7 +124,7 @@ def test_print_shows_the_signed_narrative_and_the_sign_event_records_it(client) 
     assert "Original template draft" in page and "not the reported text" in page
     assert "for investigator review and signature" not in page
 
-    signed = client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv)
+    signed = client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv)
     assert signed.status_code == 200, signed.text
     page = client.get(f"{API}/packets/{pid}/print", headers=coord).text
     assert "Narrative (signed)" in page and "Draft narrative" not in page
@@ -142,7 +143,9 @@ def test_signed_unedited_print_drops_the_review_line(client) -> None:
     inv = login(client, "investigator")
     clock = _clocks(client, done["session_id"], coord)["aesi"]
     pid = client.post(f"{API}/packets", json={"clock_id": clock["id"]}, headers=coord).json()["id"]
-    assert client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv).status_code == 200
+    assert (
+        client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv).status_code == 200
+    )
     page = client.get(f"{API}/packets/{pid}/print", headers=coord).text
     assert "Narrative (signed)" in page and "Written by template" in page
     assert "for investigator review and signature" not in page
@@ -166,7 +169,9 @@ def test_clock_starts_and_stops_of_every_kind_share_one_vocabulary(client) -> No
     pid = client.post(
         f"{API}/packets", json={"clock_id": clocks["aesi"]["id"]}, headers=coord
     ).json()["id"]
-    assert client.post(f"{API}/packets/{pid}/sign", json={}, headers=inv).status_code == 200
+    assert (
+        client.post(f"{API}/packets/{pid}/sign", json=SIGN_ATTEST, headers=inv).status_code == 200
+    )
     r = client.patch(
         f"{API}/sae-clocks/{clocks['sae']['id']}/stop",
         json={"decision": "not serious", "note": "ER visit unrelated"},

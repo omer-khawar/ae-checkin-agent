@@ -93,6 +93,19 @@ def _status_summary(drafts: Sequence[Draft]) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def _followup_count(drafts: Sequence[Draft]) -> int:
+    """AE drafts on this item that are follow-ups of an already-open AE (dedup, §3.4h).
+
+    The queue shows them as a "follow-up" chip so a coordinator sees at a glance
+    that an item updates an existing AE rather than opening a new one.
+    """
+    return sum(
+        1
+        for d in drafts
+        if d.domain == "AE" and load_json(d.fields_json, {}).get("INTERIM_FOLLOWUP_OF")
+    )
+
+
 def queue(
     db: DbSession,
     study: Study,
@@ -162,6 +175,7 @@ def queue(
                 "escalation_id": escalation.id if escalation else None,
                 "draft_counts": counts,
                 "draft_status_summary": _status_summary(session_drafts),
+                "followup_count": _followup_count(session_drafts),
                 "is_open": is_open,
                 "is_eval": session.is_eval,
                 "stop_screen_shown": session.stop_screen_shown,
@@ -251,6 +265,7 @@ def _note_queue_rows(
                 "escalation_id": escalation.id if escalation else None,
                 "draft_counts": counts,
                 "draft_status_summary": _status_summary(note_drafts),
+                "followup_count": _followup_count(note_drafts),
                 "is_open": is_open,
                 "is_eval": bool(participant.is_eval) if participant else False,
                 "stop_screen_shown": False,

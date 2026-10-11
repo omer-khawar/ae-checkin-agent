@@ -34,6 +34,7 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "auth_secret": "test-secret",
         "bridge_token": "",
         "seed_on_start": False,
+        "allow_demo_reset": True,
         "public_data_dir": REPO_PUBLIC,
         "log_level": "warning",
     }

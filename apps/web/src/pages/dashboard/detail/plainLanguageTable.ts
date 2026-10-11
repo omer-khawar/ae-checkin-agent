@@ -31,6 +31,7 @@ export const PLAIN_FIELDS: Record<string, string> = {
   INTERIM_FOLLOWUP_OF: "Follow-up to an earlier side-effect record",
   INTERIM_AESI_SUSPECTED:
     "Possible event of special interest (possible AESI, investigator to confirm)",
+  INTERIM_IRAE: "Immune-related? (investigator decides)",
   VSSEQ: "Vitals record number",
   VSTESTCD: "Vital sign (short code)",
   VSTEST: "Vital sign",

@@ -1,6 +1,8 @@
 # Demo script: Monday morning (3 minutes, live)
 
-> The story (`CLAUDE.md` §00.6): **"Monday 8 am. Overnight: three kiosk check-ins, a caregiver's phone call and two hospital notes (an ER visit and an urgent-care visit). Interim has already found the side effects with exact quotes, merged duplicates, flagged the ER visit as a possible serious event, started the 24-hour clock, pre-filled the report and drafted its narrative, caught a discouraged steroid against the protocol, and built tomorrow's visit brief. The coordinator reviews and confirms: twenty minutes instead of most of a day."**
+> The story (`CLAUDE.md` §00.6): **"Monday 8 am. Overnight: three kiosk check-ins, a caregiver's phone call and two hospital notes (an ER visit and an urgent-care visit). Interim has already found the side effects with exact quotes, merged duplicates, flagged the ER visit as a possible serious event, started the 24-hour clock, pre-filled the report and drafted its narrative, caught a discouraged steroid against the protocol, and built tomorrow's visit brief. The coordinator reviews and confirms instead of retyping."**
+>
+> **The time claim is the number on screen, nothing else.** Say the figure the time-saved strip shows, with the word "estimate". On a fresh seed (`docker compose down -v && docker compose up --build`) the strip reads **about 75 minutes this week** (last week's confirmed records), and confirming all of the overnight records adds **about 78 minutes** of typing that was pre-filled (measured 2026-10-11 against `GET /api/v1/metrics/time-saved`; the exact figure moves if the seed changes, so read it off the strip in pre-flight). Each per-field minute is an assumption anchored to one published entry rate (MSK + IgniteData), listed under "How is this estimated?" and in `packages/rules/data/time_model.json`. The 12–15 h per study per week figure is published context for how much copying coordinators do, not something Interim measured; never say "twenty minutes instead of a day".
 >
 > Every click below lands on state the seed creates (`apps/api/interim_api/seed.py`, `data/synthetic/README.md` §10). All participants are synthetic. Times are relative to when the seed ran, so "overnight" is true whenever you reset.
 
@@ -12,7 +14,7 @@
 2. **Two browser tabs, two roles.** Logins live in each tab's session storage, so two tabs of the same browser can hold two roles.
    - **Tab A:** http://localhost:5173/ → **coordinator**, password `interim-demo` (or your `DEMO_PASSWORD`). Leave it on the Queue.
    - **Tab B:** http://localhost:5173/ → **investigator**. Leave it on the Queue.
-3. **Check the morning state** in Tab A: the "Since you were last here" row is at the top of the Queue; the time-saved strip is in the header with the word "estimate"; the top rows are Tier 2 ("Nurse call today"); an **SAE** chip shows about 21 hours left and an **AESI** chip about 13 hours left.
+3. **Check the morning state** in Tab A: the "Since you were last here" row is at the top of the Queue; the time-saved strip is in the header with the word "estimate" (write its number on a sticky note; that is the number you say in §1); the top rows are Tier 2 ("Nurse call today"); an **SAE** chip shows about 21 hours left and an **AESI** chip about 13 hours left.
 4. **Optional:** a third tab on http://localhost:5173/kiosk for the fallback live check-in (§4).
 5. Window at 1440 px or wider; browser zoom 100%; notifications off.
 
@@ -24,7 +26,7 @@ Do not reset between rehearsal and the real demo unless you rehearsed on a diffe
 
 **Click:** nothing yet. Tab A, Queue.
 
-**Say:** "This is a research coordinator's Monday. The study is real: Regeneron's EMPOWER-Lung 1, cemiplimab in lung cancer, straight from ClinicalTrials.gov. The participants are synthetic. Overnight, three kiosk check-ins, a caregiver's phone call, an urgent-care record and an ER note came in. Interim has already read all of them. Today a coordinator spends twelve to fifteen hours a week per study retyping this kind of data. Here it is pre-filled, sorted by urgency, and every number links to where it came from."
+**Say:** "This is a research coordinator's Monday. The study is real: Regeneron's EMPOWER-Lung 1, cemiplimab in lung cancer, straight from ClinicalTrials.gov. The participants are synthetic. Overnight, three kiosk check-ins, a caregiver's phone call, an urgent-care record and an ER note came in. Interim has already read all of them. Published surveys put coordinators at twelve to fifteen hours a week per study retyping this kind of data. Here it is pre-filled, sorted by urgency, and every number links to where it came from. Up here: about N minutes of typing already pre-filled this week. That is an estimate, and 'How is this estimated?' shows every assumption."
 
 **Point at:** the "Since you were last here" row; the tier names spelled out (Log · Review within 1 business day · Nurse call today · Urgent); the **SAE** and **AESI** clock chips; the "Time saved this week (estimate)" strip.
 
@@ -68,7 +70,9 @@ Do not reset between rehearsal and the real demo unless you rehearsed on a diffe
 
 **Click:** **Confirm** on the itching AE.
 
-**Say:** "Confirm, and the time-saved estimate counts the fields Interim pre-filled that nobody had to edit."
+**Say:** "Confirm, and the time-saved estimate counts the fields Interim pre-filled that nobody had to edit. Edit a field first and that field counts for nothing."
+
+**Point at:** the strip's number going up (if asked "what if the inputs change?": open "How is this estimated?"; each line is fields × assumed minutes).
 
 ---
 

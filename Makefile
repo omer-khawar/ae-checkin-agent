@@ -61,7 +61,7 @@ dev:
 	  "$(MAKE) api" "$(MAKE) web" "$(MAKE) bridge"
 
 api:
-	cd apps/api && ../../$(VPY) -m uvicorn interim_api.main:app --reload --host $${API_HOST:-0.0.0.0} --port $${API_PORT:-8000}
+	cd apps/api && ALLOW_DEMO_RESET=$${ALLOW_DEMO_RESET:-true} ../../$(VPY) -m uvicorn interim_api.main:app --reload --host $${API_HOST:-0.0.0.0} --port $${API_PORT:-8000}
 
 web:
 	cd apps/web && npm run dev

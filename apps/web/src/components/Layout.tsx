@@ -48,7 +48,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <Link
             to="/dashboard"
             className="flex items-center gap-2 text-lg font-bold text-brand-800"
@@ -88,6 +88,30 @@ export function Layout() {
             </div>
           </div>
 
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-600">
+              {auth?.display_name ?? "—"} <span className="text-slate-400">·</span>{" "}
+              <span className="font-medium text-slate-800">{role ? ROLE_LABELS[role] : ""}</span>
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+            >
+              Sign out
+            </Button>
+            <Link to="/kiosk" className="text-xs text-brand-700 underline">
+              Open kiosk
+            </Link>
+          </div>
+        </div>
+        {/* Row 2: navigation, with the time-saved strip on the right. Kept off row 1
+            so the study title and the "synthetic" note get the full width at 1440 px
+            instead of wrapping into a narrow column (intake e2e walkthrough). */}
+        <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-2">
           <nav aria-label="Dashboard" className="flex flex-wrap items-center gap-1">
             {NAV.map((n) => (
               <NavLink
@@ -119,33 +143,11 @@ export function Layout() {
             )}
           </nav>
 
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-600">
-              {auth?.display_name ?? "—"} <span className="text-slate-400">·</span>{" "}
-              <span className="font-medium text-slate-800">{role ? ROLE_LABELS[role] : ""}</span>
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
-            >
-              Sign out
-            </Button>
-            <Link to="/kiosk" className="text-xs text-brand-700 underline">
-              Open kiosk
-            </Link>
-          </div>
-        </div>
-        {/* `empty:hidden`: when the strip renders nothing, the row takes no space. */}
-        <div className="mx-auto flex max-w-7xl justify-end px-4 pb-2 empty:hidden">
           <TimeSavedStrip />
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-6">
         <Outlet />
       </main>
 

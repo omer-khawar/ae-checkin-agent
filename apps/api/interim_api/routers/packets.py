@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import HTMLResponse
 
 from ..audit import Actor
-from ..auth import require_role
+from ..auth import require_clinical, require_role
 from ..db import Database
 from ..deps import Pagination, get_database, get_settings
 from ..schemas_packets import CreatePacketRequest, PatchPacketRequest, SignPacketRequest
@@ -51,7 +51,7 @@ def packet_writer(request: Request, settings: Settings = Depends(get_settings)) 
 def post_packet(
     body: CreatePacketRequest,
     response: Response,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     writer: Writer = Depends(packet_writer),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
@@ -95,7 +95,7 @@ def get_packet(
 def patch_packet(
     packet_id: str,
     body: PatchPacketRequest,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     writer: Writer = Depends(packet_writer),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
@@ -121,7 +121,13 @@ def post_sign(
 ) -> dict[str, Any]:
     with database.write_scope() as db:
         packet, ack = sign_packet(
-            db, actor, get_packet_or_404(db, packet_id), note=body.note if body else None
+            db,
+            actor,
+            get_packet_or_404(db, packet_id),
+            note=body.note if body else None,
+            narrative_reviewed=bool(body and body.narrative_reviewed),
+            missing_info_acknowledged=bool(body and body.missing_info_acknowledged),
+            missing_info_not_available=(body.missing_info_not_available if body else None),
         )
         return {**packet_to_dict(db, packet), "mock_edc_ack": ack}
 
@@ -130,7 +136,7 @@ def post_sign(
 def post_follow_up(
     packet_id: str,
     response: Response,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     writer: Writer = Depends(packet_writer),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:

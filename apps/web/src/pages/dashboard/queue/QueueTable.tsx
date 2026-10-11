@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { TierChip } from "../../../components/TierChip";
 import { cx, Time, vitalsStatusLabel } from "../../../lib/format";
+import { callSummary, noteTypeWords } from "../notes/phoneCallLabels";
 import { hasVitalsSamples, isNoteSource } from "./normalize";
 import { SaeCountdownChip } from "./SaeCountdownChip";
 import { countLabel } from "./summary";
@@ -24,8 +25,8 @@ export interface QueueTableProps {
   refreshing?: boolean;
 }
 
-const TH = "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600";
-const TD = "px-3 py-2.5 align-middle text-sm text-slate-900";
+const TH = "px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600";
+const TD = "px-2 py-2.5 align-middle text-sm text-slate-900";
 
 /** Inline SVG icons (no icon library, no third-party scripts). */
 function SourceIcon({ source }: { source: QueueSource }) {
@@ -75,6 +76,40 @@ const SOURCE_LABEL: Record<QueueSource, { word: string; title: string }> = {
       "The coordinator's summary of a phone call, scanned by the same fixed rules as a chart note (no LLM)",
   },
 };
+
+/**
+ * One small line under "came in as": what kind of note it was ("Outside record",
+ * "Emergency department note") or who was on the call ("Caregiver · they called
+ * the site"), plus a "Follow-up" chip when the item updates an AE that is already
+ * open instead of opening a new one.
+ */
+export function SourceDetail({ row }: { row: QueueRow }) {
+  const detail =
+    row.source === "phone_call"
+      ? callSummary(row.caller, row.call_direction)
+      : row.source === "chart_note" && row.note_type
+        ? noteTypeWords(row.note_type)
+        : null;
+  if (!detail && row.followup_count === 0) return null;
+  return (
+    <div className="mt-0.5 flex flex-col items-start gap-1">
+      {detail && (
+        <span className="text-xs text-slate-600" data-testid="source-detail">
+          {detail}
+        </span>
+      )}
+      {row.followup_count > 0 && (
+        <span
+          className="whitespace-nowrap rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-900"
+          title="Matches a side effect that is already open for this participant (same term within the dedup window), so it is drafted as a follow-up, not a new AE"
+          data-testid="followup-chip"
+        >
+          Follow-up · {row.followup_count} open AE{row.followup_count === 1 ? "" : "s"}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function EscalationCell({ acked }: { acked: boolean | null }) {
   if (acked === null) {
@@ -177,10 +212,12 @@ function ClocksCell({ row, now }: { row: QueueRow; now: number }) {
     );
   }
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex max-w-[14rem] flex-col items-start gap-1">
       {row.clocks.map((c) => (
         <SaeCountdownChip
           key={c.key}
+          // `!`: the chip base class sets whitespace-nowrap, which would otherwise win.
+          className="!whitespace-normal text-left"
           kind={c.kind}
           dueAt={c.due_at}
           stopped={c.stopped}
@@ -196,7 +233,10 @@ function ClocksCell({ row, now }: { row: QueueRow; now: number }) {
 
 export function QueueTable({ rows, now, refreshing }: QueueTableProps) {
   return (
-    <div className="overflow-x-auto">
+    // `relative`: the sr-only spans inside the table are absolutely positioned; without
+    // a positioned scroll container they escape it and widen the whole page (the body
+    // scrolled sideways at 1440 px in the intake walkthrough).
+    <div className="relative overflow-x-auto">
       <table
         className={cx("w-full min-w-[1040px] border-collapse", refreshing && "opacity-70")}
         aria-busy={refreshing || undefined}
@@ -297,6 +337,7 @@ export function QueueTable({ rows, now, refreshing }: QueueTableProps) {
                     <SourceIcon source={row.source} />
                     <span>{src.word}</span>
                   </span>
+                  <SourceDetail row={row} />
                 </td>
                 <td className={cx(TD, "whitespace-nowrap")}>
                   <Time iso={row.completed_at} style="short" />

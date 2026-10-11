@@ -98,6 +98,8 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
         "clock.started",
         # [fixer 2B] every clock stop, any kind (sae_clock.stopped kept for back-compat)
         "clock.stopped",
+        "clock.due_soon",
+        "clock.breached",
     }
 )
 """Every action the API may emit. ``append_event`` refuses anything else, so the audit

@@ -664,10 +664,14 @@ def render_chartscan_markdown(section: Mapping[str, Any]) -> list[str]:
     key = section["answer_key"]
     via = section["via_api"]
     lines: list[str] = []
+    per_case = list(key.get("per_case") or [])
+    n_notes = sum(1 for c in per_case if c.get("kind") == "note")
+    n_utterances = sum(1 for c in per_case if c.get("kind") == "utterance")
     lines.append("## Chart-note scanner (CONTRACTS R2.4; deterministic, no LLM)")
     lines.append("")
     lines.append(
-        f"Answer key: {key['n_cases']} cases (8 synthetic notes + 17 participant utterances) "
+        f"Answer key: {key['n_cases']} cases ({n_notes} synthetic notes + {n_utterances} "
+        "participant utterances) "
         f"scored by `interim_rules.chartscan.evaluate_answer_key`; "
         f"**{'PASS' if key['passed'] else 'FAIL'}** "
         f"(criterion: every case exact). Scanner ported from omer-khawar/ae-checkin-agent "

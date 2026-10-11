@@ -345,7 +345,7 @@ def test_aesi_always_says_possible() -> None:
 
 def test_sentences_are_short_single_sentences() -> None:
     for rid, rule in plain_language.plain_language().rules.items():
-        for text in (rule.sentence, rule.fallback):
+        for text in (rule.sentence, rule.fallback, *(v.sentence for v in rule.variants)):
             assert len(text) <= 240, rid
             assert text[0].isupper() or text[0] == "{", rid
             assert text.endswith("."), rid
@@ -354,6 +354,34 @@ def test_sentences_are_short_single_sentences() -> None:
 # --------------------------------------------------------------------------- #
 # Safe formatting
 # --------------------------------------------------------------------------- #
+
+
+def test_dedup_sentence_says_earlier_today_for_a_same_day_follow_up() -> None:
+    """A repeat check-in on the same day must not read '0 days ago' (tester finding)."""
+    rid = "dedup.followup_linked"
+    same_day = rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": 0})
+    assert "earlier today" in same_day and "0 days" not in same_day
+    assert "earlier today" in rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": 0.0})
+    assert "less than a day ago" in rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": 0.4})
+    assert "from 1 day ago" in rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": 1})
+    assert "from 3.5 days ago" in rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": 3.5})
+    # A missing or non-numeric input never picks a variant and never crashes.
+    rule = plain_language.plain_language().rules[rid]
+    assert rule_sentence(rid, {"aedecod": "Diarrhea"}) == rule.fallback
+    assert "earlier today" not in rule_sentence(rid, {"aedecod": "Diarrhea", "days_since": True})
+
+
+def test_variant_tables_are_validated() -> None:
+    with pytest.raises(TableError):
+        plain_language._variants(
+            [{"when": {"input": "x", "op": "ne", "value": 0}, "sentence": "A."}], "t"
+        )
+    with pytest.raises(TableError):
+        plain_language._variants(
+            [{"when": {"input": "x", "op": "eq", "value": "0"}, "sentence": "A."}], "t"
+        )
+    with pytest.raises(TableError):
+        plain_language._variants({"when": {}}, "t")
 
 
 def test_missing_inputs_use_the_fallback() -> None:

@@ -94,8 +94,9 @@ describe("SaeCountdownChip (report clock)", () => {
     expect(chip).toHaveAttribute("data-clock-kind", "sae");
     expect(chip).toHaveClass("bg-amber-100");
     expect(chip).toHaveTextContent("Serious event — report due in 23:14");
-    // The abbreviation is a small badge, and the hover names it with the protocol section.
-    expect(chip).toHaveTextContent("SAE");
+    // The abbreviation is not drawn on the chip: the hover names it with the
+    // protocol section, and screen readers get it from a visually hidden span.
+    expect(chip.querySelector('[data-clock-abbr="SAE"]')).toHaveClass("sr-only");
     expect(chip.title).toContain("SAE (serious adverse event)");
     expect(chip.title).toContain("§9.4.2");
     expect(chip.title).toContain(due);
@@ -106,7 +107,8 @@ describe("SaeCountdownChip (report clock)", () => {
     render(<SaeCountdownChip kind="aesi" dueAt={due} stopped={false} now={NOW} />);
     const chip = chipBySpoken("Special-interest event: report due in 5 hours 3 minutes");
     expect(chip).toHaveTextContent("Special-interest event — report due in 05:03");
-    expect(chip).toHaveTextContent("AESI");
+    expect(chip.querySelector('[data-clock-abbr="AESI"]')).toHaveClass("sr-only");
+    expect(chip.title).toContain("AESI (possible adverse event of special interest");
     expect(chip).toHaveAttribute("data-clock-kind", "aesi");
     expect(chip.title).toContain("investigator to confirm");
     expect(chip.title).toContain("§9.4.3");

@@ -122,6 +122,12 @@
         "AE"
       ]
     },
+    "INTERIM_IRAE": {
+      "label": "Immune-related? (investigator decides)",
+      "domains": [
+        "AE"
+      ]
+    },
     "VSSEQ": {
       "label": "Vitals record number",
       "domains": [
@@ -534,7 +540,21 @@
     },
     "dedup.followup_linked": {
       "sentence": "{aedecod} was already open from {days_since} days ago, so this is added as a follow-up, not a new side effect.",
-      "fallback": "This side effect was already open, so it is added as a follow-up, not a new side effect."
+      "fallback": "This side effect was already open, so it is added as a follow-up, not a new side effect.",
+      "variants": [
+        {
+          "when": {"input": "days_since", "op": "eq", "value": 0},
+          "sentence": "{aedecod} was already open from a report earlier today, so this is added as a follow-up, not a new side effect."
+        },
+        {
+          "when": {"input": "days_since", "op": "lt", "value": 1},
+          "sentence": "{aedecod} was already open from a report less than a day ago, so this is added as a follow-up, not a new side effect."
+        },
+        {
+          "when": {"input": "days_since", "op": "eq", "value": 1},
+          "sentence": "{aedecod} was already open from 1 day ago, so this is added as a follow-up, not a new side effect."
+        }
+      ]
     },
     "dedup.new_ae": {
       "sentence": "{aedecod} has no open record in the last {window_days} days, so a new side-effect record is drafted.",

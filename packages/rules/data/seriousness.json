@@ -22,5 +22,10 @@
     "other_serious_days": 15,
     "source": "21 CFR 312.32(c)",
     "note": "Informational only. Computed from site awareness; owned by the sponsor, not by Interim."
+  },
+  "clock_alerts": {
+    "due_soon_hours_before": 4,
+    "source": "Interim operating rule (site SOP placeholder)",
+    "note": "A running 24 h site-to-sponsor clock pages the on-call role once when 4 h remain (clock.due_soon) and once when it passes due (clock.breached). Sites set their own lead time."
   }
 }

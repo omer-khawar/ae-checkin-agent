@@ -4,20 +4,20 @@
 
 | Run | Value |
 |---|---|
-| Generated (UTC) | 2026-10-11T03:01:19.819Z |
+| Generated (UTC) | 2026-10-11T05:11:25.371Z |
 | API | temporary server started by `--start-server` (fresh SQLite database with the demo seed) on 127.0.0.1 |
 | API version (`GET /health`) | 0.1.0 |
-| Harness run id | `h20261011030106d6a0` |
+| Harness run id | `h20261011051115dd36` |
 | Personas | 36 replayed of 36 selected from `packages/rules/data/personas.json` v0.1.0 (include_hidden = true) |
-| Chart-note answer key | 39 cases (8 notes + 31 utterances), `packages/rules/data/chartscan_answer_key.json` |
+| Chart-note answer key | 42 cases (8 notes + 34 utterances), `packages/rules/data/chartscan_answer_key.json` |
 | Checks | strict = true (eval isolation, API version), strict_keys = false (unknown `expected` keys) |
-| HTTP requests | 924 in 13.4 s |
+| HTTP requests | 928 in 9.6 s |
 
 ## Headline
 
 - **36 / 36 personas pass (100.0%)**; 0 fail.
 - **3 / 3 counterfactuals pass**: same answers, one setting changed; the tier moves and no grade does.
-- **Chart-note scanner through `POST /scan`: 38 / 38 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
+- **Chart-note scanner through `POST /scan`: 41 / 41 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
 - **Chart notes through `POST /notes`: 8 / 8 notes pass** (PASS).
 - **Eval isolation: 0 eval rows** in the default coordinator lists (PASS).
 - Overall: **PASS**.
@@ -49,6 +49,7 @@ One count per persona x item (ten items per persona). G4 and G5 are never assign
 | De-duplication (follow-up vs new AE; linked open AE's dates) | 36 | 36 |
 | SAE clock started / not started (24 h due-time arithmetic) | 36 | 36 |
 | Con-med match (verbatim, name, kind, distance, confidence, dates) | 36 | 36 |
+| Possible AESI (items, 24 h clock arithmetic) and protocol tier floor (R3.1) | 36 | 36 |
 | Counterfactuals (tier changes, grades do not) | 3 | 3 |
 
 ## Per persona
@@ -114,7 +115,7 @@ Scanner ported from omer-khawar/ae-checkin-agent (Omer Khawar, MIT). Each answer
 | Check | Value |
 |---|---|
 | Medication change accuracy (started/stopped/changed/taking) | 1.00 |
-| Escalation level exact match | 1.00 (over 38 scorable cases) |
+| Escalation level exact match | 1.00 (over 41 scorable cases) |
 | Urgent/emergency cases caught | 14 / 14 |
 | Emergency cases caught | 3 / 3 |
 | Over-escalations | 0 |
@@ -153,126 +154,6 @@ Every replay above ran as an `is_eval` participant. After the run the harness re
 ## Mismatches
 
 None. Every compared key matched its answer key.
-
-## Notices
-
-Keys in an answer key this harness does not compare (CONTRACTS.md R2.2: logged, not failures; `--strict-keys` makes them failures).
-
-- E-dedup-cough-followup: expected.aesi_clock_started is not compared by this harness
-- E-dedup-cough-followup: expected.aesi_items is not compared by this harness
-- E-dedup-cough-followup: expected.aesi_suspected is not compared by this harness
-- E-implausible-breathing-ignored: expected.aesi_clock_started is not compared by this harness
-- E-implausible-breathing-ignored: expected.aesi_items is not compared by this harness
-- E-implausible-breathing-ignored: expected.aesi_suspected is not compared by this harness
-- E-low-quality-vitals-ignored: expected.aesi_clock_started is not compared by this harness
-- E-low-quality-vitals-ignored: expected.aesi_items is not compared by this harness
-- E-low-quality-vitals-ignored: expected.aesi_suspected is not compared by this harness
-- J-everything-very-severe-no-hospitalization: expected.aesi_clock_started is not compared by this harness
-- J-everything-very-severe-no-hospitalization: expected.aesi_items is not compared by this harness
-- J-everything-very-severe-no-hospitalization: expected.aesi_suspected is not compared by this harness
-- J-fever-tachycardia-fatigue-g2: expected.aesi_clock_started is not compared by this harness
-- J-fever-tachycardia-fatigue-g2: expected.aesi_items is not compared by this harness
-- J-fever-tachycardia-fatigue-g2: expected.aesi_suspected is not compared by this harness
-- J-post-exercise-pulse-190-implausible: expected.aesi_clock_started is not compared by this harness
-- J-post-exercise-pulse-190-implausible: expected.aesi_items is not compared by this harness
-- J-post-exercise-pulse-190-implausible: expected.aesi_suspected is not compared by this harness
-- J-stopped-prednisone-itching-returns: expected.aesi_clock_started is not compared by this harness
-- J-stopped-prednisone-itching-returns: expected.aesi_items is not compared by this harness
-- J-stopped-prednisone-itching-returns: expected.aesi_suspected is not compared by this harness
-- J-toggle-only-tachycardia-dyspnea: expected.aesi_clock_started is not compared by this harness
-- J-toggle-only-tachycardia-dyspnea: expected.aesi_items is not compared by this harness
-- J-toggle-only-tachycardia-dyspnea: expected.aesi_suspected is not compared by this harness
-- P3-avastin-brand-prohibited: expected.aesi_clock_started is not compared by this harness
-- P3-avastin-brand-prohibited: expected.aesi_items is not compared by this harness
-- P3-avastin-brand-prohibited: expected.aesi_suspected is not compared by this harness
-- P3-avastin-brand-prohibited: expected.protocol_tier_floor is not compared by this harness
-- P3-bevacizumab-prohibited-floor: expected.aesi_clock_started is not compared by this harness
-- P3-bevacizumab-prohibited-floor: expected.aesi_items is not compared by this harness
-- P3-bevacizumab-prohibited-floor: expected.aesi_suspected is not compared by this harness
-- P3-bevacizumab-prohibited-floor: expected.protocol_tier_floor is not compared by this harness
-- P3-diarrhea-g3-no-pi3k-aesi: expected.aesi_clock_started is not compared by this harness
-- P3-diarrhea-g3-no-pi3k-aesi: expected.aesi_items is not compared by this harness
-- P3-diarrhea-g3-no-pi3k-aesi: expected.aesi_suspected is not compared by this harness
-- P3-diarrhea-g3-no-pi3k-aesi: expected.protocol_tier_floor is not compared by this harness
-- P3-hydrocortisone-cream-topical-no-flag: expected.aesi_clock_started is not compared by this harness
-- P3-hydrocortisone-cream-topical-no-flag: expected.aesi_items is not compared by this harness
-- P3-hydrocortisone-cream-topical-no-flag: expected.aesi_suspected is not compared by this harness
-- P3-hydrocortisone-cream-topical-no-flag: expected.protocol_tier_floor is not compared by this harness
-- P3-itching-g3-aesi-clock: expected.aesi_clock_started is not compared by this harness
-- P3-itching-g3-aesi-clock: expected.aesi_items is not compared by this harness
-- P3-itching-g3-aesi-clock: expected.aesi_suspected is not compared by this harness
-- P3-itching-g3-aesi-clock: expected.protocol_tier_floor is not compared by this harness
-- P3-prednisone-discouraged-flag: expected.aesi_clock_started is not compared by this harness
-- P3-prednisone-discouraged-flag: expected.aesi_items is not compared by this harness
-- P3-prednisone-discouraged-flag: expected.aesi_suspected is not compared by this harness
-- P3-prednisone-discouraged-flag: expected.protocol_tier_floor is not compared by this harness
-- P3-rash-itching-prior-pi3k-aesi: expected.aesi_clock_started is not compared by this harness
-- P3-rash-itching-prior-pi3k-aesi: expected.aesi_items is not compared by this harness
-- P3-rash-itching-prior-pi3k-aesi: expected.aesi_suspected is not compared by this harness
-- P3-rash-itching-prior-pi3k-aesi: expected.protocol_tier_floor is not compared by this harness
-- T0-all-clear: expected.aesi_clock_started is not compared by this harness
-- T0-all-clear: expected.aesi_items is not compared by this harness
-- T0-all-clear: expected.aesi_suspected is not compared by this harness
-- T0-diarrhea-prior-ae-outside-window-hrv: expected.aesi_clock_started is not compared by this harness
-- T0-diarrhea-prior-ae-outside-window-hrv: expected.aesi_items is not compared by this harness
-- T0-diarrhea-prior-ae-outside-window-hrv: expected.aesi_suspected is not compared by this harness
-- T0-mild-fatigue-cough-tylenol-pm: expected.aesi_clock_started is not compared by this harness
-- T0-mild-fatigue-cough-tylenol-pm: expected.aesi_items is not compared by this harness
-- T0-mild-fatigue-cough-tylenol-pm: expected.aesi_suspected is not compared by this harness
-- T0-no-camera-mild-joint-pain: expected.aesi_clock_started is not compared by this harness
-- T0-no-camera-mild-joint-pain: expected.aesi_items is not compared by this harness
-- T0-no-camera-mild-joint-pain: expected.aesi_suspected is not compared by this harness
-- T0-other-text-nothing-severe: expected.aesi_clock_started is not compared by this harness
-- T0-other-text-nothing-severe: expected.aesi_items is not compared by this harness
-- T0-other-text-nothing-severe: expected.aesi_suspected is not compared by this harness
-- T0-rash-itching-mild-amoxicillin-course: expected.aesi_clock_started is not compared by this harness
-- T0-rash-itching-mild-amoxicillin-course: expected.aesi_items is not compared by this harness
-- T0-rash-itching-mild-amoxicillin-course: expected.aesi_suspected is not compared by this harness
-- T1-dyspnea-moderate-tachypnea-toggle-off: expected.aesi_clock_started is not compared by this harness
-- T1-dyspnea-moderate-tachypnea-toggle-off: expected.aesi_items is not compared by this harness
-- T1-dyspnea-moderate-tachypnea-toggle-off: expected.aesi_suspected is not compared by this harness
-- T1-dyspnea-moderate: expected.aesi_clock_started is not compared by this harness
-- T1-dyspnea-moderate: expected.aesi_items is not compared by this harness
-- T1-dyspnea-moderate: expected.aesi_suspected is not compared by this harness
-- T1-fatigue-moderate-claritin: expected.aesi_clock_started is not compared by this harness
-- T1-fatigue-moderate-claritin: expected.aesi_items is not compared by this harness
-- T1-fatigue-moderate-claritin: expected.aesi_suspected is not compared by this harness
-- T1-joint-pain-moderate-interference: expected.aesi_clock_started is not compared by this harness
-- T1-joint-pain-moderate-interference: expected.aesi_items is not compared by this harness
-- T1-joint-pain-moderate-interference: expected.aesi_suspected is not compared by this harness
-- T1-mouth-sores-moderate-unmatched-conmed: expected.aesi_clock_started is not compared by this harness
-- T1-mouth-sores-moderate-unmatched-conmed: expected.aesi_items is not compared by this harness
-- T1-mouth-sores-moderate-unmatched-conmed: expected.aesi_suspected is not compared by this harness
-- T1-nausea-moderate-misspelled-ondansetron: expected.aesi_clock_started is not compared by this harness
-- T1-nausea-moderate-misspelled-ondansetron: expected.aesi_items is not compared by this harness
-- T1-nausea-moderate-misspelled-ondansetron: expected.aesi_suspected is not compared by this harness
-- T2-dyspnea-g3-low-quality-vitals-no-bump: expected.aesi_clock_started is not compared by this harness
-- T2-dyspnea-g3-low-quality-vitals-no-bump: expected.aesi_items is not compared by this harness
-- T2-dyspnea-g3-low-quality-vitals-no-bump: expected.aesi_suspected is not compared by this harness
-- T2-dyspnea-tachypnea-corroborated: expected.aesi_clock_started is not compared by this harness
-- T2-dyspnea-tachypnea-corroborated: expected.aesi_items is not compared by this harness
-- T2-dyspnea-tachypnea-corroborated: expected.aesi_suspected is not compared by this harness
-- T2-fatigue-severe-g3: expected.aesi_clock_started is not compared by this harness
-- T2-fatigue-severe-g3: expected.aesi_items is not compared by this harness
-- T2-fatigue-severe-g3: expected.aesi_suspected is not compared by this harness
-- T2-fever-with-severe-joint-pain: expected.aesi_clock_started is not compared by this harness
-- T2-fever-with-severe-joint-pain: expected.aesi_items is not compared by this harness
-- T2-fever-with-severe-joint-pain: expected.aesi_suspected is not compared by this harness
-- T2-other-text-with-severe-mouth-sores: expected.aesi_clock_started is not compared by this harness
-- T2-other-text-with-severe-mouth-sores: expected.aesi_items is not compared by this harness
-- T2-other-text-with-severe-mouth-sores: expected.aesi_suspected is not compared by this harness
-- T3-dyspnea-g3-tachycardia-corroborated: expected.aesi_clock_started is not compared by this harness
-- T3-dyspnea-g3-tachycardia-corroborated: expected.aesi_items is not compared by this harness
-- T3-dyspnea-g3-tachycardia-corroborated: expected.aesi_suspected is not compared by this harness
-- T3-hospitalization-mild-symptoms-sae-clock: expected.aesi_clock_started is not compared by this harness
-- T3-hospitalization-mild-symptoms-sae-clock: expected.aesi_items is not compared by this harness
-- T3-hospitalization-mild-symptoms-sae-clock: expected.aesi_suspected is not compared by this harness
-- T3-severe-dyspnea: expected.aesi_clock_started is not compared by this harness
-- T3-severe-dyspnea: expected.aesi_items is not compared by this harness
-- T3-severe-dyspnea: expected.aesi_suspected is not compared by this harness
-- T3-very-severe-dyspnea-hospitalization: expected.aesi_clock_started is not compared by this harness
-- T3-very-severe-dyspnea-hospitalization: expected.aesi_items is not compared by this harness
-- T3-very-severe-dyspnea-hospitalization: expected.aesi_suspected is not compared by this harness
 
 ## What these numbers mean (and do not)
 

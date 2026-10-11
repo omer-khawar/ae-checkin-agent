@@ -464,6 +464,9 @@ class Packet(SQLModel, table=True):
     signed_by: str | None = None
     signed_at: str | None = None
     mock_edc_ack_id: str | None = None
+    sign_attestation_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    """The signer's attestation, set once at sign: ``{narrative_reviewed, narrative_source,
+    narrative_edited_by_person, missing_info_not_available: [{item, status}]}``."""
 
 
 # --------------------------------------------------------------------------- #

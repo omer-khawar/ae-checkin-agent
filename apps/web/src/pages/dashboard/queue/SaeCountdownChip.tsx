@@ -12,8 +12,9 @@
  *   did not say which kind, and guessing would put a false regulatory label on
  *   screen.
  *
- * Plain language leads; the regulatory abbreviation (SAE / AESI) sits in a
- * small monospace badge inside the chip and in the hover text, one step deeper.
+ * Plain language leads; the regulatory abbreviation (SAE / AESI) is not drawn
+ * on the chip: it opens the hover text (one step deeper) and is spoken to screen
+ * readers from a visually hidden span.
  * The chip turns red under 2 h or when overdue and reads "clock stopped" once an
  * investigator records a decision.
  *
@@ -78,14 +79,16 @@ const CLOCK_KIND_TEXT: Record<
   },
 };
 
+/**
+ * The abbreviation is not shown on the chip (non-clinician judges read the
+ * plain name); sighted users get it from the hover title, which opens with it,
+ * and screen readers from this visually hidden span.
+ */
 function KindBadge({ abbr }: { abbr: string | null }) {
   if (!abbr) return null;
   return (
-    <span
-      aria-hidden="true"
-      className="rounded bg-white/60 px-1 font-mono text-[10px] font-medium leading-4 opacity-80"
-    >
-      {abbr}
+    <span className="sr-only" data-clock-abbr={abbr}>
+      {` (${abbr})`}
     </span>
   );
 }

@@ -1,0 +1,17 @@
+# kubectl apply -k deploy/k8s   (or let Argo CD sync it: deploy/argocd/application.yaml)
+# The Jenkinsfile's Promote stage rewrites the two image entries below to the tags it pushed.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: interim
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - api.yaml
+  - web.yaml
+images:
+  - name: interim-api
+    newName: registry.example.org/interim/interim-api
+    newTag: latest
+  - name: interim-web
+    newName: registry.example.org/interim/interim-web
+    newTag: latest

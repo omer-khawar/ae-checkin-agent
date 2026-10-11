@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from ..audit import Actor
-from ..auth import require_role
+from ..auth import require_clinical, require_role
 from ..db import Database
 from ..deps import get_database
 from ..schemas import AttributionRequest, ConfirmRequest, PatchDraftRequest, RejectRequest
@@ -48,7 +48,7 @@ def get_versions(
 def post_confirm(
     draft_id: str,
     body: ConfirmRequest | None = None,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.write_scope() as db:
@@ -60,7 +60,7 @@ def post_confirm(
 def post_reject(
     draft_id: str,
     body: RejectRequest,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.write_scope() as db:
@@ -72,7 +72,7 @@ def post_reject(
 def patch_draft(
     draft_id: str,
     body: PatchDraftRequest,
-    actor: Actor = Depends(require_role("coordinator", "investigator", "admin")),
+    actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.write_scope() as db:

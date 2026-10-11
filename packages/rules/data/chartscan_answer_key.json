@@ -23,8 +23,20 @@
       "note_type": "progress_note",
       "text": "Oncology follow-up. Pt reports 3 days of diarrhea, 4-5 loose stools per day, started loperamide OTC. Mild nausea persists, taking ondansetron as needed. Denies fever, chills, or vomiting. Pt educated to call for fever > 100.4 or bloody stools.",
       "expected": {
-        "ae_terms": ["Diarrhea", "Nausea"],
-        "meds": [["loperamide", "started"], ["ondansetron", "taking"]],
+        "ae_terms": [
+          "Diarrhea",
+          "Nausea"
+        ],
+        "meds": [
+          [
+            "loperamide",
+            "started"
+          ],
+          [
+            "ondansetron",
+            "taking"
+          ]
+        ],
         "escalation": "none"
       }
     },
@@ -39,8 +51,20 @@
       "note_type": "consult",
       "text": "Maculopapular rash over trunk and upper arms, approx 15% BSA, pruritic. Started triamcinolone 0.1% cream BID and cetirizine 10 mg daily. No mucosal involvement, no blistering.",
       "expected": {
-        "ae_terms": ["Rash maculo-papular", "Pruritus"],
-        "meds": [["triamcinolone", "started"], ["cetirizine", "started"]],
+        "ae_terms": [
+          "Rash maculo-papular",
+          "Pruritus"
+        ],
+        "meds": [
+          [
+            "triamcinolone",
+            "started"
+          ],
+          [
+            "cetirizine",
+            "started"
+          ]
+        ],
         "escalation": "none"
       }
     },
@@ -55,8 +79,16 @@
       "note_type": "phone_note",
       "text": "Daughter called: pt with increasing SOB over the past week, now with exertion after one flight of stairs. Dry cough x5 days. Advised to come in for evaluation. Holding lisinopril per PCP due to cough.",
       "expected": {
-        "ae_terms": ["Dyspnea", "Cough"],
-        "meds": [["lisinopril", "stopped"]],
+        "ae_terms": [
+          "Dyspnea",
+          "Cough"
+        ],
+        "meds": [
+          [
+            "lisinopril",
+            "stopped"
+          ]
+        ],
         "escalation": "urgent"
       }
     },
@@ -71,8 +103,16 @@
       "note_type": "outside_record",
       "text": "Urgent care visit: dx acute sinusitis, prescribed amoxicillin-clavulanate 875 mg BID x10 days. Afebrile. Also reports mild headache.",
       "expected": {
-        "ae_terms": ["Sinusitis", "Headache"],
-        "meds": [["amoxicillin-clavulanate", "started"]],
+        "ae_terms": [
+          "Sinusitis",
+          "Headache"
+        ],
+        "meds": [
+          [
+            "amoxicillin-clavulanate",
+            "started"
+          ]
+        ],
         "escalation": "none"
       }
     },
@@ -87,7 +127,10 @@
       "note_type": "progress_note",
       "text": "Infusion visit. Pt c/o intermittent headaches, mild, and two small oral ulcers. Hx of migraines in her 20s. No nausea or vomiting. Continue current regimen.",
       "expected": {
-        "ae_terms": ["Headache", "Mucositis oral"],
+        "ae_terms": [
+          "Headache",
+          "Mucositis oral"
+        ],
         "meds": [],
         "escalation": "none"
       }
@@ -103,8 +146,16 @@
       "note_type": "ed_note",
       "text": "ED visit 10/08: brought in by wife for new confusion and decreased appetite x1 week. Admitted overnight for IV fluids. Dexamethasone discontinued.",
       "expected": {
-        "ae_terms": ["Confusion", "Anorexia"],
-        "meds": [["dexamethasone", "stopped"]],
+        "ae_terms": [
+          "Confusion",
+          "Anorexia"
+        ],
+        "meds": [
+          [
+            "dexamethasone",
+            "stopped"
+          ]
+        ],
         "escalation": "urgent",
         "serious": true
       }
@@ -120,8 +171,16 @@
       "note_type": "phone_note",
       "text": "Nurse call: diarrhea improved on loperamide, now 2 stools/day. Nausea resolved.",
       "expected": {
-        "ae_terms": ["Diarrhea", "Nausea"],
-        "meds": [["loperamide", "taking"]],
+        "ae_terms": [
+          "Diarrhea",
+          "Nausea"
+        ],
+        "meds": [
+          [
+            "loperamide",
+            "taking"
+          ]
+        ],
         "escalation": "none"
       }
     },
@@ -137,7 +196,12 @@
       "text": "Routine visit. Feels well overall. Denies nausea, diarrhea, cough, or shortness of breath. Afebrile. Continue amlodipine.",
       "expected": {
         "ae_terms": [],
-        "meds": [["amlodipine", "taking"]],
+        "meds": [
+          [
+            "amlodipine",
+            "taking"
+          ]
+        ],
         "escalation": "none"
       }
     },
@@ -145,201 +209,449 @@
       "id": "T1",
       "kind": "utterance",
       "text": "I'm not sure if this counts but I've had headaches most afternoons.",
-      "expected": { "ae_terms": ["Headache"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Headache"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T2",
       "kind": "utterance",
       "text": "I have chest pain right now and my left arm feels numb.",
-      "expected": { "ae_terms": ["Chest pain - cardiac"], "meds": [], "escalation": "emergency" }
+      "expected": {
+        "ae_terms": [
+          "Chest pain - cardiac"
+        ],
+        "meds": [],
+        "escalation": "emergency"
+      }
     },
     {
       "id": "T3",
       "kind": "utterance",
       "text": "My wife says I've been really tired and I haven't been eating much.",
-      "expected": { "ae_terms": ["Fatigue", "Anorexia"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Fatigue",
+          "Anorexia"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T4",
       "kind": "utterance",
       "text": "No new symptoms, I feel pretty good. I did stop taking my Advil though.",
-      "expected": { "ae_terms": [], "meds": [["ibuprofen", "stopped"]], "escalation": "none" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [
+          [
+            "ibuprofen",
+            "stopped"
+          ]
+        ],
+        "escalation": "none"
+      }
     },
     {
       "id": "T5",
       "kind": "utterance",
       "text": "I threw up twice yesterday and I can't keep water down.",
-      "expected": { "ae_terms": ["Vomiting"], "meds": [], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Vomiting"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T6",
       "kind": "utterance",
       "text": "Can I talk to a real person please?",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "human_requested" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "human_requested"
+      }
     },
     {
       "id": "T7",
       "kind": "utterance",
       "text": "The rash is back and it's starting to blister on my arms. I took some Benadryl.",
-      "expected": { "ae_terms": ["Rash maculo-papular"], "meds": [["diphenhydramine", "taking"]], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Rash maculo-papular"
+        ],
+        "meds": [
+          [
+            "diphenhydramine",
+            "taking"
+          ]
+        ],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T8",
       "kind": "utterance",
       "text": "I'm confused about whether my tiredness counts as a side effect.",
-      "expected": { "ae_terms": ["Fatigue"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Fatigue"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T9",
       "kind": "utterance",
       "text": "I haven't had any nausea or diarrhea this week.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T10",
       "kind": "utterance",
       "text": "Urgent care gave me a Z-pack for bronchitis and I've had a fever of 101.",
-      "expected": { "ae_terms": ["Bronchial infection", "Fever"], "meds": [["azithromycin", "started"]], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Bronchial infection",
+          "Fever"
+        ],
+        "meds": [
+          [
+            "azithromycin",
+            "started"
+          ]
+        ],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T11",
       "kind": "utterance",
       "text": "He's been sleeping most of the day, and he seems confused at times, more than usual.",
-      "expected": { "ae_terms": ["Fatigue", "Confusion"], "meds": [], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Fatigue",
+          "Confusion"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T12",
       "kind": "utterance",
       "text": "Honestly some days I just want to die, I'm so tired of this.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "emergency" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "emergency"
+      }
     },
     {
       "id": "T13",
       "kind": "utterance",
       "text": "I can't stop coughing at night and I've been short of breath going up stairs.",
-      "expected": { "ae_terms": ["Cough", "Dyspnea"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Cough",
+          "Dyspnea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T14",
       "kind": "utterance",
       "text": "I went to the ER Sunday because my stomach pain was really bad, they kept me overnight.",
-      "expected": { "ae_terms": ["Abdominal pain"], "meds": [], "escalation": "urgent", "serious": true }
+      "expected": {
+        "ae_terms": [
+          "Abdominal pain"
+        ],
+        "meds": [],
+        "escalation": "urgent",
+        "serious": true
+      }
     },
     {
       "id": "T15",
       "kind": "utterance",
       "text": "Temp was 38.6 at home last night so I took some Tylenol.",
-      "expected": { "ae_terms": ["Fever"], "meds": [["acetaminophen", "taking"]], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Fever"
+        ],
+        "meds": [
+          [
+            "acetaminophen",
+            "taking"
+          ]
+        ],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T16",
       "kind": "utterance",
       "text": "Mom's been throwing up since last night and can't keep her pills down.",
-      "expected": { "ae_terms": ["Vomiting"], "meds": [], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Vomiting"
+        ],
+        "meds": [],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T17",
       "kind": "utterance",
       "text": "No SOB at rest but gets breathless climbing stairs. Temp 37.1.",
-      "expected": { "ae_terms": ["Dyspnea"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Dyspnea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T18",
       "kind": "utterance",
       "review_fix": "typographic apostrophe (U+2019) in a negation",
-      "text": "I haven\u2019t had any nausea or diarrhea this week.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "none" }
+      "text": "I haven’t had any nausea or diarrhea this week.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T19",
       "kind": "utterance",
       "review_fix": "typographic apostrophe (U+2019) in an emergency red flag",
-      "text": "I can\u2019t breathe and my lips are turning blue.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "emergency" }
+      "text": "I can’t breathe and my lips are turning blue.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "emergency"
+      }
     },
     {
       "id": "T20",
       "kind": "utterance",
       "review_fix": "typographic apostrophe (U+2019) in a declined medication",
-      "text": "She didn\u2019t start the prednisone they prescribed.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "none" }
+      "text": "She didn’t start the prednisone they prescribed.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T21",
       "kind": "utterance",
       "review_fix": "comma followed by a severity word ends the negation scope",
       "text": "No fever, mild diarrhea for two days.",
-      "expected": { "ae_terms": ["Diarrhea"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Diarrhea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T22",
       "kind": "utterance",
       "review_fix": "comma followed by a quantity word ends the negation scope; 'and no' continues it",
       "text": "No fever and no chills, some nausea after meals.",
-      "expected": { "ae_terms": ["Nausea"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Nausea"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T23",
       "kind": "utterance",
       "review_fix": "a negated hospital word neither raises the grade nor starts the SAE clock",
       "text": "Not admitted; has mild diarrhea x2 days.",
-      "expected": { "ae_terms": ["Diarrhea"], "meds": [], "escalation": "none", "serious": false }
+      "expected": {
+        "ae_terms": [
+          "Diarrhea"
+        ],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
     },
     {
       "id": "T24",
       "kind": "utterance",
       "review_fix": "review-of-systems checklist negatives ('Term: no') are post-term negations",
       "text": "ROS: Nausea: no. Vomiting: no. Fever: no. Rash: yes.",
-      "expected": { "ae_terms": ["Rash maculo-papular"], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [
+          "Rash maculo-papular"
+        ],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T25",
       "kind": "utterance",
       "review_fix": "'admitted to having' is not a hospital admission",
       "text": "Pt admitted to having mild nausea most mornings.",
-      "expected": { "ae_terms": ["Nausea"], "meds": [], "escalation": "none", "serious": false }
+      "expected": {
+        "ae_terms": [
+          "Nausea"
+        ],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
     },
     {
       "id": "T26",
       "kind": "utterance",
       "review_fix": "'Tmax' is a temperature report",
       "text": "Tmax 101.3 overnight, took Tylenol.",
-      "expected": { "ae_terms": ["Fever"], "meds": [["acetaminophen", "taking"]], "escalation": "urgent" }
+      "expected": {
+        "ae_terms": [
+          "Fever"
+        ],
+        "meds": [
+          [
+            "acetaminophen",
+            "taking"
+          ]
+        ],
+        "escalation": "urgent"
+      }
     },
     {
       "id": "T27",
       "kind": "utterance",
       "review_fix": "'PRN for <symptom>' is a standing order, not a symptom report",
       "text": "Has Tylenol PRN for fever.",
-      "expected": { "ae_terms": [], "meds": [["acetaminophen", "taking"]], "escalation": "none" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [
+          [
+            "acetaminophen",
+            "taking"
+          ]
+        ],
+        "escalation": "none"
+      }
     },
     {
       "id": "T28",
       "kind": "utterance",
       "review_fix": "'was not started on' excludes the drug",
       "text": "Patient was not started on prednisone.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "none" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none"
+      }
     },
     {
       "id": "T29",
       "kind": "utterance",
       "review_fix": "'switched from X to Y' is X stopped and Y started",
       "text": "Switched from Zofran to Compazine yesterday.",
-      "expected": { "ae_terms": [], "meds": [["ondansetron", "stopped"], ["prochlorperazine", "started"]], "escalation": "none" }
+      "expected": {
+        "ae_terms": [],
+        "meds": [
+          [
+            "ondansetron",
+            "stopped"
+          ],
+          [
+            "prochlorperazine",
+            "started"
+          ]
+        ],
+        "escalation": "none"
+      }
     },
     {
       "id": "T30",
       "kind": "utterance",
       "review_fix": "'in the ED' is a hospital cue; bare 'ED' is not",
       "text": "Seen in the ED yesterday for vomiting, sent home.",
-      "expected": { "ae_terms": ["Vomiting"], "meds": [], "escalation": "urgent", "serious": true }
+      "expected": {
+        "ae_terms": [
+          "Vomiting"
+        ],
+        "meds": [],
+        "escalation": "urgent",
+        "serious": true
+      }
     },
     {
       "id": "T31",
       "kind": "utterance",
       "review_fix": "'go to the ER if' is an instruction: no hospital cue, no dehydration flag (U+2019 apostrophe)",
-      "text": "Go to the ER if you can\u2019t keep fluids down.",
-      "expected": { "ae_terms": [], "meds": [], "escalation": "none", "serious": false }
+      "text": "Go to the ER if you can’t keep fluids down.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
+    },
+    {
+      "id": "T32",
+      "kind": "utterance",
+      "review_fix": "discharge advice is not a hospitalization: 'if symptoms worsen, go to the ER' and 'return to the emergency department if' are instructions (no SAE clock; judge review 2026-10-11, ISSUES #25)",
+      "text": "Discharge instructions: if symptoms worsen, go to the ER. Return to the emergency department if you develop a fever.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
+    },
+    {
+      "id": "T33",
+      "kind": "utterance",
+      "review_fix": "'should you develop' is a hypothetical cue: neither the chest pain red flag nor the ER mention fires (judge review 2026-10-11, ISSUES #25)",
+      "text": "Should you develop chest pain or trouble breathing, go to the emergency room.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
+    },
+    {
+      "id": "T34",
+      "kind": "utterance",
+      "review_fix": "more discharge advice: 'if you feel worse, go to the emergency room' and 'call 911 if' are instructions, so no hospitalization, chest pain or dyspnea flag and no SAE clock (ISSUES #25)",
+      "text": "If you feel worse, go to the emergency room. Call 911 if you have chest pain or trouble breathing.",
+      "expected": {
+        "ae_terms": [],
+        "meds": [],
+        "escalation": "none",
+        "serious": false
+      }
     }
   ]
 }

@@ -201,9 +201,9 @@ export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: Query
   const canAnswer = detail.status === "open" && role !== null && ANSWER_ROLES.includes(role);
   const canClose = detail.status === "answered" && role === "admin";
   const suggestionIds = writtenEvidenceIds(detail.suggested_answer);
-  const fields = editableFields(draft, detail.domain, detail.field);
-  const block = queriedFieldBlock(draft, detail.domain, detail.field, role);
   const covered = queryFields(detail);
+  const fields = editableFields(draft, detail.domain, detail.field, covered);
+  const block = queriedFieldBlock(draft, detail.domain, detail.field, role, covered);
   // The field actually being corrected: the person's pick when allowed, else
   // the first allowed one (the queried field when it is allowed).
   const editField = fields.includes(form.editField) ? form.editField : (fields[0] ?? "");

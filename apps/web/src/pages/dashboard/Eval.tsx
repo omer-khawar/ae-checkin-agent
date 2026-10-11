@@ -171,7 +171,8 @@ export function Eval() {
       });
     getEvalResults()
       .then((r) => {
-        if (!cancelled) {
+        // null = no run yet (204); same empty state as a 404.
+        if (!cancelled && r) {
           setResults(r);
           setResultsSource("stored");
         }

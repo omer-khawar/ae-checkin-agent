@@ -578,6 +578,8 @@ def log_clock_stopped(
     """Audit a clock stop: ``sae_clock.stopped`` (the original contract's action, kept for its
     readers) and the generic ``clock.stopped``, both carrying the clock's ``kind`` (``sae`` or
     ``aesi``) so a filter on either action lists every stop of every kind."""
-    body = {**payload, "kind": clock.kind}
+    # Every stop path records whether the 24 h obligation was met (a late stop is flagged).
+    within = stamp <= clock.due_at
+    body = {"within_24h": within, "late": not within, **payload, "kind": clock.kind}
     append_event(db, actor, "sae_clock.stopped", "sae_clock", clock.id, body, ts_utc=stamp)
     append_event(db, actor, "clock.stopped", "sae_clock", clock.id, body, ts_utc=stamp)

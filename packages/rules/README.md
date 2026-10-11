@@ -403,6 +403,12 @@ test; decisions to log in `docs/DECISIONS.md`):
 * "admitted to having", "the sob story about ED" started an SAE clock; `admitted` needs a
   hospital sense and bare `ED`/`ER` need hospital context ("in the ED", "ER visit", "ER course");
   "go to the ER if …" is an instruction (hypothetical cues may now run into the term).
+* Discharge advice started SAE clocks (judge review 2026-10-11, `docs/ISSUES.md` #25). Red
+  flags (hospitalization included) go through the same exclusion check, and the hypothetical
+  cues now cover "if symptoms worsen, go to the ER", "if you feel worse", "return to the ED if",
+  "call 911 if" / "call your doctor if", "should you develop" and "seek emergency care if"
+  (answer-key cases T32 to T34). "Call 911 for X" is deliberately not a cue: "had to call 911
+  for chest pain" reports an event.
 * "was not started on X" / "not on X" exclude the drug; "switched from X to Y" is X stopped and
   Y started (a switch written with doses stays `changed`); "Tmax 101.3" is a fever; "Tylenol PRN
   for fever" does not report a fever (an affirmative mention elsewhere still counts).
@@ -664,6 +670,9 @@ The dashboard shows plain words first and keeps SDTM names and rule ids one clic
 The functions are `label(field)`, `field_labels(fields)`, `has_label`, `rule_sentence(rule_id,
 inputs)`, `tier_name`, `grade_label`, `clock_name`, `clock_kind`, `evidence_kind_name` and
 `domain_name`. Filling a placeholder never uses `str.format`. A missing input selects the
-fallback sentence, and an unknown rule id never raises. Tests check that every catalog id has a
+fallback sentence, and an unknown rule id never raises. A rule may add ordered `variants`
+(`{"when": {"input", "op": eq|lt|lte|gt|gte, "value"}, "sentence"}`, checked on the raw numeric
+input): `dedup.followup_linked` says "from a report earlier today" when `days_since` is 0, "less
+than a day ago" below 1 and "1 day ago" at 1, instead of "0 days ago". Tests check that every catalog id has a
 sentence, that no sentence gives advice, and that every grade and AESI sentence carries its
 qualifier.

@@ -41,6 +41,8 @@ services:
       BRIDGE_TOKEN: ${BRIDGE_TOKEN:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${INTERIM_WEB_PORT:-5173},http://127.0.0.1:${INTERIM_WEB_PORT:-5173}}
       SEED_ON_START: ${SEED_ON_START:-true}
+      # Admin -> Reset drops the audit chain; allowed only because this is the demo stack.
+      ALLOW_DEMO_RESET: ${ALLOW_DEMO_RESET:-true}
       DEMO_NCT_ID: ${DEMO_NCT_ID:-NCT03088540}
       # The admin default must match what the compose bridge runs.
       VITALS_SOURCE: mock

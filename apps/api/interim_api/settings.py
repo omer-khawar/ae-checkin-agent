@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     )
     cors_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173")
     seed_on_start: bool = Field(default=True)
+    allow_demo_reset: bool = Field(
+        default=False,
+        description=(
+            "POST /admin/reset drops every table, audit chain included. Off unless the "
+            "deployment is a demo (docker compose and `make dev` turn it on)."
+        ),
+    )
     demo_nct_id: str = Field(default="NCT03088540")
     vitals_source: str = Field(default="mock", description="Default for the admin setting.")
     vitals_scenario: str = Field(default="resting", description="Default for the admin setting.")

@@ -187,6 +187,8 @@ jobs:
     needs: [api, web, bridge]
     steps:
       - uses: actions/checkout@v4
+      - name: Kubernetes manifests render (deploy/k8s, used by Argo CD and the Jenkinsfile)
+        run: kubectl kustomize deploy/k8s > /dev/null
       - name: compose build (no .env, defaults only, exactly like a clean clone)
         run: docker compose build
       - name: compose up and wait for health

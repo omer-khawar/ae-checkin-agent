@@ -15,7 +15,11 @@ Template filling is deliberately small and safe:
   count as missing;
 * if any placeholder is missing, the rule's ``fallback`` sentence (which has no
   placeholders) is returned instead, so a missing input never crashes and never leaves a
-  half-filled sentence.
+  half-filled sentence;
+* a rule may list ``variants``: ``{"when": {"input", "op", "value"}, "sentence"}`` tried in
+  order before the main sentence, compared on the raw numeric input (``op`` is one of
+  ``eq``/``lt``/``lte``/``gt``/``gte``). E.g. the dedup sentence says "earlier today" rather
+  than "0 days ago".
 """
 
 from __future__ import annotations
@@ -40,11 +44,32 @@ _MAX_VALUE_CHARS = 160
 """Longest rendered input value; longer text (e.g. a chart-note quote) is shortened."""
 
 
+_VARIANT_OPS: dict[str, Any] = {
+    "eq": lambda a, b: a == b,
+    "lt": lambda a, b: a < b,
+    "lte": lambda a, b: a <= b,
+    "gt": lambda a, b: a > b,
+    "gte": lambda a, b: a >= b,
+}
+
+
+@dataclass(frozen=True)
+class RuleVariant:
+    """An alternate sentence used when one numeric input meets a condition."""
+
+    input: str
+    op: str
+    value: float
+    sentence: str
+    placeholders: tuple[str, ...]
+
+
 @dataclass(frozen=True)
 class RuleText:
     sentence: str
     fallback: str
     placeholders: tuple[str, ...]
+    variants: tuple[RuleVariant, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -106,6 +131,34 @@ def _check_braces(text: str, where: str) -> None:
         raise TableError(f"{where}: malformed placeholder in {text!r}")
 
 
+def _variants(value: object, where: str) -> tuple[RuleVariant, ...]:
+    if not isinstance(value, list):
+        raise TableError(f"{where}: expected a list")
+    out: list[RuleVariant] = []
+    for i, raw in enumerate(value):
+        w = f"{where}[{i}]"
+        entry = _obj(raw, w)
+        when = _obj(entry.get("when"), f"{w}.when")
+        op = _str(when.get("op"), f"{w}.when.op")
+        if op not in _VARIANT_OPS:
+            raise TableError(f"{w}.when.op: expected one of {', '.join(_VARIANT_OPS)}")
+        number = when.get("value")
+        if isinstance(number, bool) or not isinstance(number, int | float):
+            raise TableError(f"{w}.when.value: expected a number")
+        sentence = _str(entry.get("sentence"), f"{w}.sentence")
+        _check_braces(sentence, f"{w}.sentence")
+        out.append(
+            RuleVariant(
+                input=_str(when.get("input"), f"{w}.when.input"),
+                op=op,
+                value=float(number),
+                sentence=sentence,
+                placeholders=tuple(_PLACEHOLDER.findall(sentence)),
+            )
+        )
+    return tuple(out)
+
+
 @lru_cache(maxsize=1)
 def plain_language() -> PlainLanguage:
     """Load and validate ``plain_language.json`` once per process."""
@@ -135,6 +188,7 @@ def plain_language() -> PlainLanguage:
             sentence=sentence,
             fallback=fallback,
             placeholders=tuple(_PLACEHOLDER.findall(sentence)),
+            variants=_variants(entry.get("variants", []), f"{where}.variants"),
         )
 
     aliases: dict[str, tuple[str, ...]] = {}
@@ -316,6 +370,22 @@ def _lookup(
     return None
 
 
+def _variant_applies(
+    variant: RuleVariant, inputs: Mapping[str, object], aliases: Mapping[str, tuple[str, ...]]
+) -> bool:
+    """The variant's condition on the raw input (numbers only; anything else never matches)."""
+    for key in (variant.input, *aliases.get(variant.input, ())):
+        if key not in inputs:
+            continue
+        value = inputs[key]
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return False
+        if not math.isfinite(float(value)):
+            return False
+        return bool(_VARIANT_OPS[variant.op](float(value), variant.value))
+    return False
+
+
 def rule_sentence(rule_id: str, inputs: Mapping[str, object] | None = None) -> str:
     """One short plain sentence for a fired rule, filled from its ``inputs``.
 
@@ -328,13 +398,18 @@ def rule_sentence(rule_id: str, inputs: Mapping[str, object] | None = None) -> s
     if text is None:
         return f"Interim applied the rule '{rule_id}'."
     values = inputs if isinstance(inputs, Mapping) else {}
+    template, placeholders = text.sentence, text.placeholders
+    for variant in text.variants:
+        if _variant_applies(variant, values, table.aliases):
+            template, placeholders = variant.sentence, variant.placeholders
+            break
     filled: dict[str, str] = {}
-    for name in text.placeholders:
+    for name in placeholders:
         rendered = _lookup(name, values, table.aliases)
         if rendered is None:
             return text.fallback
         filled[name] = rendered
-    sentence = _PLACEHOLDER.sub(lambda m: filled[m.group(1)], text.sentence)
+    sentence = _PLACEHOLDER.sub(lambda m: filled[m.group(1)], template)
     # A template may open with a value ('{drug} is ...'); a sentence starts with a capital.
     return sentence[:1].upper() + sentence[1:]
 
@@ -344,6 +419,7 @@ __all__ = [
     "ClockKind",
     "PlainLanguage",
     "RuleText",
+    "RuleVariant",
     "clock_kind",
     "clock_name",
     "domain_name",
