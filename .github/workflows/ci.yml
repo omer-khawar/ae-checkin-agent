@@ -76,7 +76,7 @@ jobs:
             packages/rules/pyproject.toml
             scripts/pyproject.toml
       - name: install (rules package + pinned script deps from scripts/pyproject.toml)
-        run: python -m pip install -e packages/rules openpyxl==3.1.5 pytest==9.1.1 ruff==0.17.0 mypy==2.4.0
+        run: python -m pip install -e packages/rules openpyxl==3.1.5 httpx==0.28.1 pytest==9.1.1 ruff==0.17.0 mypy==2.4.0
       - name: public-data cache is complete and real (no network)
         run: python scripts/fetch_public.py --offline --strict
       - name: ruff

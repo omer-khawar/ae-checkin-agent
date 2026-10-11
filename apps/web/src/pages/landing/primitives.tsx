@@ -75,7 +75,9 @@ export function ExternalLink({
       {...rest}
     >
       {children}
-      {icon && <ArrowUpRight aria-hidden="true" className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />}
+      {icon && (
+        <ArrowUpRight aria-hidden="true" className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
+      )}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
   );
@@ -96,7 +98,9 @@ export function SectionHeading({
   align?: "left" | "center";
 }) {
   return (
-    <div className={cn("flex max-w-3xl flex-col gap-3", align === "center" && "mx-auto text-center")}>
+    <div
+      className={cn("flex max-w-3xl flex-col gap-3", align === "center" && "mx-auto text-center")}
+    >
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{eyebrow}</p>
       <h2
         id={id}
@@ -104,7 +108,9 @@ export function SectionHeading({
       >
         {title}
       </h2>
-      {intro && <p className="text-pretty text-lg leading-relaxed text-muted-foreground">{intro}</p>}
+      {intro && (
+        <p className="text-pretty text-lg leading-relaxed text-muted-foreground">{intro}</p>
+      )}
     </div>
   );
 }

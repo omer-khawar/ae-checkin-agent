@@ -271,7 +271,7 @@ export const PROOF: ProofItem[] = [
   },
   {
     headline: "Measured vs simulated: every vital is labeled",
-    body: "Demo vitals come from a mock source and carry the word SIMULATED on screen and VSMETHOD = \"Simulated\" in exports. The API refuses a mock sample that claims to be measured.",
+    body: 'Demo vitals come from a mock source and carry the word SIMULATED on screen and VSMETHOD = "Simulated" in exports. The API refuses a mock sample that claims to be measured.',
     link: { text: "How values are labeled", href: LINKS.measuredVsSimulated },
   },
 ];
@@ -288,7 +288,7 @@ export const FAQ: FaqItem[] = [
     q: "Is Interim a medical device?",
     a: [
       `No. ${DISCLAIMER}`,
-      "Grades are provisional and labeled \"investigator to confirm\". Interim never gives a participant clinical advice; an urgent check-in ends on one fixed, pre-approved screen.",
+      'Grades are provisional and labeled "investigator to confirm". Interim never gives a participant clinical advice; an urgent check-in ends on one fixed, pre-approved screen.',
     ],
   },
   {

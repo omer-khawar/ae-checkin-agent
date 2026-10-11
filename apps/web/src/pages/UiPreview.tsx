@@ -1429,12 +1429,7 @@ export default function UiPreview() {
             <KbdCombo keys={["Ctrl", "K"]} className="ml-1" />
           </Button>
         }
-        study={
-          <Badge
-            kind="synthetic-env"
-            title="Every value on this page is synthetic."
-          />
-        }
+        study={<Badge kind="synthetic-env" title="Every value on this page is synthetic." />}
         actions={
           <Button
             size="sm"
@@ -1571,11 +1566,7 @@ export default function UiPreview() {
                     <Button size="sm" variant="ghost" trailingIcon={<ChevronDown />}>
                       <span>R2810-ONC-1624 · NCT03088540</span>
                     </Button>
-                    <Badge
-                      kind="synthetic-env"
-                      size="sm"
-                      title="All participants are synthetic."
-                    />
+                    <Badge kind="synthetic-env" size="sm" title="All participants are synthetic." />
                   </span>
                 }
                 actions={

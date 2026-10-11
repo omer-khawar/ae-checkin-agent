@@ -29,7 +29,10 @@ export function SiteFooter() {
               <BrandMark />
               Interim
             </Link>
-            <p className="text-sm font-medium leading-relaxed text-foreground" data-testid="landing-disclaimer">
+            <p
+              className="text-sm font-medium leading-relaxed text-foreground"
+              data-testid="landing-disclaimer"
+            >
               {DISCLAIMER}
             </p>
           </div>
@@ -57,7 +60,12 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <a href={LINKS.repo} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                <a
+                  href={LINKS.repo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                >
                   GitHub<span className="sr-only"> (opens in a new tab)</span>
                 </a>
               </li>

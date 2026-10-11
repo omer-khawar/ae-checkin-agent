@@ -21,7 +21,13 @@
  *   routes), so focus moves and scrollIntoView stop above the bar.
  */
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useLayoutEffect, useRef, type HTMLAttributes, type ReactNode, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  type HTMLAttributes,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { cn } from "@/lib/cn";
 import { Button } from "@/ui/button";
@@ -135,8 +141,7 @@ function useActionBarClearance(ref: RefObject<HTMLDivElement>, active: boolean) 
       for (const t of targets) t.style.setProperty("--k-actionbar-live", h);
     };
     publish();
-    const observer =
-      typeof ResizeObserver === "function" ? new ResizeObserver(publish) : undefined;
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(publish) : undefined;
     observer?.observe(bar);
     return () => {
       observer?.disconnect();

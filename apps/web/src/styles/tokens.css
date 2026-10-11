@@ -113,8 +113,8 @@
 
 [data-surface="kiosk"] {
   --font-sans:
-    "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+    "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
 
   --background: 245 249 249; /* #F5F9F9 */
   --foreground: 15 23 42; /* #0F172A */

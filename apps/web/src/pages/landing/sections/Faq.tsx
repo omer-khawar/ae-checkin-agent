@@ -32,7 +32,11 @@ export function Faq() {
   }
 
   return (
-    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24">
+    <section
+      id="faq"
+      aria-labelledby="faq-title"
+      className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24"
+    >
       <div className="mx-auto max-w-3xl">
         <SectionHeading id="faq-title" eyebrow="FAQ" title="Questions people ask first" />
         <GlassPanel className="mt-10 px-5 sm:px-7">

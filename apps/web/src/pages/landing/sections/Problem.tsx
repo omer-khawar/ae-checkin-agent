@@ -26,7 +26,9 @@ export function Problem() {
                 <p className="text-4xl font-semibold tracking-tight text-foreground tabular-nums md:text-[2rem] xl:text-[2.75rem]">
                   {s.value}
                 </p>
-                <p className="mt-4 flex-1 text-base leading-relaxed text-muted-foreground">{s.label}</p>
+                <p className="mt-4 flex-1 text-base leading-relaxed text-muted-foreground">
+                  {s.label}
+                </p>
                 <p className="mt-6 border-t border-border pt-4 text-sm text-muted-foreground">
                   Source: <ExternalLink href={s.source.href}>{s.source.text}</ExternalLink>
                 </p>

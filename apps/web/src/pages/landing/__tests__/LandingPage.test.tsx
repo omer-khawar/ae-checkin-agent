@@ -91,7 +91,9 @@ describe("LandingPage", () => {
     renderLanding();
     const img = screen.getByRole("img", { name: /coordinator's queue/i });
     expect(img).toHaveAttribute("src", "/landing/hero-queue.png");
-    expect(screen.getByText("Synthetic participants. Screens from the current build.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Synthetic participants. Screens from the current build."),
+    ).toBeInTheDocument();
   });
 
   it("gives every problem number an external source link", () => {
@@ -124,7 +126,9 @@ describe("LandingPage", () => {
     renderLanding();
     for (const p of PROOF) {
       expect(screen.getByRole("heading", { level: 3, name: p.headline })).toBeInTheDocument();
-      expect(p.link.href).toMatch(/^https:\/\/github\.com\/omer-khawar\/ae-checkin-agent\/blob\/interim\//);
+      expect(p.link.href).toMatch(
+        /^https:\/\/github\.com\/omer-khawar\/ae-checkin-agent\/blob\/interim\//,
+      );
     }
     expect(screen.getByRole("link", { name: /What it gets wrong/ })).toHaveAttribute(
       "href",

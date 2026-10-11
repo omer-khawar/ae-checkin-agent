@@ -27,7 +27,14 @@ export const FONT_SIZES = [
 ] as const;
 
 /** theme.extend.spacing keys used as heights (h-row, min-h-k-option, ...). */
-export const SIZE_KEYS = ["row", "row-comfy", "appbar", "k-option", "k-gap", "k-actionbar"] as const;
+export const SIZE_KEYS = [
+  "row",
+  "row-comfy",
+  "appbar",
+  "k-option",
+  "k-gap",
+  "k-actionbar",
+] as const;
 
 const twMerge = extendTailwindMerge({
   extend: {

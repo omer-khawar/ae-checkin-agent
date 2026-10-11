@@ -127,7 +127,8 @@ export const BADGE_KINDS = {
     tone: "neutral",
     icon: CircleDashed,
     label: "Synthetic data",
-    description: "Environment: every participant and value here is synthetic. No real patient data.",
+    description:
+      "Environment: every participant and value here is synthetic. No real patient data.",
   },
 
   // Seriousness and special interest.

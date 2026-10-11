@@ -52,8 +52,7 @@
   [data-surface="kiosk"],
   html:has([data-slot="kiosk-action-bar"][data-position="sticky"]) {
     scroll-padding-bottom: calc(
-      var(--k-actionbar-live, var(--k-actionbar-h, 88px)) + env(safe-area-inset-bottom, 0px) +
-        16px
+      var(--k-actionbar-live, var(--k-actionbar-h, 88px)) + env(safe-area-inset-bottom, 0px) + 16px
     );
   }
 

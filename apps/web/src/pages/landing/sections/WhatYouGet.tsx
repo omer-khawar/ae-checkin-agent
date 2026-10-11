@@ -64,7 +64,9 @@ export function WhatYouGet() {
                         </span>
                       )}
                     </h3>
-                    <p className="max-w-xl text-base leading-relaxed text-muted-foreground">{f.body}</p>
+                    <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+                      {f.body}
+                    </p>
                     {f.link && (
                       <p className="text-sm">
                         <ExternalLink href={f.link.href} className="inline-block py-1">

@@ -60,7 +60,12 @@ export function SiteHeader() {
             <Github aria-hidden="true" className="h-[18px] w-[18px]" />
             <span className="sr-only">Interim on GitHub (opens in a new tab)</span>
           </a>
-          <ButtonLink to={ROUTES.kiosk} variant="secondary" size="sm" className="hidden sm:inline-flex">
+          <ButtonLink
+            to={ROUTES.kiosk}
+            variant="secondary"
+            size="sm"
+            className="hidden sm:inline-flex"
+          >
             Try the patient kiosk
           </ButtonLink>
           <ButtonLink to={ROUTES.login} size="sm">

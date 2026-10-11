@@ -260,7 +260,10 @@ function Dot({ ok }: { ok: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={cx("inline-block h-2.5 w-2.5 rounded-full", ok ? "bg-success-fg" : "bg-subtle-foreground")}
+      className={cx(
+        "inline-block h-2.5 w-2.5 rounded-full",
+        ok ? "bg-success-fg" : "bg-subtle-foreground",
+      )}
     />
   );
 }
