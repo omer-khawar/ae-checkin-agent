@@ -3,10 +3,12 @@
 
 Why this exists: the chart-scan answer key (``packages/rules/data/chartscan_answer_key.json``,
 25 cases) was written alongside the scanner's rules, so passing it is a regression test, not an
-accuracy estimate. Synthea's notes come from Synthea's own templates and the ground truth here
-comes from Synthea's structured FHIR record (imported by ``import_synthea.py``); neither was
-written by the scanner's author or by us. Everything scored is "Synthea synthetic EHR
-(simulated)"; nothing here is a clinical validation.
+accuracy estimate. Synthea's notes come from Synthea's own templates. The medication and
+encounter ground truth here comes from Synthea's structured FHIR record (imported by
+``import_synthea.py``); the symptom ground truth is the note's own "# Chief Complaint" bullets,
+which Synthea wrote but which are the same text the scanner reads, so (a) mostly measures
+lexicon coverage on bullet text. None of it was written by the scanner's author or by us.
+Everything scored is "Synthea synthetic EHR (simulated)"; nothing here is a clinical validation.
 
 What it computes, per note and in aggregate (deterministic; no network, no clock, no LLM):
 
@@ -43,8 +45,9 @@ import statistics
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
+from functools import cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -60,6 +63,7 @@ from interim_rules.chartscan import (  # noqa: E402
     seriousness_suspected,
 )
 from interim_rules.conmed import match_conmed  # noqa: E402
+from interim_rules.models import ConMedMatch  # noqa: E402
 from interim_rules.tables import data_dir, load_table  # noqa: E402
 
 SYNTHEA_DATA = REPO / "data" / "synthetic" / "synthea"
@@ -87,6 +91,14 @@ TOP_N = 10
 """How many rows the error listings show."""
 
 JsonObj = dict[str, Any]
+
+
+@cache
+def cached_match(text: str) -> ConMedMatch:
+    """``match_conmed`` memoized per process. The matcher is a pure function of the text and
+    the bundled list, and its pure-Python Levenshtein dominates the run time (the same ~70
+    distinct strings recur across 72 notes)."""
+    return match_conmed(text)
 
 
 class EvalError(RuntimeError):
@@ -287,8 +299,8 @@ class GtMed:
     ingredients: tuple[str, ...]
     """Lowercase; the leading ingredient first."""
     in_text: bool
-    """Visible in the note text: listed in '# Medications' (``note_section``) or a prescription
-    of this encounter whose display appears in the note."""
+    """Visible in the note text: listed in '# Medications' (``note_section``), or its full
+    display (as active or as prescribed at this encounter) appears anywhere in the note."""
     origin: str
     """``structured+note_section``, ``structured``, ``note_section`` or ``prescribed``."""
 
@@ -330,12 +342,15 @@ def load_notes(path: Path) -> tuple[JsonObj, list[Note]]:
             m = _obj(m_raw, f"{w}.active_medications_at_note[{m_idx}]")
             sources = [_text(s, f"{w}.sources") for s in _arr(m.get("sources"), w)]
             ing = _ingredients(m, w)
+            display = _text(m.get("display"), w)
             meds.setdefault(
                 ing[0],
                 GtMed(
-                    display=_text(m.get("display"), w),
+                    display=display,
                     ingredients=ing,
-                    in_text="note_section" in sources,
+                    # Visible if the note lists it under '# Medications', or if its full display
+                    # is printed anywhere else in the note (e.g. the Plan's prescription list).
+                    in_text="note_section" in sources or display.lower() in lowered,
                     origin="+".join(sorted(sources)),
                 ),
             )
@@ -343,9 +358,15 @@ def load_notes(path: Path) -> tuple[JsonObj, list[Note]]:
             p = _obj(p_raw, f"{w}.prescribed_at_encounter[{p_idx}]")
             ing = _ingredients(p, w)
             display = _text(p.get("display"), w)
-            if ing[0] in meds:
+            visible = display.lower() in lowered
+            existing = meds.get(ing[0])
+            if existing is not None:
+                # Already counted as active; a prescription printed in the note text still makes
+                # it visible there, so it belongs in the R(text) denominator.
+                if visible and not existing.in_text:
+                    meds[ing[0]] = replace(existing, in_text=True)
                 continue
-            meds[ing[0]] = GtMed(display, ing, display.lower() in lowered, "prescribed")
+            meds[ing[0]] = GtMed(display, ing, visible, "prescribed")
         notes.append(
             Note(
                 id=_text(n.get("id"), f"{w}.id"),
@@ -582,7 +603,7 @@ def evaluate_note(
         {
             m.matched_name
             for item in med_section_items(note.text, cmap)
-            for m in [match_conmed(item)]
+            for m in [cached_match(item)]
             if m.matched_name is not None
         }
     )
@@ -655,7 +676,7 @@ def match_rows(
     rows = []
     for text in sorted(occurrences):
         ingredients, note_ids, labels = occurrences[text]
-        m = match_conmed(text)
+        m = cached_match(text)
         if m.matched_name is None:
             outcome = "unmatched"
         elif any(name_matches(m.matched_name, ing, eq) for ing in ingredients):
@@ -1047,9 +1068,13 @@ def render_header(r: Report, ev: Evaluation, head: Mapping[str, str]) -> None:
         "",
         "The chart-scan answer key (`packages/rules/data/chartscan_answer_key.json`, 25 cases) was "
         "written alongside the scanner's rules, so passing it is a **regression test, not an "
-        "accuracy estimate**. Synthea's notes come from Synthea's own templates, and the ground "
-        "truth here comes from Synthea's structured FHIR record, imported by "
-        "`scripts/synthea/import_synthea.py`. Neither was written by the scanner's author or by "
+        "accuracy estimate**. Synthea's notes come from Synthea's own templates. The "
+        "**medication and encounter** ground truth comes from Synthea's structured FHIR record, "
+        "imported by `scripts/synthea/import_synthea.py`. The **symptom** ground truth is "
+        "different: it is the note's own `# Chief Complaint` bullet list, which Synthea renders "
+        "from its symptom model independently of the scanner, but which is the same text the "
+        "scanner reads. So (a) mostly tests lexicon coverage on bullet text, not extraction "
+        "from narrative. None of this ground truth was written by the scanner's author or by "
         "us. The Regeneron judges recommended Synthea, and the starter sheet names it as the "
         "source of chart-scan input. This is the first time the scanner meets text it was not "
         "tuned on.",
@@ -1579,8 +1604,9 @@ def render_limits(r: Report, ev: Evaluation) -> None:
         "**Shows:**",
         "",
         "- How the shipped scanner and con-med matcher behave on clinical text and medication "
-        "names neither of them was tuned on, scored against a structured record built "
-        "independently of the scanner.",
+        "names neither of them was tuned on. Medications and encounters are scored against "
+        "Synthea's structured FHIR record; symptoms against Synthea's rendered chief-complaint "
+        "list in the note (Synthea's own, independent of the scanner, but not structured).",
         "- Concrete, reproducible failure modes, each with a quote and a note id: lexicon gaps, "
         "a history window too short for a long problem list, Levenshtein false matches on "
         "single words, and red flags fired by a templated complaint list.",

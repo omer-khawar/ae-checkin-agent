@@ -6,15 +6,15 @@
 
 ## Why this evaluation matters
 
-The chart-scan answer key (`packages/rules/data/chartscan_answer_key.json`, 25 cases) was written alongside the scanner's rules, so passing it is a **regression test, not an accuracy estimate**. Synthea's notes come from Synthea's own templates, and the ground truth here comes from Synthea's structured FHIR record, imported by `scripts/synthea/import_synthea.py`. Neither was written by the scanner's author or by us. The Regeneron judges recommended Synthea, and the starter sheet names it as the source of chart-scan input. This is the first time the scanner meets text it was not tuned on.
+The chart-scan answer key (`packages/rules/data/chartscan_answer_key.json`, 25 cases) was written alongside the scanner's rules, so passing it is a **regression test, not an accuracy estimate**. Synthea's notes come from Synthea's own templates. The **medication and encounter** ground truth comes from Synthea's structured FHIR record, imported by `scripts/synthea/import_synthea.py`. The **symptom** ground truth is different: it is the note's own `# Chief Complaint` bullet list, which Synthea renders from its symptom model independently of the scanner, but which is the same text the scanner reads. So (a) mostly tests lexicon coverage on bullet text, not extraction from narrative. None of this ground truth was written by the scanner's author or by us. The Regeneron judges recommended Synthea, and the starter sheet names it as the source of chart-scan input. This is the first time the scanner meets text it was not tuned on.
 
 ## Headline numbers
 
 | Measure | Result |
 |---|---|
 | (a) Symptoms: scanner vs CTCAE-mapped chief complaints | P 0.919 R 0.792 F1 0.851 (in-lexicon R 0.950) |
-| (b) Medications: scanner vs medications at the note | P 1.000 R(text) 0.176 R(all) 0.119 |
-| (b) Medications: `# Medications` section + con-med matcher (candidate) | P 0.645 R(text) 0.261; union R(text) 0.265 |
+| (b) Medications: scanner vs medications at the note | P 1.000 R(text) 0.178 R(all) 0.119 |
+| (b) Medications: `# Medications` section + con-med matcher (candidate) | P 0.645 R(text) 0.255; union R(text) 0.264 |
 | (b) Con-med matcher on every Synthea medication display | 20/42 correct, 3 wrong, 19 unmatched (coverage 0.548) |
 | (c) Red flags by encounter class | ambulatory over-escalation 24/43 (55.8%); emergency recall 6/7 (85.7%); seriousness recall 0/27 (0.0%) |
 | (d) Baseline vitals vs corroboration thresholds | breathing >= 24: 0/12 baseline medians at/above (headroom 8-11); pulse >= 110: 0/12 baseline medians at/above (headroom 20-42) |
@@ -33,7 +33,7 @@ Nothing here depends on the clock or a git commit. The document changes only whe
 | Evaluator version | 1.0.0 |
 | sha256 `data/synthetic/synthea/notes.json` | `70a22b71723523e13ddd9544cb8f84523d2548df4ed7430ad860dc7d5e4e0ac2` |
 | sha256 `data/synthetic/synthea/participants.json` | `28032483e015cc76f3d3f6b7cdc39f7b515ff116a3beea979060bed9f8e35054` |
-| sha256 `scripts/synthea/complaint_map.json` | `f489b2f13ed63c45a17d9d2ab978ce6ce587610a653517f6461e7e3d25c843fa` |
+| sha256 `scripts/synthea/complaint_map.json` | `93081483b7ccbb210dc71dd7858218fcfaa0ac99f763bff5edc8cc20f44a51dc` |
 | sha256 `packages/rules/data/chartscan_lexicon.json` | `b80c06c1ec39d4df09f7dedff53001f139074da9038769b40f693291672cf6e8` |
 | sha256 `packages/rules/data/chartscan_red_flags.json` | `cea8d544f4f23f1c8cf7e372aad723009145c8eb1873ea952aad65056dfadab3` |
 | sha256 `packages/rules/data/medlist.json` | `abf9c8159ece2ff6d14dded8dd752e3ac3b119288937d286f8cac927e9c7688e` |
@@ -104,23 +104,23 @@ Mentions the scanner excluded (shown for transparency; not counted as prediction
 
 ## (b) Medication extraction and normalization
 
-Ground truth: 471 medication items across the notes, of which 306 are visible in the note text. By origin: note_section 189, note_section+structured 109, prescribed 8, structured 165.
+Ground truth: 471 medication items across the notes, of which 314 are visible in the note text. By origin: note_section 189, note_section+structured 109, prescribed 8, structured 165.
 
 ### Extraction from note text
 
 | Method | Correct | FP | Precision | R(text) | F1(text) | R(all) |
 |---|---|---|---|---|---|---|
-| Chart scanner (`scan_text` meds) | 56 | 0 | 1.000 | 0.176 | 0.300 | 0.119 |
-| `# Medications` section + `match_conmed` (candidate) | 80 | 44 | 0.645 | 0.261 | 0.372 | - |
-| Union of both (candidate) | 83 | 44 | 0.654 | 0.265 | 0.377 | - |
+| Chart scanner (`scan_text` meds) | 56 | 0 | 1.000 | 0.178 | 0.303 | 0.119 |
+| `# Medications` section + `match_conmed` (candidate) | 80 | 44 | 0.645 | 0.255 | 0.365 | - |
+| Union of both (candidate) | 83 | 44 | 0.654 | 0.264 | 0.376 | - |
 
 Medications visible in the note text that the scanner did not find, by ingredient. The scanner's medication lexicon has 43 drugs, aimed at symptom treatments and common con-meds; no chemotherapy agent is in it.
 
 | Ingredient | Notes missed |
 |---|---|
-| cisplatin | 48 |
-| paclitaxel | 48 |
-| sodium fluoride | 45 |
+| cisplatin | 49 |
+| paclitaxel | 49 |
+| sodium fluoride | 46 |
 | hydrochlorothiazide | 12 |
 | insulin | 12 |
 | alendronic acid | 6 |
@@ -132,7 +132,7 @@ Medications visible in the note text that the scanner did not find, by ingredien
 | simvastatin | 6 |
 | tramadol | 6 |
 | tropicamide | 6 |
-| isoflurane | 4 |
+| heparin | 4 |
 
 False-positive medication names:
 
@@ -256,7 +256,7 @@ The thresholds are the same for everyone. A participant whose baseline sits clos
 
 **Shows:**
 
-- How the shipped scanner and con-med matcher behave on clinical text and medication names neither of them was tuned on, scored against a structured record built independently of the scanner.
+- How the shipped scanner and con-med matcher behave on clinical text and medication names neither of them was tuned on. Medications and encounters are scored against Synthea's structured FHIR record; symptoms against Synthea's rendered chief-complaint list in the note (Synthea's own, independent of the scanner, but not structured).
 - Concrete, reproducible failure modes, each with a quote and a note id: lexicon gaps, a history window too short for a long problem list, Levenshtein false matches on single words, and red flags fired by a templated complaint list.
 - How much a cheap, deterministic, section-aware use of the existing matcher would add, measured before anyone builds it.
 
@@ -303,13 +303,13 @@ The thresholds are the same for everyone. A participant whose baseline sits clos
 | SYN-P005-2026-10-05 | inpatient | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | - | 0/2 | chest_pain |
 | SYN-P006-2026-07-29 | ambulatory | Cough | Cough | 1/0/0 | - | 0/2 | - |
 | SYN-P006-2026-08-05 | ambulatory | Cough | Cough | 1/0/0 | - | 0/2 | - |
-| SYN-P006-2026-08-12 | ambulatory | Cough | Cough | 1/0/0 | - | 0/2 | - |
-| SYN-P006-2026-09-02 | ambulatory | Cough | Cough, Sinusitis | 1/1/0 | amoxicillin | 0/3 | - |
+| SYN-P006-2026-08-12 | ambulatory | Cough | Cough | 1/0/0 | - | 0/3 | - |
+| SYN-P006-2026-09-02 | ambulatory | Cough | Cough, Sinusitis | 1/1/0 | amoxicillin | 1/4 | - |
 | SYN-P006-2026-09-30 | inpatient | Cough | Cough, Sinusitis | 1/1/0 | amoxicillin | 1/4 | - |
 | SYN-P006-2026-10-05 | emergency | Cough | Cough, Sinusitis | 1/1/0 | amoxicillin | 1/4 | - |
 | SYN-P007-2026-07-14 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | - | 0/3 | chest_pain |
 | SYN-P007-2026-08-25 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | - | 0/3 | chest_pain |
-| SYN-P007-2026-09-01 | emergency | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | acetaminophen, ondansetron | 1/10 | chest_pain |
+| SYN-P007-2026-09-01 | emergency | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | acetaminophen, ondansetron | 2/14 | chest_pain |
 | SYN-P007-2026-09-15 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ondansetron | 1/13 | chest_pain |
 | SYN-P007-2026-09-17 | inpatient | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ondansetron | 1/13 | chest_pain |
 | SYN-P007-2026-09-17-2 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ondansetron | 1/13 | chest_pain |
@@ -342,4 +342,4 @@ The thresholds are the same for everyone. A participant whose baseline sits clos
 | SYN-P012-2026-08-02 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ciprofloxacin | 1/3 | chest_pain |
 | SYN-P012-2026-08-11 | home_health | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ciprofloxacin | 1/3 | chest_pain |
 | SYN-P012-2026-09-15 | ambulatory | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ciprofloxacin | 1/3 | chest_pain |
-| SYN-P012-2026-09-15-2 | inpatient | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ciprofloxacin | 1/3 | chest_pain |
+| SYN-P012-2026-09-15-2 | inpatient | Chest pain - cardiac, Cough | Chest pain - cardiac, Cough | 2/0/0 | ciprofloxacin | 1/5 | chest_pain |

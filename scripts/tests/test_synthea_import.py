@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -433,12 +434,41 @@ def test_committed_manifest_hashes_and_size_budget() -> None:
     assert total < 1_500_000, total
 
 
+# Placeholders invented for the docs; test_committed_outputs_contain_no_source_identifiers
+# proves (when the raw output is on disk) that none of them is a real cohort member's token.
+INVENTED_EXAMPLE_NAMES = frozenset({"Jane123", "Doe45", "Word123"})
+
+
+def _committed_docs_and_code() -> dict[str, str]:
+    """Every other committed file the Synthea pipeline owns: the dataset README, the eval
+    results, and the pipeline's scripts, tables and tests. A real cohort member's name must
+    not leak into these either (examples in prose and comments use invented names)."""
+    paths = [
+        COMMITTED / "README.md",
+        *sorted(COMMITTED.glob("*.json")),
+        imp.REPO_ROOT / "docs" / "eval" / "synthea_results.md",
+        *sorted(imp.SCRIPT_DIR.glob("*.py")),
+        *sorted(imp.SCRIPT_DIR.glob("*.json")),
+        *sorted(Path(__file__).resolve().parent.glob("test_synthea_*.py")),
+    ]
+    return {str(path): path.read_text(encoding="utf-8") for path in paths if path.is_file()}
+
+
 def test_committed_outputs_have_no_identifier_patterns() -> None:
     text = _output_text(COMMITTED)
     assert not UUID_RE.search(text)
     assert not imp.SYNTHEA_NAME_TOKEN.search(text)
     assert not PHONE_RE.search(text)
     assert not SSN_RE.search(text)
+    # The prose docs carry no UUIDs, and no Synthea-style name tokens other than the invented
+    # placeholders the README uses to explain the rules.
+    for name, allowed in (
+        ("README.md", INVENTED_EXAMPLE_NAMES),
+        ("synthea_results.md", frozenset[str]()),
+    ):
+        doc = next(t for path, t in _committed_docs_and_code().items() if path.endswith(name))
+        assert set(imp.SYNTHEA_NAME_TOKEN.findall(doc)) <= allowed, name
+        assert not UUID_RE.search(doc), name
 
 
 def _source_dirs() -> list[Path]:
@@ -478,9 +508,47 @@ def _forbidden_from_source(dirs: list[Path]) -> set[str]:
 def test_committed_outputs_contain_no_source_identifiers() -> None:
     forbidden = _forbidden_from_source(_source_dirs())
     assert len(forbidden) > 50  # names, addresses, phones, SSNs, MRNs, UUIDs for 12 patients
-    text = _output_text(COMMITTED)
-    leaks = sorted(t for t in forbidden if re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", text))
+    texts = {"outputs": _output_text(COMMITTED), **_committed_docs_and_code()}
+    leaks = sorted(
+        (where, t)
+        for where, text in texts.items()
+        for t in forbidden
+        if re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", text)
+    )
     assert leaks == []
+
+
+def test_input_dirs_have_no_built_in_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The raw output location is machine-specific, so it comes only from --in or the env."""
+    monkeypatch.delenv(imp.IN_DIRS_ENV, raising=False)
+    assert imp.resolve_in_dirs(None) == []
+    monkeypatch.setenv(imp.IN_DIRS_ENV, f"a{os.pathsep}b")
+    assert imp.resolve_in_dirs(None) == [Path("a"), Path("b")]
+    assert imp.resolve_in_dirs([Path("c")]) == [Path("c")]
+
+
+def test_check_without_sources_warns_and_strict_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert imp.check([], COMMITTED, imp.DEFAULT_CONFIG, COMMITTED) == 0
+    out = capsys.readouterr().out
+    assert "importer drift is NOT verified" in out
+    assert "con-med matcher list unchanged" in out
+    assert imp.check([tmp_path], COMMITTED, imp.DEFAULT_CONFIG, COMMITTED, strict=True) == 1
+    assert "--strict requires" in capsys.readouterr().out
+
+
+def test_verify_manifest_fails_when_the_matcher_medlist_changed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """participants.json embeds matcher output; a changed medlist.json makes it stale even
+    though every committed file hash still matches."""
+    changed = tmp_path / "medlist.json"
+    changed.write_bytes(imp.MEDLIST_PATH.read_bytes() + b" ")
+    assert imp.verify_manifest(COMMITTED, medlist_path=imp.MEDLIST_PATH) == 0
+    capsys.readouterr()
+    assert imp.verify_manifest(COMMITTED, medlist_path=changed) == 1
+    assert "interim_match annotations are stale" in capsys.readouterr().out
 
 
 @pytest.mark.skipif(not _source_dirs(), reason="Synthea source output not on this machine")

@@ -22,6 +22,8 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+from interim_rules.tables import data_dir, load_table  # noqa: E402
+
 from synthea import eval_synthea as ev  # noqa: E402
 
 CMAP = ev.load_complaint_map(ev.DEFAULT_MAP)
@@ -192,7 +194,7 @@ def _note() -> ev.Note:
 
 
 def test_evaluate_note_scores_symptoms_against_mapped_complaints() -> None:
-    lexicon = frozenset(ev.load_table("chartscan_lexicon")["symptom_patterns"])
+    lexicon = frozenset(load_table("chartscan_lexicon")["symptom_patterns"])
     res = ev.evaluate_note(_note(), CMAP, lexicon, ev.history_scope())
     # Thirst has no CTCAE term: out of scope, never a miss.
     assert res.out_of_scope == ["Thirst"]
@@ -208,7 +210,7 @@ def test_evaluate_note_scores_symptoms_against_mapped_complaints() -> None:
 
 
 def test_evaluate_note_medication_variants() -> None:
-    lexicon = frozenset(ev.load_table("chartscan_lexicon")["symptom_patterns"])
+    lexicon = frozenset(load_table("chartscan_lexicon")["symptom_patterns"])
     res = ev.evaluate_note(_note(), CMAP, lexicon, ev.history_scope())
     assert res.scanner_meds == ["acetaminophen"]
     assert (res.med_scanner_text.gt_found, res.med_scanner_text.gt_total) == (1, 2)
@@ -216,6 +218,63 @@ def test_evaluate_note_medication_variants() -> None:
     # 'sodium' token (two edits from the brand 'imodium').
     assert "acetaminophen" in res.section_meds
     assert ("section+matcher", "loperamide") in res.med_fp
+
+
+def test_load_notes_counts_a_prescription_printed_in_the_plan_as_visible(tmp_path: Path) -> None:
+    """A structured-only active medication that is also prescribed at the encounter and
+    printed in the Plan is visible in the text, so it belongs in the R(text) denominator."""
+    text = "\n".join(
+        [
+            "2026-09-01",
+            "# Medications",
+            "- metformin",
+            "## Plan",
+            "The patient was prescribed the following medications:",
+            "- ondansetron 4 MG Injection",
+            "",
+        ]
+    )
+    note = {
+        "id": "SYN-TEST-2",
+        "label": "P-099",
+        "note_date": "2026-09-01",
+        "encounter_class": "emergency",
+        "text": text,
+        "ground_truth": {
+            "chief_complaints": [],
+            "active_medications_at_note": [
+                {
+                    "display": "Ondansetron 4 MG/ML Injectable Solution",
+                    "ingredient": "ondansetron",
+                    "sources": ["structured"],
+                },
+                {
+                    "display": "Clopidogrel 75 MG Oral Tablet",
+                    "ingredient": "clopidogrel",
+                    "sources": ["structured"],
+                },
+            ],
+            "prescribed_at_encounter": [
+                {"display": "ondansetron 4 MG Injection", "ingredient": "ondansetron"},
+                {"display": "Heparin 5000 UNT Injection", "ingredient": "heparin"},
+            ],
+            "conditions_diagnosed_at_encounter": [],
+            "is_emergency_encounter": True,
+        },
+    }
+    path = tmp_path / "notes.json"
+    path.write_text(json.dumps({"notes": [note]}), encoding="utf-8")
+    _, notes = ev.load_notes(path)
+    meds = {m.key: m for m in notes[0].meds}
+    # Active (structured only) but printed in the Plan as a prescription: visible, and the
+    # active-medication origin is kept.
+    assert meds["ondansetron"].in_text is True
+    assert meds["ondansetron"].origin == "structured"
+    # Active, structured only, never printed: not visible.
+    assert meds["clopidogrel"].in_text is False
+    # Prescribed only and not printed: not visible.
+    assert meds["heparin"].in_text is False
+    assert meds["heparin"].origin == "prescribed"
 
 
 # --------------------------------------------------------------------------------------
@@ -242,7 +301,7 @@ def test_complaint_map_loads_and_every_mapped_term_is_a_string() -> None:
 
 
 def test_complaint_map_rejects_unknown_complaints() -> None:
-    with pytest.raises(ev.EvalError, match="not in complaint_map.json"):
+    with pytest.raises(ev.EvalError, match=r"not in complaint_map\.json"):
         CMAP.concept_of("Hiccups")
 
 
@@ -253,9 +312,7 @@ def test_complaint_map_covers_every_committed_chief_complaint() -> None:
 
 
 def test_thresholds_are_read_from_the_corroboration_table() -> None:
-    table = json.loads(
-        (ev.data_dir() / "vitals_corroboration.json").read_text(encoding="utf-8")
-    )
+    table = json.loads((data_dir() / "vitals_corroboration.json").read_text(encoding="utf-8"))
     expected = {
         (c["metric"], float(c["value"]))
         for rule in table["rules"]
@@ -316,5 +373,5 @@ def test_committed_results_are_labelled_and_carry_no_identifiers() -> None:
     assert "not a clinical validation" in text
     uuid = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     assert re.search(uuid, text, re.I) is None
-    assert re.search(r"\b[A-Z][a-z]+\d{1,3}\b", text) is None  # Synthea name tokens (Boyd728)
+    assert re.search(r"\b[A-Z][a-z]+\d{1,3}\b", text) is None  # Synthea-style name tokens (Jane123)
     assert re.search(r"\b\d{3}-\d{3}-\d{4}\b", text) is None  # phone numbers

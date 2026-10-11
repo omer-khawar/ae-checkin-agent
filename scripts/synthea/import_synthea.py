@@ -29,14 +29,20 @@ Determinism: the output is a pure function of the input bundles, the two tables 
 ``data/synthetic/synthea/``, ``scripts/synthea/synthea_config.json`` and
 ``packages/rules/data/medlist.json`` (the con-med matcher's list). No wall-clock time is
 written. ``--check`` re-imports into a temporary directory and requires byte-identical
-output, so it also catches drift in the matcher's medication list.
+output, so it also catches drift in the importer and in the matcher's medication list. When
+the raw Synthea output is not on disk (it is not committed), ``--check`` verifies only the
+manifest: the committed files' hashes and that ``medlist.json`` still has the sha256 the
+import ran against. It says loudly that importer drift is then NOT verified; ``--strict``
+makes that case fail.
 
 No network, no LLM: JSON parsing, regexes and table lookups only.
 
 Usage (from the repo root)::
 
     .venv/Scripts/python.exe scripts/synthea/import_synthea.py --in <out dir> [--in <top-up dir>]
-    .venv/Scripts/python.exe scripts/synthea/import_synthea.py --check
+    .venv/Scripts/python.exe scripts/synthea/import_synthea.py --check [--strict]
+    # or point it at the raw output via the environment (os.pathsep-separated):
+    INTERIM_SYNTHEA_OUT='<out>;<top-up>' python scripts/synthea/import_synthea.py --check
 """
 
 from __future__ import annotations
@@ -66,13 +72,10 @@ DEFAULT_OUTDIR = REPO_ROOT / "data" / "synthetic" / "synthea"
 DEFAULT_CONFIG = SCRIPT_DIR / "synthea_config.json"
 MEDLIST_PATH = REPO_ROOT / "packages" / "rules" / "data" / "medlist.json"
 
-# Where the committed run was generated (outside the repo; raw FHIR is ~66 MB and is not
-# committed). Override with --in or INTERIM_SYNTHEA_OUT (os.pathsep-separated list).
-_SCRATCH = Path(
-    "C:/Users/rianp/AppData/Local/Temp/claude/c--Users-rianp-OneDrive-Documents-HackRU/"
-    "5086aeea-d5ce-45ff-a431-54becc0995b0/scratchpad/synthea"
-)
-DEFAULT_IN_DIRS = (_SCRATCH / "out", _SCRATCH / "out_topup")
+# The raw Synthea output (~66 MB of FHIR) is not committed and has no default location: pass
+# it with --in, or set INTERIM_SYNTHEA_OUT to an os.pathsep-separated list of run dirs (the
+# primary run first, then any top-up run). Without either, --check can only verify hashes.
+IN_DIRS_ENV = "INTERIM_SYNTHEA_OUT"
 
 OUTPUT_FILES = ("participants.json", "notes.json", "manifest.json")
 TABLE_FILES = ("condition_filter.json", "import_tables.json")
@@ -81,7 +84,7 @@ TABLE_FILES = ("condition_filter.json", "import_tables.json")
 _NON_PATIENT_PREFIXES = ("hospitalInformation", "practitionerInformation")
 
 # A Synthea-generated personal name token: capitalised word with a numeric suffix
-# ("Boyd728", "D'Amore12"). Lower-case tokens such as "b12" or "phq-2" do not match.
+# ("Jane123", "D'Amore12"). Lower-case tokens such as "b12" or "phq-2" do not match.
 SYNTHEA_NAME_TOKEN = re.compile(r"\b[A-Z][A-Za-z'\-]*[a-z]\d{1,4}\b")
 _SEMANTIC_TAG = re.compile(r"\(([^()]+)\)\s*$")
 _SECTION_HEADING = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
@@ -573,7 +576,7 @@ class Redactor:
         others.update(str(i["value"]) for i in patient.get("identifier", []) if i.get("value"))
         others.add(str(patient.get("id", "")))
         others.discard("")
-        # Longest first so 'Boyd728' is replaced before 'Boyd'.
+        # Longest first so 'Jane123' is replaced before 'Jane'.
         return cls(
             label=label,
             name_tokens=tuple(sorted(names, key=lambda s: (-len(s), s))),
@@ -1069,10 +1072,10 @@ def _config_excerpt(config: JsonObj) -> JsonObj:
 def resolve_in_dirs(in_dirs: Sequence[Path] | None) -> list[Path]:
     if in_dirs:
         return [Path(p) for p in in_dirs]
-    env = os.environ.get("INTERIM_SYNTHEA_OUT")
+    env = os.environ.get(IN_DIRS_ENV)
     if env:
         return [Path(p) for p in env.split(os.pathsep) if p]
-    return [p for p in DEFAULT_IN_DIRS if p.is_dir()]
+    return []
 
 
 def run_import(
@@ -1252,14 +1255,31 @@ def summarize(built: Sequence[Built]) -> JsonObj:
     }
 
 
-def check(in_dirs: Sequence[Path], outdir: Path, config_path: Path, tables_dir: Path) -> int:
-    """Re-import into a temp dir and require byte-identical outputs (determinism)."""
+def check(
+    in_dirs: Sequence[Path],
+    outdir: Path,
+    config_path: Path,
+    tables_dir: Path,
+    *,
+    strict: bool = False,
+) -> int:
+    """Re-import into a temp dir and require byte-identical outputs (determinism).
+
+    Without the raw Synthea output (a clean clone, CI) only the manifest is verified: the
+    committed files' hashes and the con-med matcher's medlist hash. That does NOT verify that
+    the importer code still produces these files; the message says so, and ``strict`` turns
+    it into a failure."""
     if not in_dirs or not all((d / "fhir").is_dir() for d in in_dirs):
         print(
-            "check: Synthea source directories not available (raw FHIR is not committed); "
-            "verifying manifest hashes only"
+            "check: WARNING, Synthea source directories not available (raw FHIR is not "
+            f"committed; pass --in or set {IN_DIRS_ENV}). Verifying manifest hashes only: "
+            "importer drift is NOT verified."
         )
-        return verify_manifest(outdir, tables_dir)
+        status = verify_manifest(outdir, tables_dir)
+        if strict:
+            print("check: FAIL, --strict requires the Synthea source directories")
+            return 1
+        return status
     with tempfile.TemporaryDirectory(prefix="interim-synthea-check-") as tmp:
         run_import(in_dirs, Path(tmp), config_path=config_path, tables_dir=tables_dir)
         bad = []
@@ -1275,9 +1295,12 @@ def check(in_dirs: Sequence[Path], outdir: Path, config_path: Path, tables_dir: 
     return verify_manifest(outdir, tables_dir)
 
 
-def verify_manifest(outdir: Path, tables_dir: Path | None = None) -> int:
-    """Every file listed in outdir/manifest.json still has its recorded sha256. Outputs are
-    looked up in ``outdir``; the input tables in ``tables_dir`` (default: ``outdir``)."""
+def verify_manifest(
+    outdir: Path, tables_dir: Path | None = None, medlist_path: Path = MEDLIST_PATH
+) -> int:
+    """Every file listed in outdir/manifest.json still has its recorded sha256, and the
+    con-med matcher's medlist is the one the import ran against. Outputs are looked up in
+    ``outdir``; the input tables in ``tables_dir`` (default: ``outdir``)."""
     manifest = read_json(outdir / "manifest.json")
     bad = []
     for entry in manifest["files"]:
@@ -1289,6 +1312,25 @@ def verify_manifest(outdir: Path, tables_dir: Path | None = None) -> int:
         print(f"check: FAIL, manifest hash mismatch: {', '.join(bad)}")
         return 1
     print(f"check: OK, manifest hashes match ({len(manifest['files'])} files)")
+    return verify_matcher_medlist(manifest, medlist_path)
+
+
+def verify_matcher_medlist(manifest: JsonObj, medlist_path: Path = MEDLIST_PATH) -> int:
+    """participants.json embeds con-med matcher output (``interim_match``) computed against
+    packages/rules/data/medlist.json. If that list changed since the import, the committed
+    annotations and the matcher stats are stale even though every committed hash still
+    matches, so fail and say how to refresh them."""
+    recorded = manifest.get("matcher_medlist_sha256")
+    current = sha256_file(medlist_path) if medlist_path.is_file() else None
+    if recorded != current:
+        print(
+            f"check: FAIL, con-med matcher list changed since import: {medlist_path.name} "
+            f"sha256 {str(current)[:16]} != manifest matcher_medlist_sha256 "
+            f"{str(recorded)[:16]}. The committed interim_match annotations are stale; re-run "
+            "the import with --in <Synthea output> (see data/synthetic/synthea/README.md)."
+        )
+        return 1
+    print(f"check: OK, con-med matcher list unchanged ({medlist_path.name} sha256 matches)")
     return 0
 
 
@@ -1330,7 +1372,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         action="append",
         help="Synthea output dir (with fhir/, notes/, optional csv/, metadata/); repeat for a "
-        "top-up run. Default: $INTERIM_SYNTHEA_OUT or the committed run's scratch dirs.",
+        f"top-up run. Default: ${IN_DIRS_ENV} (os.pathsep-separated). There is no built-in "
+        "default: the raw output is not committed.",
     )
     parser.add_argument("--outdir", type=Path, default=DEFAULT_OUTDIR)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -1344,15 +1387,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Re-import into a temp dir and require byte-identical output vs --outdir",
+        help="Re-import into a temp dir and require byte-identical output vs --outdir "
+        "(without the raw Synthea output: verify manifest and medlist hashes only, with a "
+        "warning)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="With --check: fail instead of falling back to hash-only verification when the "
+        "Synthea source directories are not available",
     )
     args = parser.parse_args(argv)
     in_dirs = resolve_in_dirs(args.in_dirs)
     tables_dir = args.tables_dir or DEFAULT_OUTDIR
     if args.check:
-        return check(in_dirs, args.outdir, args.config, tables_dir)
+        return check(in_dirs, args.outdir, args.config, tables_dir, strict=args.strict)
     if not in_dirs:
-        parser.error("no Synthea output directory found; pass --in <dir>")
+        parser.error(f"no Synthea output directory given; pass --in <dir> or set {IN_DIRS_ENV}")
     manifest = run_import(in_dirs, args.outdir, config_path=args.config, tables_dir=tables_dir)
     print_summary(manifest, args.outdir)
     return 0

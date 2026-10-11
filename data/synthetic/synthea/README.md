@@ -50,8 +50,10 @@ Total ≈ 465 KB (budget 1.5 MB, enforced by a test).
 # Import only, from an existing Synthea output directory (repeat --in for a top-up run)
 .venv/Scripts/python.exe scripts/synthea/import_synthea.py --in <out> --in <out_topup>
 
-# Determinism: re-import into a temp dir and require byte-identical files
-.venv/Scripts/python.exe scripts/synthea/import_synthea.py --check
+# Determinism: re-import into a temp dir and require byte-identical files. The raw output
+# has no default location: pass --in, or set INTERIM_SYNTHEA_OUT (os.pathsep-separated,
+# primary run first; ';' on Windows, ':' elsewhere)
+INTERIM_SYNTHEA_OUT='<out>;<out_topup>' .venv/Scripts/python.exe scripts/synthea/import_synthea.py --check
 ```
 
 `run_synthea.py` uses a local `java` (11+) if one is on `PATH`, else Docker; it sets
@@ -60,10 +62,14 @@ Total ≈ 465 KB (budget 1.5 MB, enforced by a test).
 script stops; `--accept-new-jar` records the new hash in the config and continues (the
 regenerated data will then differ from the committed data; review the diff).
 
-`--check` needs the raw Synthea output on disk. Without it (a clean clone, CI) it verifies the
-manifest hashes only and says so. The import also depends on `packages/rules/data/medlist.json`
-(the con-med matcher's list; its sha256 is in `manifest.json`), so `--check` fails if the
-matcher's list changes; re-import and commit when that is intended.
+A full `--check` needs the raw Synthea output on disk (via `--in` or `INTERIM_SYNTHEA_OUT`).
+Without it (a clean clone, CI) it verifies only the manifest, and prints a warning that
+importer drift is **not** verified; add `--strict` to make that case fail. The import also
+depends on `packages/rules/data/medlist.json` (the con-med matcher's list), because
+`participants.json` embeds the matcher's proposals (`interim_match`). The manifest records that
+list's sha256 (`matcher_medlist_sha256`), and `--check` compares it with the current file in
+both modes, so a medlist change fails the check even in CI. When the change is intended,
+re-import from the raw output (regenerate it with `run_synthea.py` if needed) and commit.
 
 ### Why the raw FHIR is not committed
 
@@ -74,7 +80,8 @@ de-identified, and the pipeline above regenerates the source from pinned inputs.
 
 ## De-identification rules
 
-Synthea's people are fictional, but their records look real (`Boyd728 Keeling57`, a street
+Synthea's people are fictional, but their records look real (names such as `Jane123 Doe45`,
+invented here for illustration, a street
 address, `555-` phone numbers, `999-` SSNs, MRNs, driver's licence and passport numbers). So:
 
 1. **No names.** In note text, every token of the patient's given and family names (with and
@@ -96,9 +103,11 @@ address, `555-` phone numbers, `999-` SSNs, MRNs, driver's licence and passport 
 
 `scripts/tests/test_synthea_import.py` enforces this: it builds the list of every name token,
 address, phone number, identifier and UUID from the source Patient resources (when the raw
-output is on disk) and asserts none appears in any output; in CI it runs the same checks on a
-hand-built FHIR bundle and pattern checks (UUIDs, `Word123`, `555-…`, `999-…`) on the committed
-files.
+output is on disk) and asserts none appears in any output, in this README, in
+`docs/eval/synthea_results.md`, or in the pipeline's scripts, tables and tests. In CI it runs the
+same checks on a hand-built FHIR bundle and pattern checks (UUIDs, `Word123`, `555-…`, `999-…`)
+on the committed files and on this README and the results doc. Examples in prose and code
+comments use invented names.
 
 ## The ground truth in `notes.json`
 
@@ -116,12 +125,18 @@ the **structured FHIR record** wherever it exists, and every block says where it
 | `chief_complaints` | The note's `# Chief Complaint` bullets. Synthea has no structured chief-complaint resource; this is the documented fallback. |
 
 **Synthea's note text and its structured record disagree, and that is useful.** Across the 72
-notes, 109 medication items are in both, 171 are only in the structured record (e.g. a
+notes, counting one item per `active_medications_at_note` entry (one per RxNorm code or note-list
+line), 109 medication items are in both, 171 are only in the structured record (e.g. a
 participant on clopidogrel, metoprolol, nitroglycerin and simvastatin whose emergency note says
 "No Active Medications.") and 189 are only in the note's list (Synthea keeps listing one-off
 injections such as docetaxel long after they were given). A text-only scanner can find at most
 the `note_section` items; score its *recall* against those, and report the `structured`-only
-items as what chart text alone misses.
+items as what chart text alone misses. `docs/eval/synthea_results.md` counts per **leading
+ingredient** per note instead, because a scanner names ingredients, not products. The
+difference is six items: on 6 of P-002's notes a structured-only `Simvastatin 20 MG` is active
+alongside the listed `Simvastatin 10 MG`, and per ingredient it merges into that item, which is
+already counted as in both. So the eval reports 165 structured-only items rather than 171; the
+other two counts are the same in both units.
 
 **Chief complaints are the person's standing symptom list**, repeated on every note (Synthea
 renders the simulated person's current symptoms, not a visit-specific complaint): Cough 54,
@@ -180,8 +195,11 @@ number is a stress test of the list's coverage, not the kiosk's accuracy.
   (Libtayo) or other PD-1 inhibitor, so these charts show chemotherapy-era adverse-event context,
   not immune-related AEs.
 - **Notes are templated.** Same sections every time; chief complaints repeat; no free-text
-  narrative, negations, or "patient reports …" sentences, so they exercise the scanner's
-  symptom and medication lexicons but not its negation/historical logic.
+  narrative, negations, or "patient reports …" sentences. They exercise the scanner's symptom
+  and medication lexicons and its **historical** logic (Synthea's long "Patient has a history
+  of …" lists), but not its negation logic. `docs/eval/synthea_results.md` shows both sides of
+  the history window: 17 history-list mentions correctly excluded, and 8 false positives where
+  the term sits 15 to 22 words after the cue, beyond the scanner's 8-word window.
 - **No allergies** were generated for this cohort (`allergies: []` everywhere; notes say "No Known
   Allergies.").
 - Labels `P-001` … `P-012` are assigned in Interim's participant label space (sorted by birth
