@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/omer-khawar/ae-checkin-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/omer-khawar/ae-checkin-agent/actions/workflows/ci.yml) · MIT · `docker compose up --build` · HackRU Fall 2026, Regeneron "Best Clinical Trials Solution"
 
-**Live demo: (https://interim-web-pjx6.onrender.com/dashboard/notes)** · patient kiosk at `/kiosk` · dashboard at `/login` (pick any role, password `interim-demo`) · if it's been idle, the first load takes about a minute while the free server wakes up, and the demo data resets to its starting state.
+**Live demo: (https://interim-web-pjx6.onrender.com/)** · patient kiosk at `/kiosk` · dashboard at `/login` (pick any role, password `interim-demo`) · if it's been idle, the first load takes about a minute while the free server wakes up, and the demo data resets to its starting state.
 
 **Patients in cancer trials get side effects between visits. Interim catches them as soon as they're mentioned, at a check-in, in a hospital note or on a phone call. It hands the study coordinator ready-to-confirm records and 24-hour reports, with every field linked to the exact words it came from.**
 
