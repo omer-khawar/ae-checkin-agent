@@ -405,7 +405,7 @@ function SampleRow({
         <button
           type="button"
           onClick={onFocus}
-          className="tabular rounded px-1 text-left hover:bg-surface-subtle"
+          className="tabular whitespace-nowrap rounded px-1 text-left hover:bg-surface-subtle"
           title={`Sample ${sample.id}`}
           aria-pressed={active}
         >

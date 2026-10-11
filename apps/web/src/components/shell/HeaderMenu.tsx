@@ -83,7 +83,7 @@ export function HeaderMenu({
           role="region"
           aria-label={panelLabel}
           className={cn(
-            "glass-strong absolute top-full z-50 mt-2 w-72 rounded-sheet p-2 text-body text-foreground shadow-elev-2",
+            "glass-strong absolute top-full z-50 mt-2 w-72 whitespace-normal rounded-sheet p-2 text-body text-foreground shadow-elev-2",
             align === "right" ? "right-0" : "left-0",
             panelClassName,
           )}

@@ -349,7 +349,7 @@ export function Layout() {
             trigger={
               <>
                 <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
-                <span>{study?.nct_id ?? "Study"}</span>
+                <span className="sr-only min-[1280px]:not-sr-only">{study?.nct_id ?? "Study"}</span>
                 <span className="hidden font-sans text-caption text-muted-foreground min-[1800px]:inline">
                   synthetic participants
                 </span>

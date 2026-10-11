@@ -257,10 +257,12 @@ function DraftCard({
                   aria-pressed={sel}
                   aria-label={`${plain} (${name}): ${shown}. Show evidence`}
                   title={`Show evidence for ${plain} (${name})`}
-                  className="w-full rounded text-left hover:text-primary hover:underline focus-visible:ring-4"
+                  className="w-full rounded text-left [overflow-wrap:anywhere] hover:text-primary hover:underline focus-visible:ring-4"
                 >
                   <span className="block text-xs font-medium text-foreground">{plain}</span>
-                  <span className="font-mono text-[10px] text-muted-foreground">{name}</span>
+                  <span className="break-all font-mono text-[10px] text-muted-foreground">
+                    {name}
+                  </span>
                   <span className="tabular ml-1 rounded bg-surface-subtle px-1 text-[10px] text-muted-foreground">
                     {ev.length} ev
                   </span>

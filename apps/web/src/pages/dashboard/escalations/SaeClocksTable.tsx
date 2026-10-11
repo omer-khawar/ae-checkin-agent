@@ -74,7 +74,7 @@ export function SaeClocksTable({ rows, nowMs, role = null, onClockStopped }: Sae
             <div>
               <Link
                 to={`/dashboard/participants/${encodeURIComponent(clock.usubjid)}`}
-                className="font-mono text-primary underline"
+                className="whitespace-nowrap font-mono text-primary underline"
                 title="Open the participant timeline"
               >
                 {clock.usubjid}
