@@ -61,7 +61,7 @@ from sqlmodel import select
 from interim_rules import chartscan
 from interim_rules.tables import items, load_table
 
-from .audit import SYSTEM_ACTOR, Actor, append_event
+from .audit import SYSTEM_ACTOR, Actor, append_event, head, verify_chain
 from .db import Database, create_all, drop_all, make_engine
 from .models import (
     Draft,
@@ -540,6 +540,8 @@ def _report_past_sae_clock(
         packet,
         note="seed: initial report signed within 24 h; follow-up due when the outcome and "
         "the hospital records arrive",
+        narrative_reviewed=True,
+        missing_info_acknowledged=True,
         now=signed_at,
     )
     return signed
@@ -1145,20 +1147,23 @@ def is_seeded(db: DbSession) -> bool:
 
 
 def seed_database(
-    db: DbSession, settings: Settings, *, now: str | None = None, genesis_action: str = "demo.seed"
+    db: DbSession,
+    settings: Settings,
+    *,
+    now: str | None = None,
+    genesis_action: str = "demo.seed",
+    previous_chain: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Seed an empty database. Returns a summary dict (participants, sessions, tiers)."""
+    """Seed an empty database. Returns a summary dict (participants, sessions, tiers).
+
+    ``previous_chain`` (a demo reset) is written into the genesis payload, so the new chain
+    records the head hash and length of the chain it replaced."""
     stamp = now or now_iso()
     rng = random.Random(SEED)
-    append_event(
-        db,
-        SEED_ACTOR,
-        genesis_action,
-        "database",
-        "seed",
-        {"seed": SEED, "at": stamp, "note": "all participants are synthetic"},
-        ts_utc=stamp,
-    )
+    genesis: dict[str, Any] = {"seed": SEED, "at": stamp, "note": "all participants are synthetic"}
+    if previous_chain is not None:
+        genesis["previous_chain"] = dict(previous_chain)
+    append_event(db, SEED_ACTOR, genesis_action, "database", "seed", genesis, ts_utc=stamp)
     study = seed_study(db, settings)
     seed_users(db, stamp)
     ensure_defaults(db, settings, stamp)
@@ -1228,22 +1233,63 @@ def seed_if_empty(database: Database, settings: Settings) -> dict[str, Any] | No
 def reset_and_seed(
     database: Database, settings: Settings, actor: Actor, *, reseed: bool = True
 ) -> dict[str, Any]:
-    """Drop every table, recreate, write a fresh genesis event and (optionally) reseed."""
+    """Drop every table, recreate, write a fresh genesis event and (optionally) reseed.
+
+    The chain being destroyed is summarized first (head hash, event count, whether it
+    verified, running SAE/AESI clocks, signed packets) and that summary goes into the new
+    genesis event, so "verify: green" after a reset still shows that history was replaced."""
+    previous = previous_chain_summary(database, reset_by=actor.id)
     with database.write_lock:
         drop_all(database.engine)
         create_all(database.engine)
     stamp = now_iso()
     with database.write_scope() as db:
         if reseed:
-            summary = seed_database(db, settings, now=stamp, genesis_action="demo.reset")
+            summary = seed_database(
+                db, settings, now=stamp, genesis_action="demo.reset", previous_chain=previous
+            )
         else:
             append_event(
-                db, actor, "demo.reset", "database", "reset", {"reseed": False}, ts_utc=stamp
+                db,
+                actor,
+                "demo.reset",
+                "database",
+                "reset",
+                {"reseed": False, "previous_chain": previous},
+                ts_utc=stamp,
             )
             ensure_defaults(db, settings, stamp)
             seed_users(db, stamp)
             summary = {"participants": 0, "sessions": 0, "notes": 0, "seeded_at": stamp}
-    return {"ok": True, "reseed": reseed, "reset_by": actor.id, **summary}
+    return {
+        "ok": True,
+        "reseed": reseed,
+        "reset_by": actor.id,
+        "previous_chain": previous,
+        **summary,
+    }
+
+
+def previous_chain_summary(database: Database, *, reset_by: str) -> dict[str, Any]:
+    """What a reset is about to destroy; empty-chain values when the tables are missing."""
+    try:
+        with database.write_scope() as db:
+            check = verify_chain(db)
+            last = head(db)
+            clocks = db.exec(select(SAEClock)).all()
+            running = sum(1 for c in clocks if c.stopped_at is None)
+            signed = sum(1 for p in db.exec(select(Packet)).all() if p.status == "signed")
+    except Exception:  # noqa: BLE001 - a fresh/broken DB must not block a reset
+        return {"head_hash": None, "events": 0, "verified": None, "reset_by": reset_by}
+    return {
+        "head_hash": last.hash if last is not None else None,
+        "events": last.seq if last is not None else 0,
+        "verified": check["ok"],
+        "running_clocks": running,
+        "signed_packets": signed,
+        "reset_by": reset_by,
+        "reset_at": now_iso(),
+    }
 
 
 # --------------------------------------------------------------------------- #

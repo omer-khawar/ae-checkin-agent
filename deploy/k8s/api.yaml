@@ -1,0 +1,108 @@
+# Interim API: FastAPI, the only database writer. One replica with the Recreate strategy, because
+# the default database is a SQLite file on a ReadWriteOnce volume and the audit log is a single
+# hash chain. With Postgres (DATABASE_URL in the Secret) the replica count can be raised.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: interim-db
+  labels:
+    app.kubernetes.io/name: interim-api
+    app.kubernetes.io/part-of: interim
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interim-api
+  labels:
+    app.kubernetes.io/name: interim-api
+    app.kubernetes.io/part-of: interim
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: interim-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: interim-api
+        app.kubernetes.io/part-of: interim
+    spec:
+      securityContext:
+        # uid/gid 10001 is the unprivileged "interim" user created in apps/api/Dockerfile.
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: interim-api
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: interim-api-config
+            - secretRef:
+                name: interim-secrets
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/interim
+          startupProbe:
+            # The first start seeds the Monday-morning demo state (about a minute on a small node).
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 4
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 4
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: interim-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interim-api
+  labels:
+    app.kubernetes.io/name: interim-api
+    app.kubernetes.io/part-of: interim
+spec:
+  selector:
+    app.kubernetes.io/name: interim-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

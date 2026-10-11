@@ -11,6 +11,7 @@ from ..auth import require_role
 from ..constants import MOCK_SCENARIOS, VITALS_SOURCES
 from ..db import Database
 from ..deps import get_database, get_settings
+from ..problems import problem
 from ..schemas import ResetRequest, SettingsUpdate
 from ..seed import reset_and_seed
 from ..services.settings_svc import get_admin_settings, update_settings
@@ -61,5 +62,12 @@ def post_reset(
     database: Database = Depends(get_database),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
+    if not settings.allow_demo_reset:
+        raise problem(
+            403,
+            "Demo reset is disabled on this deployment (it would drop the audit chain). "
+            "Set ALLOW_DEMO_RESET=true only on a demo instance.",
+            title="Demo reset disabled",
+        )
     reseed = body.reseed if body is not None else True
     return reset_and_seed(database, settings, actor, reseed=reseed)

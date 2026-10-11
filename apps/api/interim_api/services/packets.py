@@ -1010,6 +1010,7 @@ def packet_to_dict(db: DbSession, packet: Packet) -> dict[str, Any]:
         "signed_by": packet.signed_by,
         "signed_at": packet.signed_at,
         "mock_edc_ack_id": packet.mock_edc_ack_id,
+        "sign_attestation": load_json(packet.sign_attestation_json, None),
         "followup_packet_ids": sorted(p.id for p in followups),
         "site_awareness_at": clock.site_awareness_at if clock else None,
         "due_at": clock.due_at if clock else None,
@@ -1024,6 +1025,20 @@ def get_packet_or_404(db: DbSession, packet_id: str) -> Packet:
     if row is None:
         raise problem(404, f"No packet with id {packet_id}", title="Packet not found")
     return row
+
+
+def _aeser_on_record(db: DbSession, packet: Packet) -> dict[str, Any]:
+    """``{draft_id: AESER}`` for the current AE records of the packet's check-in, so the
+    signature event shows whether an investigator seriousness decision existed."""
+    if not packet.session_id:
+        return {}
+    rows = db.exec(
+        select(Draft)
+        .where(Draft.session_id == packet.session_id)
+        .where(Draft.domain == "AE")
+        .where(Draft.status != "superseded")
+    ).all()
+    return {d.id: (load_json(d.fields_json, {}) or {}).get("AESER") for d in rows}
 
 
 def _clock_or_404(db: DbSession, clock_id: str) -> SAEClock:
@@ -1147,7 +1162,8 @@ def start_follow_up(
     """``POST /packets/{id}/follow-up`` (R4.2): follow-up n+1 of a **signed** packet.
 
     Fields are re-filled from current evidence; a value a person entered on the previous
-    report survives when the evidence still has nothing better. An unsigned follow-up of the
+    report survives when the evidence still has nothing better, or when it corrected a
+    pre-filled value whose evidence has not changed since. An unsigned follow-up of the
     same report is returned instead of starting a second one.
     """
     parent = get_packet_or_404(db, packet_id)
@@ -1172,13 +1188,17 @@ def start_follow_up(
     ctx = load_context(db, clock)
     fresh = build_fields(ctx, actor, stamp)
     previous = fields_by_name(load_json(parent.fields_json, []) or [])
+    prefilled = _prefilled_values(parent)
     fields: list[dict[str, Any]] = []
     for f in fresh:
         before = previous.get(f["name"])
-        if (
-            before is not None
-            and is_placeholder(f["value"])
-            and not is_placeholder(before.get("value"))
+        # Carry the signed value forward when the evidence still has nothing better, or
+        # when a person corrected the pre-filled value and the evidence has not changed
+        # since (otherwise the follow-up would silently undo the correction and report it
+        # to the sponsor as a change back to the old value).
+        corrected = f["name"] in prefilled and _same(prefilled[f["name"]], f["value"])
+        if before is not None and (
+            (is_placeholder(f["value"]) and not is_placeholder(before.get("value"))) or corrected
         ):
             carried = dict(before)
             carried["evidence"] = [
@@ -1212,6 +1232,21 @@ def start_follow_up(
     )
     _index_packet_pointer(packet, parent)
     return packet, True
+
+
+def _same(a: Any, b: Any) -> bool:
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def _prefilled_values(packet: Packet) -> dict[str, Any]:
+    """Field name -> the value Interim pre-filled, for every field a person edited on
+    ``packet`` (the ``before`` of the first edit that touched it)."""
+    out: dict[str, Any] = {}
+    for edit in load_json(packet.edits_json, []) or []:
+        for name, change in (edit.get("diff") or {}).items():
+            if name != "narrative_text" and name not in out and isinstance(change, dict):
+                out[name] = change.get("before")
+    return out
 
 
 def _index_packet_pointer(packet: Packet, parent: Packet) -> None:
@@ -1464,10 +1499,27 @@ def _post_mock_edc(
 
 
 def sign_packet(
-    db: DbSession, actor: Actor, packet: Packet, *, note: str | None, now: str | None = None
+    db: DbSession,
+    actor: Actor,
+    packet: Packet,
+    *,
+    note: str | None,
+    narrative_reviewed: bool,
+    missing_info_acknowledged: bool,
+    missing_info_not_available: Sequence[str] | None = None,
+    now: str | None = None,
 ) -> tuple[Packet, dict[str, Any]]:
     """Investigator signature: status ``signed``; the clock stops as "reported (mock)" (if
-    still running); the packet is posted to the mock EDC. Returns ``(packet, ack)``."""
+    still running); the packet is posted to the mock EDC. Returns ``(packet, ack)``.
+
+    The signer must attest: ``narrative_reviewed`` (422 otherwise; a generated narrative is
+    never signed unread) and, when the packet lists missing information,
+    an explicit "not available" acknowledgment of every open item: either
+    ``missing_info_not_available`` naming each item verbatim, or ``missing_info_acknowledged``
+    (all listed items at once; 422 otherwise, and 422 for a named item that is not open).
+    The attestation (narrative reviewed, whether a person edited it, each item marked "not
+    available") is stored on the packet (``sign_attestation``) and in the ``packet.signed``
+    event, with the AESER values on the linked AE records."""
     if actor.role != "investigator":
         raise problem(403, "Only an investigator can sign a report packet", title="Forbidden")
     if packet.status == "signed":
@@ -1476,8 +1528,49 @@ def sign_packet(
             f"Packet {packet.id} was already signed by {packet.signed_by} at {packet.signed_at}",
             title="Already signed",
         )
-    stamp = now or now_iso()
     signed_source, signed_text = reported_narrative(packet)
+    if not narrative_reviewed:
+        raise problem(
+            422,
+            f"Confirm you read the {signed_source} narrative before signing "
+            "(narrative_reviewed: true)",
+            title="Narrative not reviewed",
+        )
+    open_items = [str(m) for m in (load_json(packet.missing_json, []) or [])]
+    named = [str(m).strip() for m in (missing_info_not_available or []) if str(m).strip()]
+    stray = [m for m in named if m not in open_items]
+    if stray:
+        raise problem(
+            422,
+            f"Not an open missing-information item on this packet: {'; '.join(stray)}. "
+            f"Open items: {'; '.join(open_items) or 'none'}",
+            title="Unknown missing-information item",
+        )
+    unacknowledged = [] if missing_info_acknowledged else [m for m in open_items if m not in named]
+    if unacknowledged:
+        raise problem(
+            422,
+            f"This packet still lists {len(unacknowledged)} missing-information item(s) not "
+            f"acknowledged: {'; '.join(unacknowledged)}. Fill them first, or mark each one "
+            "'not available' (missing_info_not_available: [...], or "
+            "missing_info_acknowledged: true for all listed items).",
+            title="Missing information not acknowledged",
+        )
+    stamp = now or now_iso()
+    attestation: dict[str, Any] = {
+        "narrative_reviewed": True,
+        "narrative_source": signed_source,
+        "narrative_edited_by_person": signed_source == "edited",
+        "missing_info_not_available": [{"item": m, "status": "not available"} for m in open_items],
+        "missing_info_acknowledged_by": (
+            "item_list"
+            if named and not missing_info_acknowledged
+            else ("all_listed" if open_items else None)
+        ),
+        "attested_by": actor.id,
+        "attested_at": stamp,
+    }
+    packet.sign_attestation_json = dump_json(attestation)
     packet.status = "signed"
     packet.signed_by = actor.id
     packet.signed_at = stamp
@@ -1531,6 +1624,11 @@ def sign_packet(
             "decision": SIGNED_DECISION if stopped_now else clock.decision,
             "note": note,
             "narrative_signed": signed_source,
+            "narrative_reviewed": True,
+            "narrative_edited_by_person": signed_source == "edited",
+            "missing_info_acknowledged": open_items,
+            "missing_info_not_available": attestation["missing_info_not_available"],
+            "aeser_on_record": _aeser_on_record(db, packet),
             "narrative_sha256": (
                 sha256_hex(signed_text.encode("utf-8")) if signed_text is not None else None
             ),
@@ -1809,7 +1907,15 @@ def report_past_aesi_clocks(
         if clock.due_at >= before:
             continue
         packet, _ = create_packet(db, coordinator, clock.id, TemplateWriter(), now=at)
-        signed, _ = sign_packet(db, investigator, packet, note="seed: reported at the time", now=at)
+        signed, _ = sign_packet(
+            db,
+            investigator,
+            packet,
+            note="seed: reported at the time",
+            narrative_reviewed=True,
+            missing_info_acknowledged=True,
+            now=at,
+        )
         out.append(signed)
     return out
 

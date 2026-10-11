@@ -77,7 +77,7 @@ def all_findings(result: cs.ScanResult) -> list[tuple[str, int, int]]:
 
 def test_answer_key_reproduces_source_evaluation() -> None:
     ev = cs.evaluate_answer_key()
-    assert ev.n_cases == 39
+    assert ev.n_cases == 42
     assert ev.misses == () and ev.passed
     assert (ev.ae_terms.precision, ev.ae_terms.recall, ev.ae_terms.f1) == (1.0, 1.0, 1.0)
     assert (ev.ae_terms.tp, ev.ae_terms.fp, ev.ae_terms.fn) == (38, 0, 0)
@@ -92,7 +92,7 @@ def test_answer_key_reproduces_source_evaluation() -> None:
     payload = cs.evaluation_to_dict(ev)
     json.dumps(payload, allow_nan=False)
     assert payload["misses"] == [] and payload["passed"] is True
-    assert len(payload["per_case"]) == 39
+    assert len(payload["per_case"]) == 42
 
 
 def test_original_source_cases_still_reproduce_the_source_evaluation() -> None:
@@ -119,10 +119,10 @@ def test_answer_key_composition_and_participant_mapping() -> None:
     cases = cs.answer_key()
     notes = [c for c in cases if c.kind == "note"]
     utterances = [c for c in cases if c.kind == "utterance"]
-    assert (len(notes), len(utterances)) == (8, 31)
-    assert len({c.id for c in cases}) == 39
+    assert (len(notes), len(utterances)) == (8, 34)
+    assert len({c.id for c in cases}) == 42
     review_cases = [c for c in raw_cases(cs.answer_key()) if c.get("review_fix")]
-    assert [c["id"] for c in review_cases] == [f"T{n}" for n in range(18, 32)]
+    assert [c["id"] for c in review_cases] == [f"T{n}" for n in range(18, 35)]
     raw = load_table("chartscan_answer_key")
     mapping = raw["subject_mapping"]
     assert mapping == {f"101-{n:03d}": f"P-{n:03d}" for n in range(1, 7)}
@@ -792,7 +792,7 @@ def test_malformed_answer_key_fails_loudly(table_dir: Path, mutate: Any, message
 
 
 def test_valid_tables_reload_from_the_scratch_directory(table_dir: Path) -> None:
-    assert len(cs.answer_key()) == 39
+    assert len(cs.answer_key()) == 42
     assert terms(cs.scan_text("severe nausea")) == ["Nausea"]
 
 
@@ -1014,6 +1014,12 @@ def test_hospital_grade_cue_follows_the_same_context_check(
         ("the sob story about ED", False),
         ("Go to the ER if fever develops.", False),
         ("Advised to go to the ER if symptoms worsen.", False),
+        ("If symptoms worsen, go to the ER.", False),
+        ("If you feel worse, go to the emergency room.", False),
+        ("Return to the ED if you develop a fever.", False),
+        ("Call 911 if you cannot breathe, or go to the emergency room.", False),
+        ("Seek emergency care if you develop a rash; go to the hospital if it spreads.", False),
+        ("Had to call 911 and was taken to the ER.", True),  # an event, not advice
         ("Admission note: mild cough.", True),  # documented residual ambiguity
         ("ED visit 10/08: brought in by wife.", True),
         ("Seen in the ED yesterday.", True),

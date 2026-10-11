@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 
 from ..audit import Actor
 from ..auth import require_role
@@ -48,12 +48,19 @@ def post_run_custom(
         return run_custom(db, settings, actor, body.persona)
 
 
-@router.get("/eval/results")
+@router.get("/eval/results", response_model=None)
 def get_results(
-    _actor: Actor = Depends(require_role()), database: Database = Depends(get_database)
-) -> dict[str, Any]:
+    _actor: Actor = Depends(require_role()),
+    database: Database = Depends(get_database),
+    if_any: bool = Query(
+        False, description="Answer 204 instead of 404 when no evaluation has been run yet."
+    ),
+) -> dict[str, Any] | Response:
     with database.read_scope() as db:
         results = latest_results(db)
     if results is None:
+        if if_any:
+            # The dashboard's Eval page asks this way so an empty page logs no failed request.
+            return Response(status_code=204)
         raise problem(404, "No evaluation has been run yet; POST /eval/run", title="No results")
     return results

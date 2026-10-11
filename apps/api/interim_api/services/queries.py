@@ -51,7 +51,7 @@ from ..models import Draft, Participant, SAEClock, SponsorQuery, User
 from ..problems import problem
 from ..util import dump_json, load_json, new_id, now_iso, seconds_between
 from .common import draft_to_dict, get_draft_or_404
-from .drafts import current_version, edit_draft
+from .drafts import ATTRIBUTION_FIELDS, current_version, edit_draft
 
 EDIT_CHECK_ACTOR = Actor(id="edit-check", role="system")
 """Who raises an edit-check query in the audit log (the person who triggered the run is in
@@ -779,6 +779,15 @@ def answer_query(
         field = str(also_edit.get("field") or "").strip()
         if not field:
             raise problem(422, "also_edit.field is required", title="Invalid edit")
+        if field in ATTRIBUTION_FIELDS:
+            # Seriousness / causality / immune-related are investigator decisions recorded
+            # only through PATCH /drafts/{id}/attribution (which also stops the SAE clock).
+            raise problem(
+                403,
+                f"{field} can only be recorded by an investigator through "
+                f"PATCH /api/v1/drafts/{target.id}/attribution, not in a query answer",
+                title="Investigator-only field",
+            )
         allowed_new = [f for f in load_json(q.fields_json, []) or [q.field] if f]
         if field not in allowed_new and field != q.field and not _field_known(target, field):
             raise problem(422, f"{field!r} cannot be set on this record", title="Invalid edit")

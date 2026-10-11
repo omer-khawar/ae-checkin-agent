@@ -109,9 +109,45 @@ def test_bundle_manifest_hashes_match_the_files(client) -> None:
         "VS_samples.csv",
         "CM.csv",
         "CM.json",
+        "evidence.json",
+        "evidence.csv",
         "audit_excerpt.json",
         "manifest.json",
     }
+    # Per-field evidence survives the export: JSON records carry INTERIM_EVIDENCE, the
+    # bundle's evidence.json maps draft -> field -> pointers, and those ids are in the excerpt.
+    ae_doc = json.loads(zf.read("AE.json"))
+    for record in ae_doc["records"]:
+        assert record["INTERIM_EVIDENCE"]["AETOXGR"], record["INTERIM_EVIDENCE"]
+    assert "INTERIM_EVIDENCE" not in zf.read("AE.csv").decode("utf-8").splitlines()[0]
+    evidence_doc = json.loads(zf.read("evidence.json"))["records"]
+    # The CSV sidecar: one row per (record, field, pointer), same pointers as evidence.json.
+    sidecar = list(csv.DictReader(io.StringIO(zf.read("evidence.csv").decode("utf-8"))))
+    assert sidecar and list(sidecar[0]) == [
+        "DOMAIN",
+        "USUBJID",
+        "INTERIM_DRAFT_ID",
+        "FIELD",
+        "EVIDENCE_KIND",
+        "EVIDENCE_ID",
+        "EVIDENCE_TS",
+        "EVIDENCE_NOTE",
+    ]
+    n_pointers = sum(
+        len(pointers) for rec in evidence_doc.values() for pointers in rec["fields"].values()
+    )
+    assert len(sidecar) == n_pointers
+    assert any(r["DOMAIN"] == "AE" and r["FIELD"] == "AETOXGR" for r in sidecar)
+    assert {r["INTERIM_DRAFT_ID"] for r in ae_doc["records"]} <= set(evidence_doc)
+    excerpt_ids = {e["entity_id"] for e in json.loads(zf.read("audit_excerpt.json"))["events"]}
+    pointer_ids = {
+        p["id"]
+        for rec in evidence_doc.values()
+        for pointers in rec["fields"].values()
+        for p in pointers
+        if p.get("id")
+    }
+    assert pointer_ids & excerpt_ids
     manifest = json.loads(zf.read("manifest.json"))
     assert manifest["study_id"] == "R2810-ONC-1624" and manifest["interim_version"] == "0.1.0"
     assert manifest["record_counts"] == {"AE": 2, "VS": 2, "CM": 1, "VS_samples": 2}

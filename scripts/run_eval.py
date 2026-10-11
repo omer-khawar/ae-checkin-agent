@@ -252,6 +252,9 @@ class Api:
         self.client = httpx.Client(base_url=f"{self.base_url}/api/v1", timeout=timeout)
         self.bridge_token = bridge_token or None
         self.n_requests = 0
+        # Confirming an AE draft is a clinical decision: the API refuses it for the admin
+        # role, so the harness confirms prior check-ins as the seeded coordinator.
+        self.review_headers: dict[str, str] = {}
 
     def close(self) -> None:
         self.client.close()
@@ -261,6 +264,11 @@ class Api:
         if body.get("role") != "admin":
             raise HarnessError(f"user {username!r} is not an admin (the overrides need one)")
         self.client.headers["Authorization"] = f"Bearer {body['token']}"
+        with contextlib.suppress(ApiError):
+            reviewer = self.call(
+                "POST", "/auth/login", json={"username": "coordinator", "password": password}
+            )
+            self.review_headers = {"Authorization": f"Bearer {reviewer['token']}"}
 
     def call(
         self,
@@ -464,6 +472,7 @@ def confirm_ae_drafts(ctx: Context, detail: Mapping[str, Any]) -> int:
                 "POST",
                 f"/drafts/{draft['id']}/confirm",
                 json={"note": "confirmed by the eval harness (prior check-in)"},
+                headers=ctx.api.review_headers or None,
             )
             n += 1
     return n

@@ -75,7 +75,9 @@ def export_domain(
         if per_sample and domain == "VS":
             records = per_sample_records(db, status, include_eval=include_eval)
         else:
-            records = records_for(db, domain, status, include_eval=include_eval)
+            records = records_for(
+                db, domain, status, include_eval=include_eval, with_evidence=fmt == "json"
+            )
         if fmt == "csv":
             payload = to_csv(records)
             media_type = "text/csv; charset=utf-8"

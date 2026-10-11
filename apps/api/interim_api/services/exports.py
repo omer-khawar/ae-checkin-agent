@@ -105,8 +105,27 @@ BUNDLE_FILES: tuple[str, ...] = (
     "VS_samples.csv",
     "CM.csv",
     "CM.json",
+    "evidence.json",
+    "evidence.csv",
     "audit_excerpt.json",
     "manifest.json",
+)
+
+EVIDENCE_COLUMN = "INTERIM_EVIDENCE"
+"""JSON exports carry, per record, ``{field: [{kind, id, ts, note}]}``: the same pointers the
+dashboard shows on every field, so eSource traceability survives the export. Domain CSVs stay
+flat and SDTM-ordered; the bundle adds ``evidence.json`` (draft id -> field -> pointers) and
+the long-format sidecar ``evidence.csv`` (one row per field pointer) for the CSV readers."""
+
+EVIDENCE_CSV_COLUMNS: tuple[str, ...] = (
+    "DOMAIN",
+    "USUBJID",
+    "INTERIM_DRAFT_ID",
+    "FIELD",
+    "EVIDENCE_KIND",
+    "EVIDENCE_ID",
+    "EVIDENCE_TS",
+    "EVIDENCE_NOTE",
 )
 
 
@@ -148,7 +167,12 @@ def eval_usubjids(db: DbSession) -> set[str]:
 
 
 def records_for(
-    db: DbSession, domain: str, status: str, *, include_eval: bool = False
+    db: DbSession,
+    domain: str,
+    status: str,
+    *,
+    include_eval: bool = False,
+    with_evidence: bool = False,
 ) -> list[dict[str, Any]]:
     """Current draft rows of ``domain`` as export records.
 
@@ -172,7 +196,8 @@ def records_for(
             continue
         if row.usubjid in hidden:
             continue
-        record = dict(draft_to_dict(row)["fields"])
+        as_dict = draft_to_dict(row)
+        record = dict(as_dict["fields"])
         record["INTERIM_DRAFT_ID"] = row.id
         record["INTERIM_DRAFT_VERSION"] = row.version
         record["INTERIM_DRAFT_STATUS"] = row.status
@@ -187,6 +212,8 @@ def records_for(
         record["INTERIM_RECORDED_AT"] = (
             session.completed_at if session is not None and session.completed_at else row.created_at
         )
+        if with_evidence:
+            record[EVIDENCE_COLUMN] = evidence_pointers(as_dict.get("evidence") or {})
         out.append(record)
     seq_key = {"AE": "AESEQ", "VS": "VSSEQ", "CM": "CMSEQ"}[domain]
     out.sort(
@@ -197,6 +224,52 @@ def records_for(
         )
     )
     return out
+
+
+def evidence_pointers(evidence: Any) -> dict[str, list[dict[str, Any]]]:
+    """``{field: [{kind, id, ts, note}]}`` with only the pointer keys (no UI extras)."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    if not isinstance(evidence, dict):
+        return out
+    for field_name, pointers in evidence.items():
+        if not isinstance(pointers, list):
+            continue
+        out[str(field_name)] = [
+            {k: p.get(k) for k in ("kind", "id", "ts", "note")}
+            for p in pointers
+            if isinstance(p, dict)
+        ]
+    return out
+
+
+def evidence_rows(domain: str, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Long-format rows for ``evidence.csv``: one per (record, field, pointer)."""
+    rows: list[dict[str, Any]] = []
+    for r in records:
+        for field_name, pointers in (r.get(EVIDENCE_COLUMN) or {}).items():
+            for p in pointers:
+                rows.append(
+                    {
+                        "DOMAIN": domain,
+                        "USUBJID": r.get("USUBJID"),
+                        "INTERIM_DRAFT_ID": r.get("INTERIM_DRAFT_ID"),
+                        "FIELD": field_name,
+                        "EVIDENCE_KIND": p.get("kind"),
+                        "EVIDENCE_ID": p.get("id"),
+                        "EVIDENCE_TS": p.get("ts"),
+                        "EVIDENCE_NOTE": p.get("note"),
+                    }
+                )
+    return rows
+
+
+def evidence_ids(records: Iterable[dict[str, Any]]) -> set[str]:
+    """Every evidence id the records point at (answers, sample batches, rules, edits)."""
+    ids: set[str] = set()
+    for r in records:
+        for pointers in (r.get(EVIDENCE_COLUMN) or {}).values():
+            ids.update(str(p["id"]) for p in pointers if p.get("id"))
+    return ids
 
 
 def per_sample_records(
@@ -391,20 +464,41 @@ def build_bundle(
     files: dict[str, bytes] = {}
     entity_ids: set[str] = set()
     counts: dict[str, int] = {}
+    evidence_doc: dict[str, Any] = {}
+    evidence_csv_rows: list[dict[str, Any]] = []
     for domain in DOMAINS:
-        records = records_for(db, domain, status, include_eval=include_eval)
+        records = records_for(db, domain, status, include_eval=include_eval, with_evidence=True)
         counts[domain] = len(records)
         for r in records:
             entity_ids.add(str(r.get("INTERIM_DRAFT_ID")))
             if r.get("INTERIM_SESSION_ID"):
                 entity_ids.add(str(r["INTERIM_SESSION_ID"]))
-        files[f"{domain}.csv"] = to_csv(records)
+            evidence_doc[str(r.get("INTERIM_DRAFT_ID"))] = {
+                "domain": domain,
+                "usubjid": r.get("USUBJID"),
+                "fields": r.get(EVIDENCE_COLUMN) or {},
+            }
+        entity_ids.update(evidence_ids(records))
+        evidence_csv_rows.extend(evidence_rows(domain, records))
+        files[f"{domain}.csv"] = to_csv(
+            [{k: v for k, v in r.items() if k != EVIDENCE_COLUMN} for r in records]
+        )
         files[f"{domain}.json"] = to_json_bytes(
             export_json_document(domain, status, records, generated_at=generated_at)
         )
     samples = per_sample_records(db, status, include_eval=include_eval)
     counts["VS_samples"] = len(samples)
     files["VS_samples.csv"] = to_csv(samples)
+    files["evidence.json"] = to_json_bytes(
+        {
+            "generated_at": generated_at,
+            "note": "Per-field evidence pointers {kind, id, ts, note} for every exported record, "
+            "keyed by INTERIM_DRAFT_ID then field. The ids appear as entity ids in "
+            "audit_excerpt.json.",
+            "records": evidence_doc,
+        }
+    )
+    files["evidence.csv"] = to_csv(evidence_csv_rows, columns=EVIDENCE_CSV_COLUMNS)
     files["audit_excerpt.json"] = to_json_bytes(audit_excerpt(db, entity_ids))
     latest = head(db)
     manifest = {

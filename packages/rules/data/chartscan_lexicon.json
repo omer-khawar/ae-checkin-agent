@@ -11,16 +11,16 @@
     "source": "Unicode punctuation that word processors and phones substitute automatically: U+2018/U+2019 single quotation marks and U+02BC/U+00B4 apostrophe look-alikes (Word, Outlook, iOS smart punctuation), U+201C/U+201D double quotation marks, U+2010/U+2011/U+2013 hyphen/dash variants, U+00A0 non-breaking space. Added after review, 2026-10-10.",
     "rationale": "Every cue in this table is written with ASCII punctuation (haven't, can't keep water down, amoxicillin-clavulanate). Text pasted from Word or typed on a phone carries the typographic variants, which silently defeated every contraction-based negation, pseudo-negation, declined-medication and red-flag cue. The scanner maps each listed code point to its ASCII equivalent before matching. Every entry is one code point to one code point (the loader rejects anything else), so span_start/span_end still index the caller's original text and quotes are sliced from it unchanged.",
     "map": {
-      "\u2018": "'",
-      "\u2019": "'",
-      "\u02bc": "'",
-      "\u00b4": "'",
-      "\u201c": "\"",
-      "\u201d": "\"",
-      "\u2010": "-",
-      "\u2011": "-",
-      "\u2013": "-",
-      "\u00a0": " "
+      "‘": "'",
+      "’": "'",
+      "ʼ": "'",
+      "´": "'",
+      "“": "\"",
+      "”": "\"",
+      "‐": "-",
+      "‑": "-",
+      "–": "-",
+      " ": " "
     }
   },
   "scope": {
@@ -196,49 +196,175 @@
     ]
   },
   "med_patterns": {
-    "ondansetron": ["ondansetron", "zofran"],
-    "loperamide": ["loperamide", "imodium"],
-    "amoxicillin-clavulanate": ["augmentin", "amoxicillin[- /]clavulanate", "amox[- /]clav"],
-    "amoxicillin": ["amoxicillin(?![- /]clav)", "amoxil"],
-    "azithromycin": ["azithromycin", "zithromax", "z-?pac?k"],
-    "doxycycline": ["doxycycline"],
-    "cephalexin": ["cephalexin", "keflex"],
-    "ciprofloxacin": ["cipro(?:floxacin)?"],
-    "levofloxacin": ["levofloxacin", "levaquin"],
-    "nitrofurantoin": ["nitrofurantoin", "macrobid"],
-    "prednisone": ["prednisone"],
-    "methylprednisolone": ["methylprednisolone", "solu-?medrol", "medrol"],
-    "dexamethasone": ["dexamethasone", "decadron"],
-    "hydrocortisone": ["hydrocortisone"],
-    "triamcinolone": ["triamcinolone"],
-    "diphenhydramine": ["diphenhydramine", "benadryl"],
-    "cetirizine": ["cetirizine", "zyrtec"],
-    "loratadine": ["loratadine", "claritin"],
-    "acetaminophen": ["acetaminophen", "tylenol", "paracetamol"],
-    "ibuprofen": ["ibuprofen", "advil", "motrin"],
-    "naproxen": ["naproxen", "aleve"],
-    "omeprazole": ["omeprazole", "prilosec"],
-    "famotidine": ["famotidine", "pepcid"],
-    "metoclopramide": ["metoclopramide", "reglan"],
-    "prochlorperazine": ["prochlorperazine", "compazine"],
-    "albuterol": ["albuterol", "ventolin", "proair"],
-    "benzonatate": ["benzonatate", "tessalon"],
-    "guaifenesin": ["guaifenesin", "mucinex"],
-    "dextromethorphan": ["dextromethorphan", "robitussin"],
-    "oseltamivir": ["oseltamivir", "tamiflu"],
-    "fluconazole": ["fluconazole", "diflucan"],
-    "lorazepam": ["lorazepam", "ativan"],
-    "melatonin": ["melatonin"],
-    "oxycodone": ["oxycodone"],
-    "docusate": ["docusate", "colace"],
-    "senna": ["senna", "senokot"],
-    "polyethylene glycol": ["polyethylene glycol", "miralax"],
-    "bismuth subsalicylate": ["bismuth subsalicylate", "pepto(?:-?bismol)?"],
-    "lisinopril": ["lisinopril"],
-    "metformin": ["metformin"],
-    "atorvastatin": ["atorvastatin", "lipitor"],
-    "levothyroxine": ["levothyroxine", "synthroid"],
-    "amlodipine": ["amlodipine", "norvasc"]
+    "ondansetron": [
+      "ondansetron",
+      "zofran"
+    ],
+    "loperamide": [
+      "loperamide",
+      "imodium"
+    ],
+    "amoxicillin-clavulanate": [
+      "augmentin",
+      "amoxicillin[- /]clavulanate",
+      "amox[- /]clav"
+    ],
+    "amoxicillin": [
+      "amoxicillin(?![- /]clav)",
+      "amoxil"
+    ],
+    "azithromycin": [
+      "azithromycin",
+      "zithromax",
+      "z-?pac?k"
+    ],
+    "doxycycline": [
+      "doxycycline"
+    ],
+    "cephalexin": [
+      "cephalexin",
+      "keflex"
+    ],
+    "ciprofloxacin": [
+      "cipro(?:floxacin)?"
+    ],
+    "levofloxacin": [
+      "levofloxacin",
+      "levaquin"
+    ],
+    "nitrofurantoin": [
+      "nitrofurantoin",
+      "macrobid"
+    ],
+    "prednisone": [
+      "prednisone"
+    ],
+    "methylprednisolone": [
+      "methylprednisolone",
+      "solu-?medrol",
+      "medrol"
+    ],
+    "dexamethasone": [
+      "dexamethasone",
+      "decadron"
+    ],
+    "hydrocortisone": [
+      "hydrocortisone"
+    ],
+    "triamcinolone": [
+      "triamcinolone"
+    ],
+    "diphenhydramine": [
+      "diphenhydramine",
+      "benadryl"
+    ],
+    "cetirizine": [
+      "cetirizine",
+      "zyrtec"
+    ],
+    "loratadine": [
+      "loratadine",
+      "claritin"
+    ],
+    "acetaminophen": [
+      "acetaminophen",
+      "tylenol",
+      "paracetamol"
+    ],
+    "ibuprofen": [
+      "ibuprofen",
+      "advil",
+      "motrin"
+    ],
+    "naproxen": [
+      "naproxen",
+      "aleve"
+    ],
+    "omeprazole": [
+      "omeprazole",
+      "prilosec"
+    ],
+    "famotidine": [
+      "famotidine",
+      "pepcid"
+    ],
+    "metoclopramide": [
+      "metoclopramide",
+      "reglan"
+    ],
+    "prochlorperazine": [
+      "prochlorperazine",
+      "compazine"
+    ],
+    "albuterol": [
+      "albuterol",
+      "ventolin",
+      "proair"
+    ],
+    "benzonatate": [
+      "benzonatate",
+      "tessalon"
+    ],
+    "guaifenesin": [
+      "guaifenesin",
+      "mucinex"
+    ],
+    "dextromethorphan": [
+      "dextromethorphan",
+      "robitussin"
+    ],
+    "oseltamivir": [
+      "oseltamivir",
+      "tamiflu"
+    ],
+    "fluconazole": [
+      "fluconazole",
+      "diflucan"
+    ],
+    "lorazepam": [
+      "lorazepam",
+      "ativan"
+    ],
+    "melatonin": [
+      "melatonin"
+    ],
+    "oxycodone": [
+      "oxycodone"
+    ],
+    "docusate": [
+      "docusate",
+      "colace"
+    ],
+    "senna": [
+      "senna",
+      "senokot"
+    ],
+    "polyethylene glycol": [
+      "polyethylene glycol",
+      "miralax"
+    ],
+    "bismuth subsalicylate": [
+      "bismuth subsalicylate",
+      "pepto(?:-?bismol)?"
+    ],
+    "lisinopril": [
+      "lisinopril"
+    ],
+    "metformin": [
+      "metformin"
+    ],
+    "atorvastatin": [
+      "atorvastatin",
+      "lipitor"
+    ],
+    "levothyroxine": [
+      "levothyroxine",
+      "synthroid"
+    ],
+    "amlodipine": [
+      "amlodipine",
+      "norvasc"
+    ]
   },
   "negation": {
     "pattern": "\\b(?:no|not|never|none|denies|denied|deny|denying|without|negative for|free of|absence of)\\b|\\w+n't\\b",
@@ -261,8 +387,8 @@
     "rationale": "'Hx of migraines in her 20s' is history, not a current adverse event."
   },
   "hypothetical": {
-    "pattern": "\\b(?:call (?:if|for|with)|return (?:if|for)|seek care if|go to the (?:er|ed) if|precautions|monitor(?:ing)? for|watch for|educated|education|instructed|warning signs|in case of|risk of|side effects? (?:include|such as|of)|counsell?ed|if (?:he|she|they|you|pt|patient) (?:develops?|experiences?|has|have|notices?|gets?)|prn for|as needed for)\\b",
-    "source": "ConText hypothetical cues plus patient-education phrasing common in oncology notes. 'prn for' / 'as needed for' added after review, 2026-10-10.",
+    "pattern": "\\b(?:call (?:if|for|with)|(?:call|dial) (?:911|9-1-1|(?:the |your )?(?:doctor|clinic|office|study team|care team|team|nurse|oncologist|provider)|us) (?:if|should)|return (?:if|for)|seek (?:emergency |immediate |urgent |medical )?(?:care|attention|help|medical attention) if|go to the (?:er|ed|emergency (?:room|department)|hospital|nearest (?:er|ed|emergency (?:room|department)|hospital)) if|return to (?:the )?(?:er|ed|emergency (?:room|department)|hospital)(?= (?:if|for|with|should)\\b)|if (?:\\w+ ){0,3}(?:worsens?|worsening|gets? worse|feels? worse|feeling worse|becomes? worse|persists?|recurs?|(?:does|do)(?: not|n't) (?:improve|resolve|go away))|should (?:you|he|she|they|pt|patient|the patient) (?:develop|experience|have|notice|get)|precautions|monitor(?:ing)? for|watch for|educated|education|instructed|warning signs|in case of|risk of|side effects? (?:include|such as|of)|counsell?ed|if (?:he|she|they|you|pt|patient) (?:develops?|experiences?|has|have|notices?|gets?)|prn for|as needed for)\\b",
+    "source": "ConText hypothetical cues plus patient-education phrasing common in oncology notes. 'prn for' / 'as needed for' added after review, 2026-10-10. Discharge-advice cues ('if symptoms worsen', 'should you develop', 'return to the ER if', 'go to the emergency room if') added 2026-10-11 after the judge review (ISSUES #25): discharge advice was starting SAE clocks. 'call 911 if' / 'call your doctor if', 'if you feel worse' and 'seek emergency care if' added the same day; 'call 911 for X' is deliberately not a cue ('had to call 911 for chest pain' reports an event).",
     "rationale": "'Pt educated to call for fever > 100.4' is an instruction; the fever did not happen. 'Tylenol PRN for fever' is a standing as-needed order, not a fever report. Checked over the sentence: every cue that starts before the term counts, including one that runs into the term ('go to the ER if' silences the ER cue). A symptom that is also mentioned affirmatively elsewhere in the text still counts (the affirmative mention wins)."
   },
   "post_negation": {
@@ -279,9 +405,18 @@
     "source": "Original scanner; the three buckets mirror CTCAE's mild / moderate / severe language.",
     "rationale": "Nearest severity word to the term wins (within scope.severity_before_chars before or scope.severity_after_chars after, same sentence). It is a grade hint for the investigator, never a validated grade.",
     "words": [
-      { "pattern": "\\b(?:very severe|severe|significant|intractable|debilitating|unbearable|terrible)\\b", "grade": 3 },
-      { "pattern": "\\bmoderate\\b", "grade": 2 },
-      { "pattern": "\\b(?:mild|slight|minimal|a little|a bit of)\\b", "grade": 1 }
+      {
+        "pattern": "\\b(?:very severe|severe|significant|intractable|debilitating|unbearable|terrible)\\b",
+        "grade": 3
+      },
+      {
+        "pattern": "\\bmoderate\\b",
+        "grade": 2
+      },
+      {
+        "pattern": "\\b(?:mild|slight|minimal|a little|a bit of)\\b",
+        "grade": 1
+      }
     ]
   },
   "explicit_grade": {
@@ -299,9 +434,21 @@
     "pattern": "(\\d+)\\s*(?:x|times|episodes|stools|loose stools|(?-i:BMs?)|bowel movements)\\s*(?:a|per|/)?\\s*(?:day|d)\\b",
     "term": "Diarrhea",
     "bands": [
-      { "grade": 1, "upper": 4, "inclusive": false },
-      { "grade": 2, "upper": 6, "inclusive": true },
-      { "grade": 3, "upper": null, "inclusive": true }
+      {
+        "grade": 1,
+        "upper": 4,
+        "inclusive": false
+      },
+      {
+        "grade": 2,
+        "upper": 6,
+        "inclusive": true
+      },
+      {
+        "grade": 3,
+        "upper": null,
+        "inclusive": true
+      }
     ],
     "basis": "{n} stools/day -> CTCAE v5 diarrhea grade {grade} (assumes baseline ~0 over usual)",
     "source": "NCI CTCAE v5.0 Diarrhea: grade 1 increase of <4 stools per day over baseline; grade 2 increase of 4-6; grade 3 increase of >=7.",
@@ -311,9 +458,21 @@
     "pattern": "(\\d+(?:\\.\\d+)?)\\s*%\\s*(?:of\\s+)?(?:(?-i:BSA)|body surface area)",
     "term": "Rash maculo-papular",
     "bands": [
-      { "grade": 1, "upper": 10, "inclusive": false },
-      { "grade": 2, "upper": 30, "inclusive": true },
-      { "grade": 3, "upper": null, "inclusive": true }
+      {
+        "grade": 1,
+        "upper": 10,
+        "inclusive": false
+      },
+      {
+        "grade": 2,
+        "upper": 30,
+        "inclusive": true
+      },
+      {
+        "grade": 3,
+        "upper": null,
+        "inclusive": true
+      }
     ],
     "basis": "{match} -> CTCAE v5 maculo-papular rash grade {grade} (<10% G1, 10-30% G2, >30% G3)",
     "source": "NCI CTCAE v5.0 Rash maculo-papular: grade 1 <10% BSA; grade 2 10-30% BSA; grade 3 >30% BSA.",
@@ -335,8 +494,20 @@
     "source": "Original scanner.",
     "rationale": "Spelled-out counts in durations ('a couple of days' = 2, 'a few days' = 3, 'several days' = 4).",
     "values": {
-      "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-      "a couple of": 2, "a couple": 2, "a few": 3, "several": 4
+      "one": 1,
+      "two": 2,
+      "three": 3,
+      "four": 4,
+      "five": 5,
+      "six": 6,
+      "seven": 7,
+      "eight": 8,
+      "nine": 9,
+      "ten": 10,
+      "a couple of": 2,
+      "a couple": 2,
+      "a few": 3,
+      "several": 4
     }
   },
   "duration": {
@@ -348,12 +519,30 @@
     "source": "Original scanner.",
     "rationale": "Relative phrases map to a day count when no explicit duration is written; 'yesterday' and 'since yesterday' = 1, 'today' = 0, 'past week' = 7, 'past few days' = 3.",
     "phrases": [
-      { "pattern": "\\b(?:since yesterday|yesterday|last night)\\b", "days": 1 },
-      { "pattern": "\\b(?:this morning|today|tonight)\\b", "days": 0 },
-      { "pattern": "\\b(?:last|past|over the past|over the last) week\\b", "days": 7 },
-      { "pattern": "\\b(?:last|past) (?:few|couple of|several) days\\b", "days": 3 },
-      { "pattern": "\\b(?:last|past) (?:two|2) weeks\\b", "days": 14 },
-      { "pattern": "\\b(?:last|past) month\\b", "days": 30 }
+      {
+        "pattern": "\\b(?:since yesterday|yesterday|last night)\\b",
+        "days": 1
+      },
+      {
+        "pattern": "\\b(?:this morning|today|tonight)\\b",
+        "days": 0
+      },
+      {
+        "pattern": "\\b(?:last|past|over the past|over the last) week\\b",
+        "days": 7
+      },
+      {
+        "pattern": "\\b(?:last|past) (?:few|couple of|several) days\\b",
+        "days": 3
+      },
+      {
+        "pattern": "\\b(?:last|past) (?:two|2) weeks\\b",
+        "days": 14
+      },
+      {
+        "pattern": "\\b(?:last|past) month\\b",
+        "days": 30
+      }
     ]
   },
   "med_started": {

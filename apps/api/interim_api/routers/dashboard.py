@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import select
 
 from ..audit import Actor
-from ..auth import require_role
+from ..auth import require_clinical, require_role
 from ..db import Database
 from ..deps import Pagination, get_database
 from ..models import Participant
 from ..problems import problem
 from ..schemas import AckRequest, StopSaeClockRequest
+from ..services.clock_alerts import clock_breach_summary, sweep_if_needed
 from ..services.common import (
     escalation_to_dict,
     get_session_or_404,
@@ -45,6 +46,7 @@ def get_queue(
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
+    sweep_if_needed(database)  # 24 h clock alerts are written on read (clock_alerts.py)
     with database.read_scope() as db:
         return queue(
             db,
@@ -103,8 +105,9 @@ def get_escalations(
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
+    sweep_if_needed(database)
     with database.read_scope() as db:
-        return list_escalations(
+        out = list_escalations(
             db,
             acked=acked,
             usubjid=usubjid,
@@ -112,13 +115,15 @@ def get_escalations(
             offset=page.offset,
             include_eval=include_eval,
         )
+        out["clock_breaches"] = clock_breach_summary(db, include_eval=include_eval)
+        return out
 
 
 @router.post("/escalations/{escalation_id}/ack")
 def post_ack(
     escalation_id: str,
     body: AckRequest | None = None,
-    actor: Actor = Depends(require_role()),
+    actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.write_scope() as db:
@@ -156,6 +161,7 @@ def get_sae_clocks(
             f"active must be true, false or all, got {active!r}",
             title="Invalid active filter",
         )
+    sweep_if_needed(database)
     with database.read_scope() as db:
         return list_sae_clocks(
             db,
@@ -164,6 +170,13 @@ def get_sae_clocks(
             offset=page.offset,
             include_eval=include_eval,
         )
+
+
+@router.post("/sae-clocks/sweep")
+def post_sweep_clocks(database: Database = Depends(get_database)) -> dict[str, Any]:
+    """Write any due ``clock.due_soon`` / ``clock.breached`` alerts now (for a site cron;
+    the dashboard reads also run this sweep)."""
+    return {"written": sweep_if_needed(database)}
 
 
 @router.patch("/sae-clocks/{clock_id}/stop")
@@ -186,5 +199,6 @@ def get_pages(
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
+    sweep_if_needed(database)
     with database.read_scope() as db:
         return list_pages(db, limit=page.limit, offset=page.offset, include_eval=include_eval)

@@ -31,7 +31,10 @@ from .common import CM_MISSING_FIELD, cm_missing_now
 from .metrics import record_confirm_metrics  # [briefs agent] time saved (R3.2)
 from .sdtm_fields import field_problems
 
-ATTRIBUTION_FIELDS: tuple[str, ...] = ("AEREL", "AESER")
+ATTRIBUTION_FIELDS: tuple[str, ...] = ("AEREL", "AESER", "INTERIM_IRAE")
+"""Investigator decisions. ``PATCH /drafts/{id}`` refuses them for every role (403): the only
+writer is ``PATCH /drafts/{id}/attribution`` (investigator-only), which also records the
+SAE-clock decision. Without this a coordinator could set seriousness/causality by edit."""
 
 
 def versions_of(db: DbSession, draft: Draft) -> list[Draft]:
@@ -209,6 +212,14 @@ def edit_draft(
     if draft.status == "rejected":
         raise problem(
             409, f"Draft {draft.id} was rejected; it cannot be edited", title="Cannot edit"
+        )
+    attribution = [k for k in changes if k in ATTRIBUTION_FIELDS]
+    if attribution:
+        raise problem(
+            403,
+            f"{', '.join(attribution)} can only be recorded by an investigator through "
+            f"PATCH /api/v1/drafts/{draft.id}/attribution (it also stops the SAE clock)",
+            title="Investigator-only field",
         )
     before = load_json(draft.fields_json, {})
     unknown = [k for k in changes if k not in before and k not in allow_new_fields]

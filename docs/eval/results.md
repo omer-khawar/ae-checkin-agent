@@ -4,20 +4,20 @@
 
 | Run | Value |
 |---|---|
-| Generated (UTC) | 2026-10-11T04:27:30.130Z |
+| Generated (UTC) | 2026-10-11T05:11:25.371Z |
 | API | temporary server started by `--start-server` (fresh SQLite database with the demo seed) on 127.0.0.1 |
 | API version (`GET /health`) | 0.1.0 |
-| Harness run id | `h202610110427169669` |
+| Harness run id | `h20261011051115dd36` |
 | Personas | 36 replayed of 36 selected from `packages/rules/data/personas.json` v0.1.0 (include_hidden = true) |
-| Chart-note answer key | 41 cases (8 notes + 33 utterances), `packages/rules/data/chartscan_answer_key.json` |
+| Chart-note answer key | 42 cases (8 notes + 34 utterances), `packages/rules/data/chartscan_answer_key.json` |
 | Checks | strict = true (eval isolation, API version), strict_keys = false (unknown `expected` keys) |
-| HTTP requests | 927 in 13.7 s |
+| HTTP requests | 928 in 9.6 s |
 
 ## Headline
 
 - **36 / 36 personas pass (100.0%)**; 0 fail.
 - **3 / 3 counterfactuals pass**: same answers, one setting changed; the tier moves and no grade does.
-- **Chart-note scanner through `POST /scan`: 40 / 40 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
+- **Chart-note scanner through `POST /scan`: 41 / 41 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
 - **Chart notes through `POST /notes`: 8 / 8 notes pass** (PASS).
 - **Eval isolation: 0 eval rows** in the default coordinator lists (PASS).
 - Overall: **PASS**.
@@ -115,7 +115,7 @@ Scanner ported from omer-khawar/ae-checkin-agent (Omer Khawar, MIT). Each answer
 | Check | Value |
 |---|---|
 | Medication change accuracy (started/stopped/changed/taking) | 1.00 |
-| Escalation level exact match | 1.00 (over 40 scorable cases) |
+| Escalation level exact match | 1.00 (over 41 scorable cases) |
 | Urgent/emergency cases caught | 14 / 14 |
 | Emergency cases caught | 3 / 3 |
 | Over-escalations | 0 |
