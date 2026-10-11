@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from sqlmodel import Session as DbSession
@@ -24,6 +25,7 @@ from ..models import (
 )
 from ..problems import problem
 from ..util import load_json, now_iso, seconds_between
+from .baseline import baseline_view
 
 PARTICIPANTS_NOTE = "All participants are synthetic."
 
@@ -40,6 +42,35 @@ def tier_action(tier: int) -> str:
 
 def stop_screen_text(tier: int) -> str | None:
     return escalation_ladder().tiers[tier].stop_screen_text
+
+
+CM_MISSING_FIELD = "INTERIM_CM_MISSING_FIELDS"
+
+
+def cm_missing_now(fields: Mapping[str, Any]) -> list[str] | None:
+    """The protocol-required CM fields still empty on **this** version of a CM record.
+
+    ``INTERIM_CM_MISSING_FIELDS`` is computed by the rules package when the record is
+    drafted (``protocol.cm_missing_fields``, which already knows that an ongoing medication
+    needs no stop date). A later version (a coordinator edit, a sponsor query answered with
+    ``also_edit``) can fill one of them, so every reader recomputes from the current
+    values: a listed field that now holds a value is no longer missing. ``None`` when the
+    record carries no such list (a record drafted before the protocol rules existed).
+    """
+    stored = fields.get(CM_MISSING_FIELD)
+    if not isinstance(stored, list):
+        return None
+    return [str(name) for name in stored if not _has_value(fields.get(str(name)))]
+
+
+def _has_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list | tuple | dict):
+        return bool(value)
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -71,6 +102,9 @@ def participant_to_dict(p: Participant) -> dict[str, Any]:
         "enrolled_at": p.enrolled_at,
         "display_label": p.display_label,
         "baseline_vitals_json": load_json(p.baseline_vitals_json, None),
+        # [seed agent] Synthea baseline profile (labelled simulated) and protocol context.
+        "baseline": baseline_view(load_json(p.baseline_json, None)),
+        "protocol_context": load_json(p.protocol_context_json, None),
         "is_eval": p.is_eval,
     }
 
@@ -90,6 +124,7 @@ def session_to_dict(s: Session) -> dict[str, Any]:
         "is_eval": s.is_eval,
         "max_grade": s.max_grade,
         "backdated": s.backdated,
+        "consent_basis": s.consent_basis,
     }
 
 
@@ -189,6 +224,13 @@ def sae_clock_to_dict(c: SAEClock, *, now: str | None = None) -> dict[str, Any]:
         "seconds_remaining": remaining,
         "overdue": remaining is not None and remaining < 0,
         "informational": load_json(c.informational_json, {}),
+        # [packets agent] R3.2: "sae" | "aesi" (queue chips, packets).
+        "kind": c.kind or "sae",
+        "label": (
+            "possible AESI, investigator to confirm"
+            if c.kind == "aesi"
+            else "suspected serious adverse event, investigator to confirm"
+        ),
         "created_at": c.created_at,
     }
 

@@ -52,6 +52,8 @@ def post_note(
             text=body.text,
             ingested_at_override=body.ingested_at_override,
             override_actor=override_actor,
+            caller=body.caller,
+            call_direction=body.call_direction,
         )
 
 

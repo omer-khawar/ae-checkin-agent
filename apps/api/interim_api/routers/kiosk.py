@@ -103,9 +103,14 @@ def post_session(
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     override_actor: Actor | None = None
-    if body.started_at_override is not None or body.create_participant or body.is_eval:
+    if (
+        body.started_at_override is not None
+        or body.create_participant
+        or body.is_eval
+        or body.protocol_context is not None
+    ):
         override_actor = require_admin_for(
-            actor, "started_at_override / create_participant / is_eval"
+            actor, "started_at_override / create_participant / is_eval / protocol_context"
         )
     with database.write_scope() as db:
         session = create_session(
@@ -116,6 +121,7 @@ def post_session(
             started_at_override=body.started_at_override,
             create_participant_if_missing=body.create_participant,
             is_eval=body.is_eval,
+            protocol_context=body.protocol_context,
         )
         return session_to_dict(session)
 

@@ -80,6 +80,10 @@ SDTM_VARIABLES: dict[str, tuple[str, ...]] = {
         "CMSEQ",
         "CMTRT",
         "CMDECOD",
+        "CMDOSE",
+        "CMDOSU",
+        "CMDOSFRQ",
+        "CMINDC",
         "CMSTDTC",
         "CMENDTC",
         "CMSTAT",
@@ -510,6 +514,10 @@ def post_mock_edc(
         },
         ts_utc=stamp,
     )
+    # R4.4: the sponsor side runs its edit checks on what it received (services/queries.py).
+    from .queries import run_checks_for_edc_post
+
+    queries = run_checks_for_edc_post(db, actor, domain, records, ack_id=ack_id, now=stamp)
     return {
         "ack_id": ack_id,
         "domain": domain,
@@ -517,4 +525,5 @@ def post_mock_edc(
         "accepted_at": stamp,
         "sha256": digest,
         "note": "Mock EDC acknowledgment. No external system was contacted.",
+        "queries": queries,
     }

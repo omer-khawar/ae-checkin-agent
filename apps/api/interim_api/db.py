@@ -98,6 +98,10 @@ def make_engine(url: str, *, echo: bool = False) -> Engine:
 
 def create_all(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
+    # Additive columns on tables an earlier build created (create_all never alters a table).
+    from .schema_upgrade import add_missing_columns
+
+    add_missing_columns(engine)
 
 
 def drop_all(engine: Engine) -> None:

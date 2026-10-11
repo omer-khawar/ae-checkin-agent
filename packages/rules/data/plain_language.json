@@ -196,6 +196,14 @@
         "CM"
       ]
     },
+    "INTERIM_RECORD_SOURCE": {
+      "label": "Where this record came from (check-in, chart note or phone call)",
+      "domains": [
+        "AE",
+        "VS",
+        "CM"
+      ]
+    },
     "CMSEQ": {
       "label": "Medication record number",
       "domains": [
@@ -567,6 +575,34 @@
     "chartscan.hospitalization": {
       "sentence": "A chart note mentions a hospital stay or emergency-room visit ('{quote}'); this may be a serious event, and the 24-hour clock starts when the site reads the note.",
       "fallback": "A chart note mentions a hospital stay or emergency-room visit; this may be a serious event, and the 24-hour clock starts when the site reads the note."
+    },
+    "query.ae_serious_no_signed_report": {
+      "sentence": "The sponsor's edit check asks about a side effect marked serious that has no signed serious-event report on file yet.",
+      "fallback": "The sponsor's edit check asks about a side effect marked serious that has no signed serious-event report on file yet."
+    },
+    "query.ae_irae_assessment_needs_detail": {
+      "sentence": "The sponsor's edit check asks for more detail on a severe side effect of a possibly immune-related type that was marked not immune-related.",
+      "fallback": "The sponsor's edit check asks for more detail on a severe side effect of a possibly immune-related type that was marked not immune-related."
+    },
+    "query.ae_end_before_start": {
+      "sentence": "The sponsor's edit check found a side effect whose end date is before its start date.",
+      "fallback": "The sponsor's edit check found a side effect whose end date is before its start date."
+    },
+    "query.cm_required_fields_missing": {
+      "sentence": "The sponsor's edit check found a medication record missing details the study protocol asks for, such as dose or reason for use.",
+      "fallback": "The sponsor's edit check found a medication record missing details the study protocol asks for, such as dose or reason for use."
+    },
+    "query.cm_protocol_flag_no_note": {
+      "sentence": "The sponsor's edit check found a medication the protocol restricts, with no investigator note on file explaining its use.",
+      "fallback": "The sponsor's edit check found a medication the protocol restricts, with no investigator note on file explaining its use."
+    },
+    "query.vs_value_implausible": {
+      "sentence": "The sponsor's edit check found a vital-sign value outside the range a person can plausibly have.",
+      "fallback": "The sponsor's edit check found a vital-sign value outside the range a person can plausibly have."
+    },
+    "query.ae_resolved_without_end_date": {
+      "sentence": "The sponsor's edit check found a side effect recorded as resolved that has no end date.",
+      "fallback": "The sponsor's edit check found a side effect recorded as resolved that has no end date."
     }
   },
   "input_aliases": {

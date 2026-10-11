@@ -44,7 +44,11 @@ class RuleSettingsOverride(BaseModel):
 
 class CreateSessionRequest(BaseModel):
     usubjid: str = Field(min_length=1, max_length=128, description="USUBJID or display label")
-    consent_camera: bool
+    consent_camera: bool = Field(
+        default=True,
+        description="CLAUDE.md §00 / D-026: camera use is covered by the enrollment ICF, so "
+        "this defaults to true; false only when the participant turned the camera off",
+    )
     started_at_override: str | None = Field(default=None, description="admin only")
     create_participant: bool = Field(
         default=False,
@@ -54,6 +58,12 @@ class CreateSessionRequest(BaseModel):
         default=False,
         description="admin only: mark the session (and a "
         "participant created on the fly) as eval data, hidden from the queue",
+    )
+    # [seed agent] CONTRACTS R3.1 ProtocolContext ({prior_pi3k_inhibitor, last_dose_date}).
+    protocol_context: dict[str, Any] | None = Field(
+        default=None,
+        description="admin only: the participant's protocol context (CONTRACTS R3.1), stored on "
+        "the participant and read by the rules engine at completion (eval harness)",
     )
 
 
@@ -142,6 +152,12 @@ class AttributionRequest(BaseModel):
 
     AEREL: str | None = Field(default=None, max_length=64)
     AESER: str | None = Field(default=None, max_length=8)
+    INTERIM_IRAE: Literal["Y", "N"] | None = Field(
+        default=None,
+        description="[packets agent] R4.3: the investigator's immune-related assessment "
+        "(protocol p. 91). Send null explicitly to clear it. 'N' stops a running possible-AESI "
+        "clock of the same source.",
+    )
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -243,6 +259,9 @@ class CustomPersona(BaseModel):
     gates: PersonaGates = Field(default_factory=PersonaGates)
     vitals_samples: list[PersonaSample] = Field(default_factory=list, max_length=2000)
     expected: dict[str, Any] | None = None
+    # [seed agent] CONTRACTS R3.1 ProtocolContext for the eval participant (prior PI3K
+    # inhibitor, last dose date); validated by the rules package when the persona is replayed.
+    protocol_context: dict[str, Any] | None = None
 
 
 class EvalCustomRequest(BaseModel):
@@ -276,6 +295,22 @@ class NoteIngestRequest(BaseModel):
     ingested_at_override: str | None = Field(
         default=None, description="admin only: backdate the moment the site read the note"
     )
+    # [queries agent] R4.1 phone-call intake: only with note_type "phone_call".
+    caller: Literal["participant", "caregiver", "other"] | None = Field(
+        default=None, description="phone calls only: who called or was called"
+    )
+    call_direction: Literal["inbound", "outbound"] | None = Field(
+        default=None, description="phone calls only: inbound (they called) or outbound"
+    )
+
+    @model_validator(mode="after")
+    def _call_fields_need_phone_call(self) -> NoteIngestRequest:
+        is_call = self.note_type.strip() == "phone_call"
+        if not is_call and (self.caller is not None or self.call_direction is not None):
+            raise ValueError(
+                'caller and call_direction are only accepted with note_type "phone_call"'
+            )
+        return self
 
 
 class SettingsUpdate(BaseModel):

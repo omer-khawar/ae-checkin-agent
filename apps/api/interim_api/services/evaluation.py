@@ -25,7 +25,7 @@ from sqlmodel import select
 
 from interim_rules import chartscan
 from interim_rules.serialize import sample_from
-from interim_rules.tables import data_dir, items, seriousness_config
+from interim_rules.tables import data_dir, items, protocol_rules, seriousness_config
 
 from .. import API_VERSION
 from ..audit import Actor, append_event
@@ -67,6 +67,11 @@ KNOWN_EXPECTED_KEYS: frozenset[str] = frozenset(
         "cm",
         "dedup_followups",
         "vitals_status",
+        # R3.1 protocol logic (possible AESI + its 24 h clock, protocol tier floor).
+        "aesi_suspected",
+        "aesi_items",
+        "aesi_clock_started",
+        "protocol_tier_floor",
     }
 )
 
@@ -76,6 +81,32 @@ TIERS: tuple[str, ...] = ("0", "1", "2", "3")
 # --------------------------------------------------------------------------- #
 # Answer key
 # --------------------------------------------------------------------------- #
+
+PROTOCOL_CHECK_PREFIXES: tuple[str, ...] = ("aesi", "protocol_tier_floor")
+"""Mismatch prefixes that count against the "possible AESI / protocol" correctness block."""
+
+
+def _compare_protocol(
+    actual: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    aesi_clock: Mapping[str, Any] | None,
+    completed_at: str,
+    check: Any,
+) -> None:
+    """R3.1 expectations: possible AESI, its items, its 24 h clock, the protocol tier floor."""
+    if "aesi_suspected" in expected:
+        check("aesi_suspected", actual["aesi_suspected"], expected["aesi_suspected"])
+    if "aesi_items" in expected:
+        check("aesi_items", actual["aesi_items"], sorted(expected["aesi_items"]))
+    if "aesi_clock_started" in expected:
+        check("aesi_clock_started", actual["aesi_clock_started"], expected["aesi_clock_started"])
+        if aesi_clock is not None:
+            hours = protocol_rules().aesi.reporting_hours
+            check("aesi_clock.kind", aesi_clock.get("kind"), "aesi")
+            check("aesi_clock.site_awareness_at", aesi_clock.get("site_awareness_at"), completed_at)
+            check("aesi_clock.due_at", aesi_clock.get("due_at"), shift(completed_at, hours=hours))
+    if "protocol_tier_floor" in expected:
+        check("protocol_tier_floor", actual["protocol_tier_floor"], expected["protocol_tier_floor"])
 
 
 def load_answer_key() -> dict[str, Any]:
@@ -243,6 +274,7 @@ def replay_persona(
         display_label=label,
         usubjid=f"{study.study_id}-{label}-{suffix}",
         enrolled_at=shift(completed_at, days=-90),
+        protocol_context=persona.get("protocol_context"),
         is_eval=True,
         now=completed_at,
     )
@@ -311,6 +343,8 @@ def compare(
     cm_drafts = [d for d in drafts if d["domain"] == "CM"]
     grades = {str(i["item_id"]): int(i["provisional_grade"]) for i in result.get("items", [])}
     sae_clock = result.get("sae_clock")
+    aesi_clock = result.get("aesi_clock")
+    protocol = result.get("protocol") or {}
     conmed = result.get("conmed")
     actual: dict[str, Any] = {
         "grades": grades,
@@ -344,6 +378,10 @@ def compare(
         ],
         "dedup_followups": sum(1 for d in ae_drafts if d.get("is_followup")),
         "vitals_status": (result.get("vitals") or {}).get("status"),
+        "aesi_suspected": bool(protocol.get("aesi_suspected")),
+        "aesi_items": sorted(str(i) for i in protocol.get("aesi_items") or []),
+        "aesi_clock_started": aesi_clock is not None,
+        "protocol_tier_floor": result.get("protocol_tier_floor"),
     }
 
     def check(key: str, got: Any, want: Any) -> None:
@@ -455,6 +493,7 @@ def compare(
             check("dedup.AEONGO", _draft_value(d, "AEONGO"), "Y")
     if "vitals_status" in expected:
         check("vitals_status", actual["vitals_status"], expected["vitals_status"])
+    _compare_protocol(actual, expected, aesi_clock, completed_at, check)
     for d in ae_drafts:
         if _draft_value(d, "INTERIM_TIER") != actual["tier"]:
             mismatches.append("invariant: AE draft INTERIM_TIER differs from the session tier")
@@ -783,8 +822,9 @@ def render_markdown(results: Mapping[str, Any]) -> str:
         ("dedup_correct", "De-duplication (follow-up vs new AE)"),
         ("sae_clock_correct", "SAE clock started / not started"),
         ("conmed_correct", "Con-med match (name, kind, confidence)"),
+        ("aesi_correct", "Possible AESI, its 24 h clock and the protocol tier floor (R3.1)"),
     ):
-        block = results[key]
+        block = results.get(key) or {"correct": 0, "n": 0}
         lines.append(f"| {label} | {block['correct']} | {block['n']} |")
     lines.append("")
     lines.append("## Per persona")
@@ -867,6 +907,7 @@ def run_eval(
     dedup = {"n": 0, "correct": 0}
     sae = {"n": 0, "correct": 0}
     conmed = {"n": 0, "correct": 0}
+    aesi = {"n": 0, "correct": 0}
 
     for persona in selected:
         expected = persona.get("expected") or {}
@@ -887,6 +928,12 @@ def run_eval(
                 block["n"] += 1
                 if not any(m.startswith(key) for m in mismatches):
                     block["correct"] += 1
+        if any(k in expected for k in ("aesi_suspected", "aesi_items", "aesi_clock_started")) or (
+            "protocol_tier_floor" in expected
+        ):
+            aesi["n"] += 1
+            if not any(m.startswith(PROTOCOL_CHECK_PREFIXES) for m in mismatches):
+                aesi["correct"] += 1
         per_persona.append(
             {
                 "persona_id": persona["id"],
@@ -952,6 +999,7 @@ def run_eval(
         "dedup_correct": dedup,
         "sae_clock_correct": sae,
         "conmed_correct": conmed,
+        "aesi_correct": aesi,
         "per_persona": per_persona,
         "counterfactuals": counterfactuals,
         "notices": sorted(set(notices)),

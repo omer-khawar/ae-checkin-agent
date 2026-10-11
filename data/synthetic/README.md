@@ -44,8 +44,8 @@ No other demographic fields exist. There is no sex, age, race, site or address.
 
 ### 4.1 Contract constraints (`docs/CONTRACTS.md` §5)
 
-- 12 participants; each has **2–4** prior check-ins; total 34 in the profile table below.
-- Spread over the **last 60 days**; mostly Tier 0/1; **a couple of Tier 2**; **no Tier 3** in the seed (the first Tier 3 of the demo, if any, is created live or by the eval).
+- 12 participants; each has **2–4** prior check-ins; total 35 in the profile table below (34 until the Monday-morning revision added P-012's d7 hospitalization; §10).
+- Spread over the **last 60 days**; mostly Tier 0/1; **a couple of Tier 2**; one Tier 3 (P-012 d7, the hospitalization whose signed SAE report has a follow-up due; §10); the overnight set of §10 adds more Tier 2 work.
 - One **open AE for P-007: Cough, G1, 5 days ago**, with its AE draft confirmed by the coordinator (so `AEOpen` exists regardless of whether a build opens AEs at draft or confirm time).
 - Con-med changes on **4** participants.
 - Deterministic: `random.Random(20261010)`.
@@ -66,7 +66,7 @@ Attribute values are the integers the kiosk would send (`frequency`/`severity`/`
 |---|---|---|---|---|---|---|---|
 | **P-001** | 3 | 55, 34, 13 | `fatigue` severity 1, interference 0 on all three | — | Yes | 0, 0, 0 | A quiet, persistent G1 fatigue: the most common thing on a PD-1 inhibitor. Sparkline shows a flat line. |
 | **P-002** | 2 | 40, **6** | d40: `rash` presence 1. d6: `rash` presence 1, `itching` severity 2 | — | Yes | 0, 1 | Presence-only rash is always G1 (a documented limitation, `docs/WHAT_IT_GETS_WRONG.md` §1); itching Moderate makes the second check-in Tier 1. The second check-in sits 6 days back (it was 12) so that chart note **N2** (2 days back, §4.6) finds Rash maculo-papular and Pruritus still open within the 7-day window and links as a **cross-source follow-up**. |
-| **P-003** | 4 | 52, 38, 24, 10 | `diarrhea` frequency 2 → 3 → 4 → 3 (Occasionally → Frequently → Almost constantly → Frequently) | d24: `conmed_changed = true`, `conmed_text = "loperamide"`, `conmed_direction = "started"` | Yes | 0, 1, **2**, 1 | A colitis-like trajectory: composites 1, 2, 3, 2 → G1 → G2 → G3 (Tier 2, nurse call, escalation acknowledged in the seed) → improving after loperamide (exact con-med match, 1.0). The frequency-only map is 0,1,1,2,3 (`composite_scoring.json` `single_attribute_by_attribute.frequency`), so "Rarely" and "Occasionally" are both G1 and only "Almost constantly" reaches G3. |
+| **P-003** | 4 | 24, 18, 12, 6 (was 52, 38, 24, 10; §10) | `diarrhea` frequency 2 → 3 → 4 → 3 (Occasionally → Frequently → Almost constantly → Frequently) | d12: `conmed_changed = true`, `conmed_text = "loperamide"`, `conmed_direction = "started"` | Yes | 0, 1, **2**, 1 | A colitis-like trajectory: composites 1, 2, 3, 2 → G1 → G2 → G3 (Tier 2, nurse call, escalation acknowledged in the seed) → improving after loperamide (exact con-med match, 1.0). The frequency-only map is 0,1,1,2,3 (`composite_scoring.json` `single_attribute_by_attribute.frequency`), so "Rarely" and "Occasionally" are both G1 and only "Almost constantly" reaches G3. |
 | **P-004** | 2 | 45, 20 | none | — | Yes | 0, 0 | Entirely quiet. Shows the queue is not all alarms. |
 | **P-005** | 3 | 50, 29, 8 | d50: `nausea` frequency 1, severity 1. d29: `nausea` frequency 2, severity 2. d8: `nausea` frequency 1, severity 1 | d29: `conmed_changed = true`, `conmed_text = "Zofran"`, `conmed_direction = "started"` | Yes | 0, 1, 0 | Brand → generic normalization: `CMTRT = "Zofran"`, `CMDECOD = "ondansetron"`, match kind `case_insensitive`, confidence 1.0. |
 | **P-006** | 3 | 48, 27, 6 | `joint_pain` severity 2, interference 2 on all three | d48: `conmed_changed = true`, `conmed_text = "ibuprofen"`, `conmed_direction = "started"` | Yes | 1, 1, 1 | Persistent G2 arthralgia with an OTC analgesic; three Tier 1 rows. The check-ins are 21 days apart, beyond the 7-day dedup window, so the engine drafts **three separate Arthralgia AEs** rather than one with follow-ups: the seed deliberately shows the false-split limitation (`docs/WHAT_IT_GETS_WRONG.md` §6). |
@@ -75,14 +75,14 @@ Attribute values are the integers the kiosk would send (`frequency`/`severity`/`
 | **P-009** | 4 | 58, 41, 30, 15 | `fatigue` severity 1/interference 0 → 2/2 → **3/3** → 2/2 | — | Yes | 0, 1, **2**, 1 | Severe fatigue episode (composites 1, 2, 3, 2 → G1, G2, G3, G2; Tier 2 acknowledged in the seed) that improves but is still under review. The timeline sparkline rises and falls. (Severity 2 with interference 1 would be composite 1 → G1 → Tier 0 in the `two_attribute_sev_int` table, so the last check-in keeps interference at 2.) |
 | **P-010** | 3 | 44, 23, 7 | d44: none. d23: `mouth_sores` severity 2, interference 2. d7: `mouth_sores` severity 1, interference 1 | — | Yes | 0, 1, 0 | Stomatitis that resolves; the d7 report is 16 days after d23, so it is a new AE, not a follow-up. |
 | **P-011** | 2 | 36, 11 | d36: `itching` severity 1. d11: `cough` severity 1, interference 0 | — | Yes | 0, 0 | Two different G1 symptoms; nothing escalates. |
-| **P-012** | 3 | 49, **28**, 4 | none | — | Yes, **No on d28**, Yes | 0, 0, 0 | The d28 session declines the camera: `consent_camera = false`, no vitals samples, `vitals_status = "declined"` on the session, `vitals.unavailable` in the Why panel ("no samples were captured for this session"), and **no VS rows at all** (`build_vs_drafts` returns nothing for a session with zero samples; `VSSTAT = "NOT DONE"` rows appear only when samples exist but a metric has no usable reading, e.g. the low-quality persona). Proves the product is fully functional with vitals off. |
+| **P-012** | 4 | 49, **28**, **7**, 4 | none; d7: `fever_or_chills` present + `fatigue` 2/2, **hospitalization = yes** (§10) | — | Yes, **No on d28**, Yes, Yes | 0, 0, **3**, 0 | The d28 session declines the camera: `consent_camera = false`, no vitals samples, `vitals_status = "declined"` on the session, `vitals.unavailable` in the Why panel ("no samples were captured for this session"), and **no VS rows at all** (`build_vs_drafts` returns nothing for a session with zero samples; `VSSTAT = "NOT DONE"` rows appear only when samples exist but a metric has no usable reading, e.g. the low-quality persona). Proves the product is fully functional with vitals off. |
 
-Totals: 34 check-ins; Tier 2 on exactly two of them (P-003 d24, P-009 d30); con-med changes on four participants (P-003, P-005, P-006, P-008); one open AE prepared for the demo (P-007 Cough); plus the eight chart notes of §4.6 (42 queue rows in all). Every "intended tier" in the table was replayed through `interim_rules.engine.evaluate_checkin` on 2026-10-10 and matched; if a table under `packages/rules/data/` changes, replay again before trusting this column.
+Totals: 35 check-ins; Tier 2 on exactly two of them (P-003 d12, P-009 d30) and Tier 3 on one (P-012 d7, §10); con-med changes on four participants (P-003, P-005, P-006, P-008); one open AE prepared for the demo (P-007 Cough); plus the eight chart notes of §4.6 (42 queue rows in all). Every "intended tier" in the table was replayed through `interim_rules.engine.evaluate_checkin` on 2026-10-10 and matched; if a table under `packages/rules/data/` changes, replay again before trusting this column.
 
 ### 4.4 What the seed does after each prior check-in
 
 - Confirms every AE draft it created, acting as `coordinator` (audit `draft.confirmed`), so `AEOpen` rows exist and timelines show "open AEs". VS and CM drafts are left as `draft` so the queue still has work in it.
-- Acknowledges the two Tier 2 escalations as `coordinator` 20–50 minutes after `completed_at` (RNG), so the Escalations page shows realistic `seconds_to_ack` values.
+- Acknowledges the history escalations (two Tier 2, one Tier 3) as `coordinator` 20–50 minutes after `completed_at` (RNG); reports a past possible-AESI or SAE clock with a signed packet (§10.2); the overnight check-ins of §10 get none of this, so the Escalations page shows realistic `seconds_to_ack` values.
 - Never sets `AEREL`/`AESER` (those are live investigator actions in the demo).
 
 ### 4.5 Seeded vitals (simulated)
@@ -111,11 +111,11 @@ The eight synthetic clinician notes in `data/synthetic/chart_notes.json` (lineag
 | N4 | P-004 | 4 | AE Sinusitis, Headache; CM `amoxicillin-clavulanate` (started) | 1 | — |
 | N2 | P-002 | 2 | AE Rash maculo-papular (hint 2, 15% BSA), Pruritus; CM `triamcinolone`, `cetirizine` (started) | 1 | **cross-source follow-ups**: both AEs link to the open AEs of P-002's d6 check-in |
 | N5 | P-005 | 2 | AE Headache, Mucositis oral; "hx of migraines" and "no nausea" excluded | 1 | — |
-| N6 | P-006 | 2 (note date); **read ~3 h before the seed clock** (§8) | AE Confusion, Anorexia (hints raised to 3 by "admitted"); CM `dexamethasone` (stopped); red flags `confusion`, `hospitalization` | **2** | **SAE clock** started at ingestion (`site_awareness_at = ingested_at`, due +24 h: a live ~21 h countdown on a fresh seed, running until an investigator records `AESER`); escalation acknowledged by the coordinator 30–90 min later. Ingested last (§8) |
-| N3 | P-003 | 1 | AE Dyspnea (onset 7 days before), Cough (5 days); CM `lisinopril` (stopped); red flag `dyspnea` | **2** | escalation **left unacknowledged** so the Escalations page has live work |
+| N6 | P-006 | 2 (note date); **read ~3 h before the seed clock** (§8, §10: overnight) | AE Confusion, Anorexia (hints raised to 3 by "admitted"); CM `dexamethasone` (stopped); red flags `confusion`, `hospitalization` | **2** | **SAE clock** started at ingestion (`site_awareness_at = ingested_at`, due +24 h: a live ~21 h countdown on a fresh seed, running until an investigator records `AESER`); escalation **not acknowledged** (Monday morning, §10; it was acknowledged before). Ingested last (§8) |
+| N3 | P-003 | 0: **an overnight caregiver phone call** (§10) | AE Dyspnea (onset 7 days before), Cough (5 days); CM `lisinopril` (stopped); red flag `dyspnea` | **2** | logged as `note_type = "phone_call"`, `caller = "caregiver"`, `call_direction = "inbound"`; Dyspnea + Cough are follow-ups of P-003's overnight kiosk check-in; escalation **left unacknowledged** |
 | N7 | P-001 | 1 | AE Diarrhea, Nausea ("resolved" flagged as `INTERIM_RESOLVED_CUE`); CM `loperamide` (taking) | 1 | **cross-note follow-ups**: both AEs link to N1's open AEs |
 
-Totals: 8 notes, 23 drafts (14 AE + 9 CM, no VS: a note has no vitals), 4 follow-up links, 2 Tier 2 note escalations (1 acknowledged), 1 SAE clock. Note drafts are left as `draft` so the queue shows note-sourced work next to the check-ins (`source: "chart_note"`, `session_id: null`). A note never produces Tier 3, a page or a stop screen (`docs/DECISIONS.md` D-017). The order above is chronological so the audit chain reads naturally; the check-ins are all seeded first, which is correct for this data set because no check-in dated after a note reports the same term as that note.
+Totals (with UC1, §10): 9 notes, 8 follow-up links (N2, N7, N3, UC1: two each), 2 Tier 2 note escalations (none acknowledged), 1 SAE clock. Note drafts are left as `draft` so the queue shows note-sourced work next to the check-ins (`source: "chart_note"`, `session_id: null`). A note never produces Tier 3, a page or a stop screen (`docs/DECISIONS.md` D-017). The order above is chronological so the audit chain reads naturally; the check-ins are all seeded first, which is correct for this data set because no check-in dated after a note reports the same term as that note.
 
 Labeling: every note-sourced record carries `INTERIM_RECORD_SOURCE = "chart_note"` (and `INTERIM_SOURCE = "chart_note"` on its AE/CM fields), `INTERIM_NOTE_ID`, and `INTERIM_MATCH_KIND = "lexicon"` on CM rows (the scanner's lexicon is a pattern list, NOT RxNorm).
 
@@ -269,9 +269,9 @@ Three synthetic sources share the label space `P-001` … `P-012`. They are **no
 
 | Source | What it holds | Who wrote it | Label rule | Used at runtime? |
 |---|---|---|---|---|
-| Seeded kiosk participants (§3–§4) | 12 participants, 34 prior check-ins, simulated resting vitals; **no demographics** | Interim team, `apps/api/interim_api/seed.py` (spec: this README) | `P-001` … `P-012` by design | Yes: the runtime database |
+| Seeded kiosk participants (§3–§4, §10) | 12 participants, 35 prior + 3 overnight check-ins, simulated resting vitals; demographics and history only from the Synthea chart of the same label (§10.4) | Interim team, `apps/api/interim_api/seed.py` (spec: this README) | `P-001` … `P-012` by design | Yes: the runtime database |
 | Chart notes (§4.6, §9.1) | 8 clinician notes for P-001 … P-006 with an answer key | Omer Khawar (AE Capture Desk), remapped | source subject `101-00x` → `P-00x` | Yes: ingested by the seed through `/notes`; also a sample list on the Notes page |
-| Synthea cohort (§9.2) | 12 NSCLC patients with demographics, comorbidities, medications, baselines; 72 notes | Synthea (MITRE), imported by `scripts/synthea/import_synthea.py` | sorted by birth date, then Synthea id | No (offline evaluation only, until `docs/ISSUES.md` #23) |
+| Synthea cohort (§9.2) | 12 NSCLC patients with demographics, comorbidities, medications, baselines; 72 notes | Synthea (MITRE), imported by `scripts/synthea/import_synthea.py` | sorted by birth date, then Synthea id | Yes since §10.4: each chart's compact profile is attached to the seeded participant of the same label (`docs/ISSUES.md` #23); the 72 notes are still offline evaluation only |
 
 ### 9.1 Chart-note lineage
 
@@ -310,4 +310,81 @@ Everything about generation, de-identification, ground truth and limitations is 
 | P-011 | male | 53 | 1 | 4 | 15 / 71 | former | 6 |
 | P-012 | male | 50 | 1 | 2 | 15 / 82.3 | former | 6 |
 
-All 12 are on cisplatin + paclitaxel; none received a PD-1 inhibitor, because Synthea has none (`docs/NOT_BUILT.md` §17). How these baselines would attach to the seeded kiosk participants of the same label (age, sex, stage, comorbidities, active medications, baseline vitals, one recent note each, shown on the timeline as "Synthea synthetic EHR (simulated)") is `docs/ISSUES.md` #23; until it lands, a Synthea `P-007` and the seeded kiosk `P-007` are unrelated simulated people, and nothing in the runtime reads `synthea/`.
+All 12 are on cisplatin + paclitaxel; none received a PD-1 inhibitor, because Synthea has none (`docs/NOT_BUILT.md` §17). How these baselines would attach to the seeded kiosk participants of the same label (age, sex, stage, comorbidities, active medications, baseline vitals, one recent note each, shown on the timeline as "Synthea synthetic EHR (simulated)") is `docs/ISSUES.md` #23; since the Monday-morning seed (§10.4) the profile part has landed: the Synthea `P-007` **is** the seeded kiosk `P-007`'s background (age, sex, stage, comorbidities, medications, prior chemotherapy, baseline pulse/breathing), shown labelled "Synthea synthetic EHR (simulated)". The "one recent note each" part is still open.
+
+## 10. Monday morning (CLAUDE.md §00.6, CONTRACTS.md R3.2 "Seed" + R4.5)
+
+The seed ends in the state the demo story needs: *"Monday 8 am. Overnight: three kiosk check-ins
+and two hospital notes. Interim has already found the side effects, merged duplicates, flagged
+the ER visit, started the 24-hour clock, pre-filled the report and drafted its narrative, caught
+a discouraged steroid, and built tomorrow's visit brief."* Everything is relative to the seed
+clock `T0` (so it reads "overnight" whatever day the seed runs, and literally Monday morning only
+if you seed at 8 am on a Monday), goes through the same services as live use (audited), and is
+deterministic (`random.Random(20261010)`; `apps/api/tests/test_admin_seed.py` asserts it exactly).
+
+### 10.1 The overnight set (none of it acknowledged or confirmed)
+
+Processed in time order, kiosk check-ins and notes interleaved (`seed.seed_overnight`):
+
+| When (before `T0`) | What | Participant | Result |
+|---|---|---|---|
+| ~13 h | kiosk check-in, nothing to report | P-004 | Tier 0, routine |
+| ~12 h | kiosk check-in: rash yes, itching moderate, **"prednisone" started** | P-011 | Pruritus G2 → Tier 1; CM `prednisone` matched exactly and flagged **discouraged** (systemic corticosteroid, protocol §7.7.2 p.69) with the protocol's exception text ("except in the case of a life-threatening emergency and/or to treat an irAE"); no tier change |
+| ~10.5 h | kiosk check-in: **diarrhea "Almost constantly"** (frequency 4 → composite 3 → **G3**), shortness of breath moderate (G2), mild cough | P-003 | diarrhea is potentially immune-related (colitis, `irae_mapping.json`) → **possible-AESI 24-hour clock** + **Tier 2** escalation; the Diarrhea AE is a follow-up of P-003's open Diarrhea AE (d6). Not a rash: rash is a yes/no item and can only reach G1 |
+| ~9.5 h | **caregiver phone call** (N3: "Daughter called: pt with increasing SOB ... Dry cough x5 days. Holding lisinopril") | P-003 | `note_type = "phone_call"`, caller `caregiver`, inbound; urgent red flag → Tier 2; Dyspnea + Cough link as follow-ups to the kiosk check-in an hour earlier; CM `lisinopril` (stopped) |
+| ~6 h | **urgent-care record** (UC1, seed-only text in `seed.URGENT_CARE_TEXT`: pruritic maculopapular rash spreading to the legs) | P-002 | Pruritus + Rash maculo-papular link as **follow-ups** to P-002's open AEs (the d6 check-in, then N2 two days ago); Tier 1 |
+| ~3 h | **ER note** (N6: ED visit, admitted overnight for IV fluids, new confusion) | P-006 | red flags `confusion` + `hospitalization` → Tier 2 and an **SAE clock** (site awareness = ingestion: a live ~21 h countdown) |
+
+Then every running 24-hour clock (the P-003 possible AESI and the N6 SAE) gets its **report packet
+pre-filled** (template writer, created by `interim-api` 90 s after site awareness, status `draft`):
+fields with evidence, the missing-information list and a narrative whose every sentence cites
+evidence. Only an investigator can sign. The three overnight escalations (P-003 check-in, N3,
+N6) stay unacknowledged and every overnight draft stays `draft`: that is the coordinator's
+morning.
+
+### 10.2 Last week, already handled (and what is still owed)
+
+- **P-012, d7: hospitalized with a fever** (kiosk gate "admitted to a hospital or seen in an ER" =
+  yes, fever present, fatigue G2) → Tier 3, the stop screen, a page, an **SAE clock**. The
+  coordinator acknowledged the escalation 20–50 min later, prepared the packet 1 h after site
+  awareness, and the investigator **signed** it 5 h after (inside 24 h; clock stopped as
+  "reported (mock)", posted to the mock EDC). Its missing-information list still has the outcome,
+  action taken and causality: **a follow-up report is due** (`POST /packets/{id}/follow-up`).
+- The older possible-AESI clocks (P-003 d12 diarrhea G3, P-009 d30 fatigue G3) were reported at
+  the time (signed 2 h after completion), so no month-old clock shows as overdue.
+
+### 10.3 Sponsor queries (R4.5)
+
+Two check-in CM records are confirmed by the coordinator at review and posted to the mock EDC
+last week; the sponsor-side edit check `query.cm_required_fields_missing` (protocol §7.7 p.69:
+dose, unit, frequency, indication) raises one query on each:
+
+| Record | Posted | Query |
+|---|---|---|
+| P-003 `loperamide` (d12) | ~6 days ago | **answered** ~5 days ago by the coordinator from the template writer's suggested answer plus "2 mg after each loose stool, as needed, for diarrhea", with the correction `CMDOSE = "2"` as a new draft version, re-confirmed 2 min later |
+| P-005 `Zofran` → ondansetron (d29) | ~3 days ago | **open** (aging ~72 h) |
+
+### 10.4 Synthea baselines and visits
+
+- **Baselines** (`docs/ISSUES.md` #23). Each seeded participant gets the compact profile of the
+  Synthea chart with the same label (`synthea/participants.json`): sex, age at the Synthea
+  reference date, NSCLC stage and diagnosis date, comorbidities, active medications, earlier
+  cancer therapy (cisplatin + paclitaxel for all twelve), smoking status and the median baseline
+  pulse and breathing rate. It is stored on `Participant.baseline_json`, returned as `baseline`
+  (with plain `summary` lines) on `GET /participants`, the timeline and the brief, printed on the
+  printable brief, and always labelled **"Synthea synthetic EHR (simulated)"**. The simulated
+  kiosk vitals are centred on the Synthea medians (`baseline_vitals_json.source = "synthea"`).
+  Synthea dates are as generated (relative to its own reference date 2026-10-10), not re-anchored
+  to `T0`. A missing cohort file means no baseline (the seed falls back to RNG baselines).
+- **Visits.** P-003's previous visit (`completed`, `T0 − 20 days`, "Cycle 4 Day 1") and next visit
+  (`scheduled`, **tomorrow**, "Cycle 5 Day 1"; cemiplimab is given every 3 weeks) are recorded, so
+  `GET /participants/P-003/brief` defaults to "since the last visit" and shows the next visit.
+  Other participants have no recorded visits (their brief falls back to the 14-day look-back).
+
+### 10.5 Totals
+
+38 check-ins (35 prior + 3 overnight) and 9 notes (8 from the answer key + UC1): **47 queue
+rows**; Tier 3 × 1 (P-012 d7), Tier 2 × 5 (check-ins P-003 d12, P-009 d30, P-003 overnight;
+notes N3, N6); 6 escalations (3 acknowledged history, 3 overnight open); 2 running clocks (AESI
+P-003, SAE P-006) and 3 stopped ones; 5 packets (2 pre-filled drafts, 3 signed); 2 queries
+(1 open, 1 answered); 2 recorded visits; 12 Synthea baselines.

@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     token_ttl_hours: float = Field(default=12.0)
     public_data_dir: Path = Field(default=REPO_ROOT / "data" / "public")
     log_level: str = Field(default="info")
+    # [packets agent] Optional LLM writer (CLAUDE.md §00 "Generated text works with no API key").
+    anthropic_api_key: str = Field(
+        default="",
+        description="Empty (the default) = the deterministic template writer only. When set, "
+        "generated text may come from Claude, accepted only if it passes validate_written.",
+    )
+    interim_llm_model: str = Field(
+        default="claude-sonnet-5-5", description="Model id the optional LLM writer uses."
+    )
+    interim_writer: str = Field(
+        default="auto",
+        description="'auto' (LLM when a key is set, else template) or 'template' (always).",
+    )
 
     @field_validator("cors_origins")
     @classmethod

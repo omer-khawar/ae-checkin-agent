@@ -18,7 +18,7 @@ from sqlmodel import Session as DbSession
 from sqlmodel import select
 
 from interim_rules import evaluate_checkin
-from interim_rules.serialize import result_to_dict
+from interim_rules.serialize import protocol_context_from, result_to_dict
 from interim_rules.tables import item_by_id, items, vitals_config
 
 from ..audit import BRIDGE_ACTOR, Actor, append_event
@@ -56,6 +56,10 @@ log = logging.getLogger("interim_api.sessions")
 
 ESCALATION_REASON_CATEGORIES = frozenset({"red_flag", "corroboration"})
 
+CONSENT_BASIS = "enrollment_icf"
+"""CLAUDE.md §00 / D-026: camera use is covered by the informed consent form signed at
+enrollment; every new session records this basis instead of a per-session consent screen."""
+
 
 def participant_actor(usubjid: str) -> Actor:
     return Actor(id=usubjid, role="participant")
@@ -77,15 +81,24 @@ def create_session(
     db: DbSession,
     *,
     usubjid: str,
-    consent_camera: bool,
+    consent_camera: bool = True,
     override_actor: Actor | None = None,
     started_at_override: str | None = None,
     create_participant_if_missing: bool = False,
     is_eval: bool = False,
+    protocol_context: Mapping[str, Any] | None = None,
     now: str | None = None,
 ) -> Session:
-    """Start a check-in for a participant given by USUBJID or display label."""
+    """Start a check-in for a participant given by USUBJID or display label.
+
+    ``protocol_context`` (admin only, CONTRACTS R3.1) is stored on the participant (created or
+    existing) and read by the rules engine when the session completes."""
     stamp = now or now_iso()
+    if protocol_context is not None:
+        try:
+            protocol_context_from(dict(protocol_context))
+        except ValueError as exc:
+            raise problem(422, str(exc), title="Invalid protocol context") from exc
     study: Study = get_study(db)
     participant: Participant | None = resolve_participant(db, study, usubjid)
     if participant is None:
@@ -95,12 +108,24 @@ def create_session(
             if label.startswith(prefix):
                 label = label[len(prefix) :]
             participant = create_participant(
-                db, study, display_label=label, usubjid=usubjid.strip(), is_eval=is_eval, now=stamp
+                db,
+                study,
+                display_label=label,
+                usubjid=usubjid.strip(),
+                protocol_context=dict(protocol_context) if protocol_context is not None else None,
+                is_eval=is_eval,
+                now=stamp,
             )
         else:
             raise problem(
                 404, f"No participant with usubjid {usubjid.strip()}", title="Participant not found"
             )
+    if protocol_context is not None:
+        stored = dump_json(dict(protocol_context))
+        if participant.protocol_context_json != stored:
+            participant.protocol_context_json = stored
+            db.add(participant)
+            db.flush()
     started_at = stamp
     backdated = False
     if started_at_override is not None:
@@ -115,6 +140,7 @@ def create_session(
         vitals_status="pending" if consent_camera else "declined",
         is_eval=is_eval or participant.is_eval,
         backdated=backdated,
+        consent_basis=CONSENT_BASIS,
     )
     db.add(session)
     db.flush()
@@ -132,6 +158,7 @@ def create_session(
             "backdated": backdated,
             "override_by": override_actor.id if backdated and override_actor else None,
             "is_eval": session.is_eval,
+            "protocol_context": dict(protocol_context) if protocol_context is not None else None,
         },
         ts_utc=stamp,
     )
@@ -143,8 +170,12 @@ def create_session(
         session.id,
         {
             "consent_camera": consent_camera,
-            "statement": "Camera frames are processed on the kiosk and never stored; only "
-            "derived pulse/breathing metrics leave the bridge.",
+            "consent_basis": CONSENT_BASIS,
+            "camera": "on" if consent_camera else "turned off by the participant",
+            "statement": "Camera use is covered by the informed consent form signed at "
+            "enrollment (no per-session consent screen, D-026). Camera frames are processed "
+            "on the kiosk and never stored; only derived pulse/breathing metrics leave the "
+            "bridge.",
         },
         ts_utc=stamp,
     )
@@ -455,7 +486,10 @@ def record_vitals(
 
     Three refusals protect the "measured vs simulated" label (CLAUDE.md §0):
 
-    * no camera consent for this session -> 409, nothing stored (§3.3);
+    * the participant turned the camera off for this session -> 409, nothing stored.
+      There is no per-session consent gate any more (CLAUDE.md §00 / D-026: camera use is
+      covered by the enrollment ICF, ``consent_basis = "enrollment_icf"``); a session with
+      the camera on accepts samples with no further step;
     * a sample from a simulated source (``simulated_sources`` in
       ``vitals_corroboration.json``, i.e. ``mock``) claiming ``is_measured`` -> 422;
     * ``is_measured = true`` from a caller the API cannot vouch for -> 403.
@@ -473,15 +507,15 @@ def record_vitals(
             db,
             session,
             n=len(samples),
-            reason="no_camera_consent",
+            reason="camera_turned_off",
             posted_by=posted_by,
             stamp=stamp,
         )
         raise problem(
             409,
-            f"Participant declined camera capture for session {session.id}; "
+            f"The participant turned the camera off for session {session.id}; "
             "vitals samples are not accepted",
-            title="No camera consent",
+            title="Camera turned off",
         )
     simulated_sources = vitals_config().simulated_sources
     for index, s in enumerate(samples):
@@ -659,8 +693,8 @@ def complete_session(
     result_dict = result_to_dict(result)
 
     samples = session_samples(db, session.id)
-    # No consent means no vitals, whatever is in the table (record_vitals refuses them, but a
-    # row written before that guard existed must not turn "declined" into an engine status).
+    # Camera turned off by the participant means no vitals, whatever is in the table
+    # (record_vitals refuses them); "declined" is used for that case only (D-026).
     vitals_status = "declined" if not session.consent_camera else result.vitals.status
     summary = result.vitals.summary
 
@@ -714,6 +748,7 @@ def complete_session(
         reasons=escalation_reasons(result_dict),
         seriousness_suspected=result.seriousness_suspected,
         sae_clock=result_dict.get("sae_clock"),
+        aesi_clock=result_dict.get("aesi_clock"),
         page_oncall=result.page_oncall,
         reported_at=completed_at,
         session_id=session.id,

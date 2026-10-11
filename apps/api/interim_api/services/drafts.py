@@ -16,7 +16,7 @@ Rules of the review desk (CLAUDE.md §3.5-§3.7):
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from sqlmodel import Session as DbSession
@@ -26,7 +26,9 @@ from ..audit import Actor, append_event
 from ..models import Draft, SAEClock
 from ..problems import problem
 from ..util import dump_json, load_json, new_id, now_iso
-from .checkins import close_open_ae
+from .checkins import close_open_ae, log_clock_stopped
+from .common import CM_MISSING_FIELD, cm_missing_now
+from .metrics import record_confirm_metrics  # [briefs agent] time saved (R3.2)
 from .sdtm_fields import field_problems
 
 ATTRIBUTION_FIELDS: tuple[str, ...] = ("AEREL", "AESER")
@@ -83,6 +85,7 @@ def confirm_draft(
         },
         ts_utc=stamp,
     )
+    record_confirm_metrics(db, actor, draft, stamp)  # [briefs agent] pre-filled/edited counts
     return draft
 
 
@@ -173,6 +176,21 @@ def _diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, dict
     }
 
 
+def _refresh_cm_missing(
+    domain: str, changes: Mapping[str, Any], after: Mapping[str, Any]
+) -> list[str] | None:
+    """A CM edit that fills a protocol-required field also refreshes
+    ``INTERIM_CM_MISSING_FIELDS`` (unless the caller set that list itself); ``None`` when
+    nothing changes."""
+    if domain != "CM" or CM_MISSING_FIELD in changes:
+        return None
+    current = after.get(CM_MISSING_FIELD)
+    refreshed = cm_missing_now(after)
+    if refreshed is None or refreshed == current:
+        return None
+    return refreshed
+
+
 def edit_draft(
     db: DbSession,
     actor: Actor,
@@ -181,15 +199,19 @@ def edit_draft(
     changes: Mapping[str, Any],
     note: str | None,
     now: str | None = None,
+    allow_new_fields: Sequence[str] = (),
 ) -> Draft:
-    """``PATCH /drafts/{id}``: a new ``draft`` version with the given field values."""
+    """``PATCH /drafts/{id}``: a new ``draft`` version with the given field values.
+
+    ``allow_new_fields`` (query answers, R4.4) lets a caller add a field the record does not
+    carry yet, e.g. the protocol-required ``CMDOSE`` a sponsor query asked for."""
     _require_current(db, draft)
     if draft.status == "rejected":
         raise problem(
             409, f"Draft {draft.id} was rejected; it cannot be edited", title="Cannot edit"
         )
     before = load_json(draft.fields_json, {})
-    unknown = [k for k in changes if k not in before]
+    unknown = [k for k in changes if k not in before and k not in allow_new_fields]
     if unknown:
         raise problem(
             422,
@@ -215,6 +237,10 @@ def edit_draft(
     diff = _diff(before, after)
     if not diff:
         raise problem(422, "No field value would change", title="Nothing to edit")
+    refreshed = _refresh_cm_missing(draft.domain, changes, after)
+    if refreshed is not None:
+        after[CM_MISSING_FIELD] = refreshed
+        diff = _diff(before, after)
     new_version_id = new_id()
     event = append_event(
         db,
@@ -237,6 +263,20 @@ def edit_draft(
     )
     evidence: dict[str, Any] = load_json(draft.evidence_json, {})
     for key, change in diff.items():
+        if key == CM_MISSING_FIELD and key not in changes:
+            evidence[key] = [
+                *evidence.get(key, []),
+                {
+                    "kind": "edit",
+                    "id": event.id,
+                    "ts": stamp,
+                    "note": (
+                        "recomputed after the edit: protocol-required fields that now hold "
+                        f"a value were removed ({change['before']!r} -> {change['after']!r})"
+                    ),
+                },
+            ]
+            continue
         pointer = {
             "kind": "edit",
             "id": event.id,
@@ -265,6 +305,10 @@ def edit_draft(
     return row
 
 
+UNSET_IRAE: object = object()
+"""[packets agent] Sentinel: the attribution request did not mention ``INTERIM_IRAE``."""
+
+
 def stop_sae_clock_for(
     db: DbSession,
     actor: Actor,
@@ -273,10 +317,17 @@ def stop_sae_clock_for(
     note_id: str | None,
     decision: str,
     stamp: str,
+    kind: str | None = None,
 ) -> SAEClock | None:
     """Stop the running SAE clock of the draft's source (a check-in session or a chart
-    note); the investigator's seriousness decision is what stops it (CLAUDE.md §3.4(f))."""
+    note); the investigator's seriousness decision is what stops it (CLAUDE.md §3.4(f)).
+
+    ``kind`` [packets agent] restricts the stop to ``"sae"`` or ``"aesi"`` clocks: a
+    seriousness decision (AESER) stops the SAE clock, an immune-related "N" stops the
+    possible-AESI clock; neither decision answers the other clock's question."""
     stmt = select(SAEClock).where(SAEClock.stopped_at == None)  # noqa: E711
+    if kind is not None:
+        stmt = stmt.where(SAEClock.kind == kind)
     if session_id is not None:
         stmt = stmt.where(SAEClock.session_id == session_id)
     elif note_id is not None:
@@ -291,12 +342,10 @@ def stop_sae_clock_for(
     clock.decision = decision
     db.add(clock)
     db.flush()
-    append_event(
+    log_clock_stopped(
         db,
         actor,
-        "sae_clock.stopped",
-        "sae_clock",
-        clock.id,
+        clock,
         {
             "session_id": clock.session_id,
             "note_id": clock.note_id,
@@ -306,7 +355,7 @@ def stop_sae_clock_for(
             "due_at": clock.due_at,
             "within_24h": stamp <= clock.due_at,
         },
-        ts_utc=stamp,
+        stamp,
     )
     return clock
 
@@ -329,15 +378,17 @@ def record_attribution(
     aeser: str | None,
     note: str | None,
     now: str | None = None,
+    irae: object = UNSET_IRAE,
 ) -> Draft:
-    """Investigator-only ``AEREL`` / ``AESER``; a new version that keeps the current status."""
+    """Investigator-only ``AEREL`` / ``AESER`` / ``INTERIM_IRAE`` (R4.3); a new version that
+    keeps the current status. ``irae`` is ``UNSET_IRAE`` when the request did not send it."""
     _require_current(db, draft)
     if draft.domain != "AE":
         raise problem(409, "Attribution applies to AE drafts only", title="Not an AE draft")
     if draft.status == "rejected":
         raise problem(409, f"Draft {draft.id} was rejected", title="Cannot attribute")
-    if aerel is None and aeser is None:
-        raise problem(422, "Provide AEREL and/or AESER", title="Nothing to record")
+    if aerel is None and aeser is None and irae is UNSET_IRAE:
+        raise problem(422, "Provide AEREL, AESER and/or INTERIM_IRAE", title="Nothing to record")
     stamp = now or now_iso()
     before = load_json(draft.fields_json, {})
     after = dict(before)
@@ -345,6 +396,8 @@ def record_attribution(
         after["AEREL"] = aerel
     if aeser is not None:
         after["AESER"] = aeser
+    if irae is not UNSET_IRAE:
+        after["INTERIM_IRAE"] = irae
     diff = _diff(before, after)
     new_version_id = new_id()
     event = append_event(
@@ -362,6 +415,8 @@ def record_attribution(
             "version": draft.version + 1,
             "AEREL": aerel,
             "AESER": aeser,
+            "INTERIM_IRAE": None if irae is UNSET_IRAE else irae,
+            "INTERIM_IRAE_sent": irae is not UNSET_IRAE,
             "diff": diff,
             "note": note,
         },
@@ -398,5 +453,17 @@ def record_attribution(
             note_id=draft.note_id,
             decision=f"AESER = {aeser}",
             stamp=stamp,
+            kind="sae",
+        )
+    if irae == "N":
+        # Not immune-related in the investigator's view: not an AESI under §9.4.3 (p. 92).
+        stop_sae_clock_for(
+            db,
+            actor,
+            session_id=draft.session_id,
+            note_id=draft.note_id,
+            decision="INTERIM_IRAE = N: not immune-related (investigator), so not an AESI",
+            stamp=stamp,
+            kind="aesi",
         )
     return row

@@ -17,6 +17,7 @@ from interim_rules.chartscan import CHARTSCAN_TABLE_NAMES
 from interim_rules.chartscan import RULE_IDS as CHARTSCAN_RULE_IDS
 from interim_rules.narrative import NARRATIVE_TABLE_NAMES
 from interim_rules.plain_language import PLAIN_LANGUAGE_TABLE_NAMES
+from interim_rules.queries import check_ids as query_check_ids
 from interim_rules.tables import TABLE_NAMES, TableError
 from interim_rules.time_saved import TIME_MODEL_TABLE_NAMES
 
@@ -325,6 +326,7 @@ def test_rules_catalog_is_complete() -> None:
         "protocol.conmed_permitted",
         "protocol.cm_fields_missing",
         *CHARTSCAN_RULE_IDS,
+        *query_check_ids(),  # R4.4 edit checks (sponsor queries)
     }
     assert set(catalog) == expected
     categories = set(tables.load_table("rules_catalog")["categories"])

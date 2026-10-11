@@ -32,9 +32,14 @@ dev = [
   "pytest==9.1.1",
   "ruff==0.17.0",
 ]
+# [packets agent] Optional Claude writer (CLAUDE.md §00.3). Never needed: without it, or
+# without ANTHROPIC_API_KEY, the deterministic template writer is used. 1.8.0 (2026-09-22).
+llm = [
+  "anthropic==1.8.0",
+]
 
 [tool.setuptools]
-packages = ["interim_api", "interim_api.services", "interim_api.routers"]
+packages = ["interim_api", "interim_api.services", "interim_api.routers", "interim_api.writers"]
 
 [tool.ruff]
 line-length = 100

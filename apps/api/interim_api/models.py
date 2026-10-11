@@ -53,6 +53,12 @@ class Participant(SQLModel, table=True):
     baseline_vitals_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     is_eval: bool = Field(default=False, index=True)
     created_at: str
+    # [seed agent] Synthea baseline profile (age, sex, NSCLC stage, comorbidities, active meds,
+    # prior chemo, baseline pulse/breathing; docs/ISSUES #23), labelled "Synthea synthetic EHR
+    # (simulated)", and the protocol context the rules engine reads (CONTRACTS R3.1
+    # ``ProtocolContext``: ``prior_pi3k_inhibitor``, ``last_dose_date``). Both nullable.
+    baseline_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    protocol_context_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class User(SQLModel, table=True):
@@ -101,6 +107,10 @@ class Session(SQLModel, table=True):
     """Effective ``RuleSettings`` used at completion."""
     result_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     """``interim_rules.serialize.result_to_dict`` output, stored once at completion."""
+    consent_basis: str | None = None
+    """CLAUDE.md §00 / D-026: ``"enrollment_icf"`` (camera use is covered by the informed
+    consent form signed at enrollment; no per-session consent screen). Null on rows written
+    before the change."""
 
 
 class Answer(SQLModel, table=True):
@@ -218,6 +228,10 @@ class SAEClock(SQLModel, table=True):
     stopped_by: str | None = None
     decision: str | None = None
     created_at: str
+    kind: str = Field(default="sae")
+    """[packets agent] ``sae`` (suspected serious event) | ``aesi`` (possible adverse event of
+    special interest, CONTRACTS R3.1/R3.2); same 24-hour machinery. Added column: an older
+    database gets it through ``schema_upgrade`` with ``DEFAULT 'sae'``."""
 
 
 class Page(SQLModel, table=True):
@@ -293,6 +307,169 @@ class ChartNote(SQLModel, table=True):
     tier: int | None = None
 
 
+# --------------------------------------------------------------------------- #
+# [queries agent] Phone-call intake (CONTRACTS R4.1) and sponsor queries (R4.4)
+# --------------------------------------------------------------------------- #
+
+
+class ChartNoteCall(SQLModel, table=True):
+    """Call metadata for a ``ChartNote`` whose ``note_type`` is ``"phone_call"`` (R4.1).
+
+    A side table keyed by note id (rather than new ``ChartNote`` columns) so the note table
+    stays exactly as the scanner track defined it; ``services/calls.py`` joins it in.
+    """
+
+    __tablename__ = "chart_note_calls"
+
+    note_id: str = Field(primary_key=True)
+    caller: str | None = None
+    """``participant`` | ``caregiver`` | ``other``."""
+    call_direction: str | None = None
+    """``inbound`` | ``outbound``."""
+    created_at: str
+
+
+class SponsorQuery(SQLModel, table=True):
+    """A sponsor data query on one field of one record (CONTRACTS R4.4, CLAUDE.md §00 step 7).
+
+    Raised by an edit check (``interim_rules.queries``; ``check_id`` set, ``raised_by =
+    "edit-check"``) when records reach the mock EDC or on an admin re-run, or by a person
+    acting as the sponsor's monitor (``check_id`` null). ``lineage_id`` is the record's
+    lineage, so a later version of the same record never gets a duplicate open query.
+    """
+
+    __tablename__ = "queries"
+
+    id: str = Field(primary_key=True)
+    check_id: str | None = Field(default=None, index=True)
+    domain: str
+    draft_id: str = Field(index=True)
+    """The record version the query was raised on."""
+    lineage_id: str = Field(index=True)
+    usubjid: str = Field(index=True)
+    field: str
+    text: str = Field(sa_column=Column(Text, nullable=False))
+    severity: str
+    """``data`` | ``safety``."""
+    status: str = Field(default="open", index=True)
+    """``open`` | ``answered`` | ``closed``."""
+    raised_by: str
+    raised_at: str = Field(index=True)
+    trigger: str = "manual"
+    """``mock_edc`` | ``run_checks`` | ``manual``."""
+    edc_ack_id: str | None = None
+    evidence_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    fields_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    """Every field the check read (``field`` first); the suggested answer cites them."""
+    answer_text: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    answer_evidence_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    answered_by: str | None = None
+    answered_at: str | None = None
+    answered_from_suggestion: bool = False
+    """The answer equals, or starts from, the template writer's suggested answer (time saved)."""
+    answer_edit_draft_id: str | None = None
+    """The draft version created by ``also_edit``, if any."""
+    closed_by: str | None = None
+    closed_at: str | None = None
+    close_note: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# [briefs agent] Time-saved counts (CONTRACTS R3.2) and visit dates for the brief (§00.4)
+# --------------------------------------------------------------------------- #
+
+
+class DraftMetrics(SQLModel, table=True):
+    """Pre-filled / person-edited field counts of one confirmed draft (CLAUDE.md §00.5).
+
+    Written by ``services.drafts.confirm_draft`` through ``services.time_saved``: the
+    counts compare version 1 of the record (what Interim pre-filled from evidence) with
+    the confirmed version, using ``interim_rules.time_saved.prefilled_count`` /
+    ``edited_count``. One row per confirmed draft row (``id`` = that draft's id); a side
+    table, not new ``Draft`` columns, so existing databases need no column upgrade.
+    """
+
+    __tablename__ = "draft_metrics"
+
+    id: str = Field(primary_key=True)
+    lineage_id: str = Field(index=True)
+    usubjid: str = Field(index=True)
+    domain: str
+    prefilled_fields: int = 0
+    edited_fields: int = 0
+    confirmed_at: str = Field(index=True)
+    confirmed_by: str
+    is_eval: bool = Field(default=False, index=True)
+
+
+class ParticipantVisit(SQLModel, table=True):
+    """A study visit date for a participant: ``completed`` (the brief's default cut-off)
+    or ``scheduled`` (the brief's "next visit"). Synthetic demo data only."""
+
+    __tablename__ = "participant_visits"
+
+    id: str = Field(primary_key=True)
+    usubjid: str = Field(index=True)
+    visit_date: str = Field(index=True)
+    """``YYYY-MM-DD``."""
+    status: str = Field(default="completed")
+    """``completed`` | ``scheduled``."""
+    label: str | None = None
+    recorded_by: str
+    recorded_at: str
+
+
+# --------------------------------------------------------------------------- #
+# [packets agent] Serious-event packets (CONTRACTS R3.2 "Packets", R4.2 follow-ups)
+# --------------------------------------------------------------------------- #
+
+
+class Packet(SQLModel, table=True):
+    """One SAE / AESI report packet for a 24-hour clock (CLAUDE.md §00.2).
+
+    ``sequence`` 0 is the initial report, 1..n are follow-ups (``parent_packet_id`` = the
+    signed report it follows). The packet id is stable across edits: each ``PATCH`` bumps
+    ``version`` and appends ``{version, edited_by, edited_at, diff, note, audit_event_id}``
+    to ``edits_json`` (the versions log), mirrored by a ``packet.edited`` audit event.
+    ``facts_json`` keeps the exact fact bundle the narrative was written from, so the
+    narrative's evidence ids can be re-validated later. A signed packet is immutable.
+    """
+
+    __tablename__ = "packets"
+    __table_args__ = (UniqueConstraint("clock_id", "sequence", name="uq_packet_clock_sequence"),)
+
+    id: str = Field(primary_key=True)
+    clock_id: str = Field(index=True)
+    kind: str
+    """``sae`` | ``aesi`` (copied from the clock)."""
+    sequence: int = 0
+    parent_packet_id: str | None = None
+    usubjid: str = Field(index=True)
+    session_id: str | None = None
+    note_id: str | None = None
+    status: str = Field(default="draft", index=True)
+    """``draft`` | ``signed``."""
+    version: int = 1
+    fields_json: str = Field(sa_column=Column(Text, nullable=False))
+    missing_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    narrative_json: str = Field(sa_column=Column(Text, nullable=False))
+    narrative_edited_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    facts_json: str = Field(default="{}", sa_column=Column(Text, nullable=False))
+    evidence_index_json: str = Field(default="{}", sa_column=Column(Text, nullable=False))
+    changes_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    edits_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
+    created_by: str
+    created_at: str
+    updated_at: str
+    signed_by: str | None = None
+    signed_at: str | None = None
+    mock_edc_ack_id: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Every table (kept at the end so it can list the tables each feature appended above)
+# --------------------------------------------------------------------------- #
+
 ALL_TABLES: tuple[type[SQLModel], ...] = (
     Study,
     Participant,
@@ -309,4 +486,10 @@ ALL_TABLES: tuple[type[SQLModel], ...] = (
     AuditEvent,
     EvalRun,
     ChartNote,
+    ChartNoteCall,
+    SponsorQuery,
+    DraftMetrics,
+    ParticipantVisit,
+    Packet,
 )
+"""Documentation aid: schema creation uses ``SQLModel.metadata`` (``db.create_all``)."""

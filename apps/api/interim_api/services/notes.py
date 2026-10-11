@@ -77,6 +77,7 @@ from ..util import (
     seconds_between,
     to_jsonable,
 )
+from .calls import call_fields, calls_for, enrich_with_calls, store_call
 from .checkins import DraftInput, apply_result, next_aeseq_for, open_aes_for
 from .common import (
     ae_link,
@@ -88,7 +89,9 @@ from .common import (
     tier_action,
     tier_name,
 )
+from .note_protocol import note_cm_protocol  # [packets agent]
 from .participants import require_participant, resolve_participant
+from .plain import with_plain_language  # [briefs agent]
 from .settings_svc import effective_rule_settings
 
 LEXICON_TABLE_FILE = "chartscan_lexicon.json"
@@ -640,6 +643,18 @@ def _cm_draft(
         "INTERIM_NOTE_DATE": [context],
         "INTERIM_CHANGE_REASON": [med_rule_ev],
     }
+    # [packets agent] Protocol con-med flag + missing CM fields, as on kiosk CM drafts (R3.1).
+    p_fields, p_evidence, p_rules = note_cm_protocol(
+        quote=finding.quote,
+        drug=finding.drug,
+        change=finding.change,
+        cmstdtc=cmstdtc,
+        cmendtc=cmendtc,
+        note_pointer=quote_ev,
+    )
+    fields.update(p_fields)
+    evidence.update(p_evidence)
+    built.rules.extend(p_rules)
     built.drafts.append(DraftInput(domain="CM", fields=fields, evidence=evidence))
     built.rules.append(
         _rule(
@@ -680,8 +695,14 @@ def ingest_note(
     ingested_at_override: str | None = None,
     override_actor: Actor | None = None,
     now: str | None = None,
+    caller: str | None = None,
+    call_direction: str | None = None,
 ) -> dict[str, Any]:
     """``POST /notes``: store, scan, draft, de-duplicate, escalate, start the SAE clock.
+
+    ``note_type = "phone_call"`` (R4.1) is a logged call: ``caller`` / ``call_direction``
+    are kept in ``ChartNoteCall`` (``services/calls.py``) and the summary is scanned like
+    any note.
 
     ``ingested_at_override`` (admin only, enforced by the router) backdates the
     moment the site read the note; the seed uses it. Returns the same shape as
@@ -731,6 +752,7 @@ def ingest_note(
     )
     db.add(note)
     db.flush()
+    call_row = store_call(db, note, caller=caller, call_direction=call_direction, stamp=stamp)
     append_event(
         db,
         actor,
@@ -743,6 +765,11 @@ def ingest_note(
             "note_date": note.note_date,
             "author": note.author,
             "note_type": note.note_type,
+            **(
+                {"caller": call_row.caller, "call_direction": call_row.call_direction}
+                if call_row is not None
+                else {}
+            ),
             "chars": len(text),
             "ingested_at": ingested_at,
             "backdated": backdated,
@@ -1027,6 +1054,7 @@ def note_evidence_index(
     return index
 
 
+@with_plain_language  # [briefs agent] labels + rules_fired[].plain (R3.2)
 def note_detail(
     db: DbSession, note: ChartNote, *, participant: Participant | None = None
 ) -> dict[str, Any]:
@@ -1044,9 +1072,12 @@ def note_detail(
         if d.is_followup and d.linked_ae_open_id
     ]
     return {
-        "note": chart_note_to_dict(
-            note, display_label=participant.display_label if participant else None
-        ),
+        "note": {
+            **chart_note_to_dict(
+                note, display_label=participant.display_label if participant else None
+            ),
+            **call_fields(note.note_type, calls_for(db, [note.id]).get(note.id)),
+        },
         "participant": {
             "usubjid": note.usubjid,
             "display_label": participant.display_label if participant else None,
@@ -1178,8 +1209,10 @@ def list_notes(
     )
     page = pairs[offset : offset + limit]
     context = notes_with_context(db, [n for n, _ in page])
+    items = [note_list_item(n, p, d, e, c) for (n, p, d, e, c) in context]
+    enrich_with_calls(db, items)  # R4.1: source_label, caller, call_direction
     return {
-        "items": [note_list_item(n, p, d, e, c) for (n, p, d, e, c) in context],
+        "items": items,
         "total": len(pairs),
         "limit": limit,
         "offset": offset,

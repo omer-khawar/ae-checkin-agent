@@ -19,6 +19,7 @@ from ..audit import Actor, append_event
 from ..models import Setting
 from ..settings import Settings
 from ..util import dump_json, load_json, now_iso
+from ..writers.base import writer_status
 
 SETTING_KEYS: tuple[str, ...] = ("vitals_source", "mock_scenario", "simulated_as_measured")
 
@@ -101,6 +102,8 @@ def public_settings(db: DbSession, settings: Settings) -> dict[str, Any]:
             metric: {"min": b.min, "max": b.max, "unit": b.unit}
             for metric, b in cfg.plausibility.items()
         },
+        # [packets agent] R3.2 writer selection: writer, llm_configured (never the key).
+        **writer_status(settings),
     }
 
 

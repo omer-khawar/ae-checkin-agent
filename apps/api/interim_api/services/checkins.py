@@ -27,7 +27,18 @@ from interim_rules.models import CheckInInput, DraftRecord
 from interim_rules.serialize import build_input, to_jsonable
 
 from ..audit import Actor, append_event
-from ..models import AEOpen, Answer, Draft, Escalation, Page, SAEClock, Session, Study, VitalsSample
+from ..models import (
+    AEOpen,
+    Answer,
+    Draft,
+    Escalation,
+    Page,
+    Participant,
+    SAEClock,
+    Session,
+    Study,
+    VitalsSample,
+)
 from ..util import dump_json, load_json, new_id, normalize_iso, now_iso, seconds_between
 from .common import stop_screen_text, tier_name
 
@@ -190,7 +201,18 @@ def build_engine_input(
         settings=dict(rule_settings),
         next_aeseq=next_aeseq_for(db, session.usubjid),
         started_at=session.started_at,
+        protocol_context=_protocol_context(db, session.usubjid),
     )
+
+
+def _protocol_context(db: DbSession, usubjid: str) -> dict[str, Any] | None:
+    """The participant's stored ``ProtocolContext`` (CONTRACTS R3.1), or ``None`` (default:
+    no prior PI3K inhibitor, last dose unknown)."""
+    participant = db.get(Participant, usubjid)
+    if participant is None or not participant.protocol_context_json:
+        return None
+    value = load_json(participant.protocol_context_json, None)
+    return value if isinstance(value, dict) else None
 
 
 # --------------------------------------------------------------------------- #
@@ -231,6 +253,8 @@ class ApplyOutcome:
     escalation: Escalation | None = None
     page: Page | None = None
     sae_clock: SAEClock | None = None
+    aesi_clock: SAEClock | None = None
+    """[packets agent] The 24-hour AESI clock row (``kind = "aesi"``), when one started."""
 
 
 def _draft_summary(fields: Mapping[str, Any], domain: str) -> dict[str, Any]:
@@ -258,6 +282,7 @@ def apply_result(
     note_id: str | None = None,
     source: str = "check_in",
     now: str | None = None,
+    aesi_clock: Mapping[str, Any] | None = None,
 ) -> ApplyOutcome:
     """Persist drafts, open-AE bookkeeping, escalation (+ page) and SAE clock.
 
@@ -420,6 +445,7 @@ def apply_result(
             due_at=str(sae_clock["due_at"]),
             informational_json=dump_json(sae_clock.get("informational", {})),
             created_at=stamp,
+            kind=str(sae_clock.get("kind") or "sae"),
         )
         db.add(clock)
         db.flush()
@@ -438,6 +464,65 @@ def apply_result(
                 "due_at": clock.due_at,
                 "informational": sae_clock.get("informational", {}),
                 "stops_when": "an investigator records a seriousness decision (AESER)",
+                "kind": clock.kind,
+            },
+            ts_utc=stamp,
+        )
+        # Generic, kind-tagged vocabulary for every clock (CONTRACTS R3.2 "clock.started (with
+        # kind)"): an auditor filtering clock.started sees SAE and AESI starts alike;
+        # sae_clock.started above stays for the original contract's readers.
+        append_event(
+            db,
+            actor,
+            "clock.started",
+            "sae_clock",
+            clock.id,
+            {
+                "kind": clock.kind,
+                "label": "suspected SAE",
+                "session_id": session_id,
+                "note_id": note_id,
+                "usubjid": usubjid,
+                "site_awareness_at": clock.site_awareness_at,
+                "due_at": clock.due_at,
+            },
+            ts_utc=stamp,
+        )
+
+    if aesi_clock is not None:
+        # [packets agent] CheckInResult.aesi_clock (CONTRACTS R3.1/R3.2): same machinery,
+        # kind "aesi", label "possible AESI, investigator to confirm". It never moves the tier.
+        aesi_row = SAEClock(
+            id=new_id(),
+            session_id=session_id,
+            note_id=note_id,
+            usubjid=usubjid,
+            site_awareness_at=str(aesi_clock["site_awareness_at"]),
+            due_at=str(aesi_clock["due_at"]),
+            informational_json=dump_json(aesi_clock.get("informational", {})),
+            created_at=stamp,
+            kind="aesi",
+        )
+        db.add(aesi_row)
+        db.flush()
+        outcome.aesi_clock = aesi_row
+        append_event(
+            db,
+            actor,
+            "clock.started",
+            "sae_clock",
+            aesi_row.id,
+            {
+                "kind": "aesi",
+                "label": "possible AESI, investigator to confirm",
+                "session_id": session_id,
+                "note_id": note_id,
+                "usubjid": usubjid,
+                "site_awareness_at": aesi_row.site_awareness_at,
+                "due_at": aesi_row.due_at,
+                "informational": aesi_clock.get("informational", {}),
+                "stops_when": "the investigator signs the report packet, records that the event "
+                "is not immune-related (INTERIM_IRAE = N), or records a decision on the clock",
             },
             ts_utc=stamp,
         )
@@ -456,6 +541,7 @@ def apply_result(
             "escalation_id": outcome.escalation.id if outcome.escalation else None,
             "page_id": outcome.page.id if outcome.page else None,
             "sae_clock_id": outcome.sae_clock.id if outcome.sae_clock else None,
+            "aesi_clock_id": outcome.aesi_clock.id if outcome.aesi_clock else None,
             "source": source,
         },
         ts_utc=stamp,
@@ -484,3 +570,14 @@ def close_open_ae(
         {"usubjid": row.usubjid, "aedecod": row.aedecod, "reason": reason},
         ts_utc=now,
     )
+
+
+def log_clock_stopped(
+    db: DbSession, actor: Actor, clock: SAEClock, payload: dict[str, Any], stamp: str
+) -> None:
+    """Audit a clock stop: ``sae_clock.stopped`` (the original contract's action, kept for its
+    readers) and the generic ``clock.stopped``, both carrying the clock's ``kind`` (``sae`` or
+    ``aesi``) so a filter on either action lists every stop of every kind."""
+    body = {**payload, "kind": clock.kind}
+    append_event(db, actor, "sae_clock.stopped", "sae_clock", clock.id, body, ts_utc=stamp)
+    append_event(db, actor, "clock.stopped", "sae_clock", clock.id, body, ts_utc=stamp)

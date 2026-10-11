@@ -13,7 +13,8 @@
     "dedup",
     "drafting",
     "chartscan",
-    "protocol"
+    "protocol",
+    "query"
   ],
   "rules": [
     { "id": "score.composite.shortness_of_breath", "category": "scoring", "description_template": "{label}: {attributes} -> composite {composite} (Basch 2021 table)", "emitted_when": "composite >= 1" },
@@ -87,6 +88,13 @@
     { "id": "chartscan.med", "category": "chartscan", "description_template": "Chart note: '{quote}' -> {drug} ({change}): {reason}", "emitted_when": "one per kept medication finding; the API drafts a CM with CMTRT = quote, CMDECOD = drug, CMSTDTC/CMENDTC from change" },
     { "id": "chartscan.med_excluded", "category": "chartscan", "description_template": "Chart note: '{quote}' ({drug}) skipped: {excluded_reason} ({reason})", "emitted_when": "one per excluded medication mention (allergy, negated); no draft" },
     { "id": "chartscan.red_flag", "category": "chartscan", "description_template": "Chart note red flag ({level}, {category}): {reason} -- '{quote}'", "emitted_when": "one per red-flag category matched (first non-excluded match); a note escalates to Tier 2 at most and never pages or shows a stop screen (D-017)" },
-    { "id": "chartscan.hospitalization", "category": "chartscan", "description_template": "Chart note mentions hospitalization or an ER visit ('{quote}') -> seriousness suspected (ICH E2A); the SAE clock starts when the site reads the note", "emitted_when": "a red flag of a seriousness category (hospitalization) fired; the API sets seriousness_suspected and starts the SAE clock with site_awareness_at = ingested_at" }
+    { "id": "chartscan.hospitalization", "category": "chartscan", "description_template": "Chart note mentions hospitalization or an ER visit ('{quote}') -> seriousness suspected (ICH E2A); the SAE clock starts when the site reads the note", "emitted_when": "a red flag of a seriousness category (hospitalization) fired; the API sets seriousness_suspected and starts the SAE clock with site_awareness_at = ingested_at" },
+    { "id": "query.ae_serious_no_signed_report", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} has AESER = {value} but no signed serious-event report; query raised for the coordinator (protocol §9.4.2, p. 91)", "emitted_when": "a confirmed AE record reaching the mock EDC (or an admin re-run) has AESER = Y and no signed packet for its clock (edit_checks.json)" },
+    { "id": "query.ae_irae_assessment_needs_detail", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} is grade {grade} (provisional) on a potentially immune-related term but INTERIM_IRAE = N; the sponsor may request more information (protocol p. 91-92)", "emitted_when": "a confirmed AE with AETOXGR >= 3 on an irae_mapping.json potentially immune-related term carries INTERIM_IRAE = N" },
+    { "id": "query.ae_end_before_start", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} ends {value}, before its start {other_value}", "emitted_when": "a confirmed AE has AEENDTC earlier than AESTDTC" },
+    { "id": "query.cm_required_fields_missing", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} is missing protocol-required fields {missing_fields} (protocol §7.7, p. 69)", "emitted_when": "a confirmed CM record lacks any of protocol_rules.json cm_required_fields (CMENDTC not required for an ongoing medication)" },
+    { "id": "query.cm_protocol_flag_no_note", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} carries protocol flag {flag} with no investigator note (protocol §7.7.1-7.7.2, p. 69)", "emitted_when": "a confirmed CM has INTERIM_PROTOCOL_FLAG prohibited or discouraged and no investigator note" },
+    { "id": "query.vs_value_implausible", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} value {value} {unit} is outside {low}-{high} {unit} (vitals_corroboration.json plausibility)", "emitted_when": "a confirmed VS PULSE/RESP value lies outside the physiological plausibility bounds" },
+    { "id": "query.ae_resolved_without_end_date", "category": "query", "description_template": "Edit check (sponsor side): the {record_label} has outcome {value} but no AEENDTC", "emitted_when": "a confirmed AE has a resolved AEOUT and no AEENDTC" }
   ]
 }

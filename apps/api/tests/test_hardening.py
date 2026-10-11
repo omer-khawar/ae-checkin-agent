@@ -173,7 +173,7 @@ def test_measured_claim_with_configured_bridge_token(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Finding 2 (major): no camera consent means no vitals, ever
+# Finding 2 (major): camera turned off by the participant means no vitals, ever (D-026)
 # --------------------------------------------------------------------------- #
 
 
@@ -186,12 +186,12 @@ def test_vitals_for_a_declined_session_are_refused_and_status_stays_declined(
         json={"samples": [{**DEMO_SAMPLE_CAMEL, "tsUtc": now_iso()}]},
     )
     assert res.status_code == 409, res.text
-    assert res.json()["title"] == "No camera consent"
+    assert res.json()["title"] == "Camera turned off"
     events = client.get(
         f"/api/v1/audit?entity_id={sid}&action=vitals.rejected", headers=coordinator
     )
     assert events.json()["total"] == 1
-    assert events.json()["items"][0]["payload"]["reason"] == "no_camera_consent"
+    assert events.json()["items"][0]["payload"]["reason"] == "camera_turned_off"
     post_answers_and_gates(client, sid)
     done = client.post(f"/api/v1/sessions/{sid}/complete", json={"ts_client": now_iso()}).json()
     detail = client.get(f"/api/v1/checkins/{done['session_id']}", headers=coordinator).json()

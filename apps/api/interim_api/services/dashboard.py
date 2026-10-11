@@ -33,7 +33,8 @@ from ..models import (
 )
 from ..problems import problem
 from ..util import load_json, now_iso
-from .checkins import session_answers, session_samples
+from .calls import enrich_with_calls
+from .checkins import log_clock_stopped, session_answers, session_samples
 from .common import (
     ae_link,
     ae_open_to_dict,
@@ -42,13 +43,14 @@ from .common import (
     escalation_to_dict,
     page_to_dict,
     participant_to_dict,
-    sae_clock_to_dict,
     sample_to_dict,
     session_to_dict,
     tier_name,
 )
 from .notes import notes_for_participant, notes_with_context, timeline_note
+from .packet_links import clock_rows, clocks_by_session, clocks_for_note, queue_clock_fields
 from .participants import resolve_participant
+from .plain import with_plain_language  # [briefs agent]
 
 DOMAINS: tuple[str, ...] = ("AE", "VS", "CM")
 
@@ -127,20 +129,13 @@ def queue(
         if session_ids
         else {}
     )
-    clocks = (
-        {
-            c.session_id: c
-            for c in db.exec(select(SAEClock).where(SAEClock.session_id.in_(session_ids))).all()  # type: ignore[union-attr]
-        }
-        if session_ids
-        else {}
-    )
+    clocks = clocks_by_session(db, session_ids)  # [packets agent] SAE and AESI clocks
 
     rows: list[dict[str, Any]] = []
     for session, participant in pairs:
         session_drafts = drafts.get(session.id, [])
         escalation = escalations.get(session.id)
-        clock = clocks.get(session.id)
+        session_clocks = clocks.get(session.id, [])
         is_open = any(d.status == "draft" for d in session_drafts) or (
             escalation is not None and escalation.acked_at is None
         )
@@ -162,10 +157,7 @@ def queue(
                 "max_grade": session.max_grade if session.max_grade is not None else 0,
                 "vitals_status": session.vitals_status,
                 "is_measured": bool(session.is_measured),
-                "has_sae_clock": clock is not None,
-                "sae_due_at": clock.due_at if clock is not None else None,
-                "sae_stopped": clock.stopped_at is not None if clock is not None else None,
-                "sae_stopped_at": clock.stopped_at if clock is not None else None,
+                **queue_clock_fields(db, session_clocks),
                 "escalation_acked": (escalation.acked_at is not None) if escalation else None,
                 "escalation_id": escalation.id if escalation else None,
                 "draft_counts": counts,
@@ -227,7 +219,7 @@ def _note_queue_rows(
         stmt = stmt.where(Participant.is_eval == False)  # noqa: E712
     notes = [n for n, _ in db.exec(stmt).all()]
     rows: list[dict[str, Any]] = []
-    for note, participant, note_drafts, escalation, clock in notes_with_context(db, notes):
+    for note, participant, note_drafts, escalation, _clock in notes_with_context(db, notes):
         is_open = any(d.status == "draft" for d in note_drafts) or (
             escalation is not None and escalation.acked_at is None
         )
@@ -254,10 +246,7 @@ def _note_queue_rows(
                 "max_grade": max(grades) if grades else 0,
                 "vitals_status": "unavailable",
                 "is_measured": False,
-                "has_sae_clock": clock is not None,
-                "sae_due_at": clock.due_at if clock is not None else None,
-                "sae_stopped": clock.stopped_at is not None if clock is not None else None,
-                "sae_stopped_at": clock.stopped_at if clock is not None else None,
+                **queue_clock_fields(db, clocks_for_note(db, note.id)),
                 "escalation_acked": (escalation.acked_at is not None) if escalation else None,
                 "escalation_id": escalation.id if escalation else None,
                 "draft_counts": counts,
@@ -269,6 +258,7 @@ def _note_queue_rows(
                 "note_type": note.note_type,
             }
         )
+    enrich_with_calls(db, rows, id_key="note_id")  # R4.1: source_label "phone_call" etc.
     return rows
 
 
@@ -352,6 +342,7 @@ def evidence_index(
     return index
 
 
+@with_plain_language  # [briefs agent] labels + rules_fired[].plain (R3.2)
 def checkin_detail(db: DbSession, session: Session) -> dict[str, Any]:
     participant = db.get(Participant, session.usubjid)
     if participant is None:
@@ -364,7 +355,11 @@ def checkin_detail(db: DbSession, session: Session) -> dict[str, Any]:
     draft_rows = current_drafts(db, [session.id]).get(session.id, [])
     drafts = [draft_to_dict(d) for d in draft_rows]
     escalation = db.exec(select(Escalation).where(Escalation.session_id == session.id)).first()
-    clock = db.exec(select(SAEClock).where(SAEClock.session_id == session.id)).first()
+    # [packets agent] a session may carry a suspected-SAE clock and a possible-AESI clock.
+    session_clocks = clocks_by_session(db, [session.id]).get(session.id, [])
+    clock_dicts = clock_rows(db, session_clocks)
+    sae_row = next((c for c in clock_dicts if c["kind"] == "sae"), None)
+    aesi_row = next((c for c in clock_dicts if c["kind"] == "aesi"), None)
     vitals = result.get("vitals") or {}
     ae_links = [
         ae_link(d, db.get(AEOpen, d.linked_ae_open_id))
@@ -386,7 +381,10 @@ def checkin_detail(db: DbSession, session: Session) -> dict[str, Any]:
         "result": result,
         "drafts": drafts,
         "escalation": escalation_to_dict(escalation) if escalation else None,
-        "sae_clock": sae_clock_to_dict(clock) if clock else None,
+        "sae_clock": sae_row,
+        "aesi_clock": aesi_row,
+        "clocks": clock_dicts,
+        "protocol": result.get("protocol"),
         "ae_links": ae_links,
         "rules_fired": result.get("rules_fired", []),
         "why": result.get("why", []),
@@ -472,8 +470,12 @@ def timeline(db: DbSession, participant: Participant) -> dict[str, Any]:
         timeline_note(note, drafts, escalation, clock)
         for note, _, drafts, escalation, clock in notes_with_context(db, note_rows)
     ]
+    enrich_with_calls(db, notes)  # R4.1: source_label, caller, call_direction
+    person = participant_to_dict(participant)
     return {
-        "participant": participant_to_dict(participant),
+        "participant": person,
+        # [seed agent] Synthea baseline (docs/ISSUES #23), labelled simulated; null if none.
+        "baseline": person["baseline"],
         "sessions": [session_to_dict(s) for s in sessions],
         "symptom_series": symptom_series,
         "vitals_series": vitals_series,
@@ -584,7 +586,8 @@ def list_sae_clocks(
     rows = sorted(db.exec(stmt).all(), key=lambda c: c.due_at)
     reference = now or now_iso()
     return {
-        "items": [sae_clock_to_dict(c, now=reference) for c in rows[offset : offset + limit]],
+        # [packets agent] rows carry kind, packet_id, ae_draft_ids, has_ae_draft (R3.2 / R4.3)
+        "items": clock_rows(db, rows[offset : offset + limit], now=reference),
         "total": len(rows),
         "limit": limit,
         "offset": offset,
@@ -628,12 +631,10 @@ def stop_sae_clock(
     row.decision = decision
     db.add(row)
     db.flush()
-    append_event(
+    log_clock_stopped(
         db,
         actor,
-        "sae_clock.stopped",
-        "sae_clock",
-        row.id,
+        row,
         {
             "session_id": row.session_id,
             "note_id": row.note_id,
@@ -645,7 +646,7 @@ def stop_sae_clock(
             "within_24h": stamp <= row.due_at,
             "path": "sae_clock.stop",
         },
-        ts_utc=stamp,
+        stamp,
     )
     return row
 

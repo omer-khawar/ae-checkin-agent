@@ -83,6 +83,21 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
         "ae_open.closed",  # an open AE closed by a reject / AEONGO=N / AEENDTC edit
         "demo.seed",  # genesis event of a seeded database
         "demo.seeded",  # seed summary
+        # [briefs agent] R3.2 visit-prep brief + the visit dates it is cut off at
+        "brief.generated",
+        "visit.recorded",
+        # [queries agent] R4.4 sponsor queries
+        "query.raised",
+        "query.answered",
+        "query.closed",
+        # [packets agent] R3.2 / R4.2 serious-event packets; AESI clocks (kind "aesi")
+        "packet.created",
+        "packet.edited",
+        "packet.signed",
+        "packet.followup_signed",
+        "clock.started",
+        # [fixer 2B] every clock stop, any kind (sae_clock.stopped kept for back-compat)
+        "clock.stopped",
     }
 )
 """Every action the API may emit. ``append_event`` refuses anything else, so the audit

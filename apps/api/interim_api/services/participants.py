@@ -13,6 +13,8 @@ from sqlalchemy import func
 from sqlmodel import Session as DbSession
 from sqlmodel import select
 
+from interim_rules.serialize import protocol_context_from
+
 from ..models import Participant, Study
 from ..problems import problem
 from ..util import dump_json, now_iso
@@ -55,16 +57,30 @@ def create_participant(
     usubjid: str | None = None,
     enrolled_at: str | None = None,
     baseline_vitals: dict[str, object] | None = None,
+    baseline: dict[str, object] | None = None,
+    protocol_context: dict[str, object] | None = None,
     is_eval: bool = False,
     now: str | None = None,
 ) -> Participant:
+    """``baseline`` is the Synthea profile (seed only); ``protocol_context`` is the rules
+    engine's ``ProtocolContext`` (``prior_pi3k_inhibitor``, ``last_dose_date``), validated
+    here so a malformed context fails at creation, not at the first check-in."""
     created = now or now_iso()
+    if protocol_context is not None:
+        try:
+            protocol_context_from(protocol_context)
+        except ValueError as exc:
+            raise problem(422, str(exc), title="Invalid protocol context") from exc
     participant = Participant(
         usubjid=usubjid or f"{study.study_id}-{display_label}",
         study_id=study.study_id,
         enrolled_at=enrolled_at or created,
         display_label=display_label,
         baseline_vitals_json=dump_json(baseline_vitals) if baseline_vitals is not None else None,
+        baseline_json=dump_json(baseline) if baseline is not None else None,
+        protocol_context_json=(
+            dump_json(protocol_context) if protocol_context is not None else None
+        ),
         is_eval=is_eval,
         created_at=created,
     )

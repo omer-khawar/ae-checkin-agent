@@ -13,6 +13,7 @@ from ..deps import get_database
 from ..schemas import AttributionRequest, ConfirmRequest, PatchDraftRequest, RejectRequest
 from ..services.common import draft_to_dict, get_draft_or_404
 from ..services.drafts import (
+    UNSET_IRAE,
     confirm_draft,
     edit_draft,
     record_attribution,
@@ -89,5 +90,13 @@ def patch_attribution(
     with database.write_scope() as db:
         draft = get_draft_or_404(db, draft_id)
         return draft_to_dict(
-            record_attribution(db, actor, draft, aerel=body.AEREL, aeser=body.AESER, note=body.note)
+            record_attribution(
+                db,
+                actor,
+                draft,
+                aerel=body.AEREL,
+                aeser=body.AESER,
+                note=body.note,
+                irae=(body.INTERIM_IRAE if "INTERIM_IRAE" in body.model_fields_set else UNSET_IRAE),
+            )
         )

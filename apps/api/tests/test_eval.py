@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
-from conftest import DEMO_GATES, DEMO_RESPONSES, login
+from conftest import (
+    DEMO_GATES,
+    DEMO_RESPONSES,
+    QUIET_GATES,
+    ZERO_RESPONSES,
+    login,
+    post_answers_and_gates,
+)
+
+from interim_api.util import now_iso
 
 
 def test_persona_list_and_full_run_pass_100_percent(client) -> None:
     coord = login(client, "coordinator")
     personas = client.get("/api/v1/eval/personas", headers=coord).json()
-    assert len(personas) == 29 and sum(1 for p in personas if p["hidden"]) == 5
+    n = len(personas)
+    assert n == 36 and sum(1 for p in personas if p["hidden"]) == 5
     assert {p["category"] for p in personas} == {
         "tier0",
         "tier1",
@@ -16,6 +26,7 @@ def test_persona_list_and_full_run_pass_100_percent(client) -> None:
         "tier3",
         "edge",
         "judge",
+        "protocol",
     }
 
     assert client.get("/api/v1/eval/results", headers=coord).status_code == 404
@@ -25,17 +36,17 @@ def test_persona_list_and_full_run_pass_100_percent(client) -> None:
     results = res.json()
     failed = [p for p in results["per_persona"] if not p["pass"]]
     assert not failed, "\n".join(f"{p['persona_id']}: {p['mismatches']}" for p in failed)
-    assert results["n_personas"] == 29 and results["n_pass"] == 29 and results["n_fail"] == 0
+    assert results["n_personas"] == n and results["n_pass"] == n and results["n_fail"] == 0
     for tier, m in results["tier_metrics"].items():
         assert m["precision"] == 1.0 and m["recall"] == 1.0 and m["f1"] == 1.0, tier
     expected_tier3 = sum(1 for p in personas if p["expected_tier"] == 3)
     assert results["tier_metrics"]["3"]["support"] == expected_tier3 >= 4
     matrix = results["grade_confusion"]
     assert all(matrix[i][j] == 0 for i in range(4) for j in range(4) if i != j)
-    assert sum(matrix[i][i] for i in range(4)) == 29 * 10
-    assert results["dedup_correct"] == {"n": 29, "correct": 29}
-    assert results["sae_clock_correct"] == {"n": 29, "correct": 29}
-    assert results["conmed_correct"] == {"n": 29, "correct": 29}
+    assert sum(matrix[i][i] for i in range(4)) == n * 10
+    assert results["dedup_correct"] == {"n": n, "correct": n}
+    assert results["sae_clock_correct"] == {"n": n, "correct": n}
+    assert results["conmed_correct"] == {"n": n, "correct": n}
     assert results["counterfactuals"] and all(c["pass"] for c in results["counterfactuals"])
     tier3_row = f"| 3 | Urgent | 1.00 | 1.00 | 1.00 | {expected_tier3} | {expected_tier3} |"
     assert tier3_row in results["markdown"]
@@ -69,7 +80,7 @@ def test_persona_list_and_full_run_pass_100_percent(client) -> None:
     assert latest["run_id"] == results["run_id"]
     # Eval sessions are hidden from the queue unless asked for.
     assert client.get("/api/v1/queue", headers=coord).json()["total"] == 0
-    assert client.get("/api/v1/queue?include_eval=true", headers=coord).json()["total"] >= 29
+    assert client.get("/api/v1/queue?include_eval=true", headers=coord).json()["total"] >= n
     # ... and from the Escalations page, the SAE clocks and the pager log: a run must not
     # leave a wall of never-acknowledged EVAL rows and unstoppable clocks behind.
     for path in ("/escalations?acked=false", "/escalations", "/sae-clocks?active=true", "/pages"):
@@ -102,7 +113,7 @@ def test_run_subset_without_hidden(client) -> None:
     dedup = next(p for p in body["per_persona"] if p["persona_id"] == "E-dedup-cough-followup")
     assert dedup["actual"]["dedup_followups"] == 1
     default = client.post("/api/v1/eval/run", json={}, headers=coord).json()
-    assert default["n_personas"] == 24 and default["n_fail"] == 0
+    assert default["n_personas"] == 31 and default["n_fail"] == 0
     assert (
         client.post("/api/v1/eval/run", json={"persona_ids": ["nope"]}, headers=coord).status_code
         == 404
@@ -149,3 +160,36 @@ def test_run_custom_changes_output_when_input_changes(client) -> None:
     assert detail["session"]["is_eval"] is True
     bad = client.post("/api/v1/eval/run-custom", json={"persona": {"responses": []}}, headers=inv)
     assert bad.status_code == 422
+
+
+def test_protocol_context_reaches_the_engine_via_post_sessions(client) -> None:
+    """CONTRACTS R3.1: a prior PI3K inhibitor makes any irAE-category grade >= 1 a possible
+    AESI. The context is admin-only on POST /sessions and is stored on the participant."""
+    admin = login(client, "admin")
+    rash_itch = {**ZERO_RESPONSES, "rash": {"presence": 1}, "itching": {"severity": 2}}
+    body = {"usubjid": "P-951", "create_participant": True, "protocol_context": {}}
+    assert client.post("/api/v1/sessions", json=body).status_code == 403  # admin only
+    bad = {**body, "protocol_context": {"prior_pi3k_inhibitor": "yes"}}
+    assert client.post("/api/v1/sessions", json=bad, headers=admin).status_code == 422
+
+    def run(label: str, context: dict | None) -> dict:
+        payload = {"usubjid": label, "create_participant": True}
+        if context is not None:
+            payload["protocol_context"] = context
+        res = client.post("/api/v1/sessions", json=payload, headers=admin)
+        assert res.status_code == 201, res.text
+        sid = res.json()["id"]
+        post_answers_and_gates(client, sid, responses=rash_itch, gates=QUIET_GATES)
+        done = client.post(f"/api/v1/sessions/{sid}/complete", json={"ts_client": now_iso()})
+        assert done.status_code == 200, done.text
+        return client.get(f"/api/v1/checkins/{sid}", headers=admin).json()
+
+    with_pi3k = run("P-951", {"prior_pi3k_inhibitor": True, "last_dose_date": None})
+    without = run("P-952", None)
+    assert with_pi3k["protocol"]["aesi_suspected"] is True
+    assert with_pi3k["protocol"]["context"]["prior_pi3k_inhibitor"] is True
+    assert without["protocol"]["aesi_suspected"] is False
+    people = client.get("/api/v1/participants?limit=50", headers=admin).json()["items"]
+    stored = {p["display_label"]: p["protocol_context"] for p in people}
+    assert stored["P-951"] == {"prior_pi3k_inhibitor": True, "last_dose_date": None}
+    assert stored["P-952"] is None

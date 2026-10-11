@@ -126,16 +126,43 @@ def post_ack(
         return escalation_to_dict(row)
 
 
+_ACTIVE_VALUES: dict[str, bool | None] = {
+    "true": True,
+    "1": True,
+    "yes": True,
+    "false": False,
+    "0": False,
+    "no": False,
+    "all": None,
+    "any": None,
+}
+
+
 @router.get("/sae-clocks")
 def get_sae_clocks(
-    active: bool | None = Query(default=True),
+    active: str = Query(
+        default="true",
+        description="true = running clocks (default), false = stopped clocks only, "
+        "all = every clock, running and stopped",
+    ),
     include_eval: bool = Query(default=False),
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
+    key = active.strip().lower()
+    if key not in _ACTIVE_VALUES:
+        raise problem(
+            422,
+            f"active must be true, false or all, got {active!r}",
+            title="Invalid active filter",
+        )
     with database.read_scope() as db:
         return list_sae_clocks(
-            db, active=active, limit=page.limit, offset=page.offset, include_eval=include_eval
+            db,
+            active=_ACTIVE_VALUES[key],
+            limit=page.limit,
+            offset=page.offset,
+            include_eval=include_eval,
         )
 
 
