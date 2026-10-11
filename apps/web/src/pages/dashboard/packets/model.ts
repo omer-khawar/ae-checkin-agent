@@ -516,7 +516,7 @@ export function saveBlob(blob: Blob, filename: string): boolean {
     a.remove();
     return true;
   } finally {
-    setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setTimeout(() => URL.revokeObjectURL?.(href), 1000);
   }
 }
 

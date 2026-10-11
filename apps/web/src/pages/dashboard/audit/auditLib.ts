@@ -332,7 +332,7 @@ export function saveBlob(blob: Blob, filename: string): boolean {
     return true;
   } finally {
     // Give the click a tick before revoking so the download starts.
-    setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setTimeout(() => URL.revokeObjectURL?.(href), 1000);
   }
 }
 

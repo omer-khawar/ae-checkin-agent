@@ -210,9 +210,20 @@ describe("worklist: bulk confirm", () => {
     expect(screen.queryByRole("checkbox", { name: /P-009/ })).toBeNull();
     expect(screen.getByRole("img", { name: /P-009.*one at a time/ })).toBeInTheDocument();
 
+    // Wait for each tick to render before the next one: on a slow runner the second click
+    // can otherwise land on a row the first re-render has just replaced.
     await user.click(screen.getByRole("checkbox", { name: /Select P-007/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("toolbar", { name: /selected rows/ })).toHaveTextContent(
+        "1 selected",
+      ),
+    );
     await user.click(screen.getByRole("checkbox", { name: /Select P-003/ }));
-    expect(screen.getByRole("toolbar", { name: /selected rows/ })).toHaveTextContent("2 selected");
+    await waitFor(() =>
+      expect(screen.getByRole("toolbar", { name: /selected rows/ })).toHaveTextContent(
+        "2 selected",
+      ),
+    );
 
     await user.click(screen.getByRole("button", { name: "Confirm all drafts (4)" }));
     const sheet = await screen.findByRole("dialog");
