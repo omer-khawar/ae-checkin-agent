@@ -10,7 +10,7 @@
  */
 import type { ColumnDef } from "@tanstack/react-table";
 import { Check, FileText, Monitor, Phone } from "lucide-react";
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { cn } from "@/lib/cn";
@@ -180,7 +180,16 @@ function ClockBadge({ clock, now }: { clock: QueueClock; now: number }) {
   );
 }
 
-function DeadlineCell({ row, now }: { row: QueueRow; now: number }) {
+/**
+ * The ticking clock reaches the deadline cells through context, not through the column
+ * definitions: if the columns depended on `now`, every cell would get a new component type
+ * each second and React would remount the whole table body (clicks landing on a row that
+ * was just replaced were lost; ISSUES #28).
+ */
+const NowContext = createContext(0);
+
+function DeadlineCell({ row }: { row: QueueRow }) {
+  const now = useContext(NowContext);
   if (row.clocks.length === 0) {
     return (
       <span className="text-subtle-foreground" title="No 24-hour report is due for this item">
@@ -398,7 +407,7 @@ export function QueueTable({
         header: "Deadline",
         accessorFn: (r) => nextDue(r),
         meta: { tabular: true, width: "9rem" } satisfies DataTableColumnMeta,
-        cell: ({ row }) => <DeadlineCell row={row.original} now={now} />,
+        cell: ({ row }) => <DeadlineCell row={row.original} />,
       },
       {
         id: "vitals",
@@ -421,31 +430,33 @@ export function QueueTable({
         cell: ({ row }) => <StatusCell row={row.original} />,
       },
     ],
-    [now],
+    [],
   );
 
   return (
-    <div className={cn(refreshing && "opacity-80 transition-opacity")}>
-      <DataTable<QueueRow>
-        data={rows}
-        columns={columns}
-        getRowId={(r) => r.key}
-        getRowLabel={(r) => `${r.display_label} ${SOURCE_LABEL[r.source].word.toLowerCase()}`}
-        caption="Check-ins, chart notes and phone calls awaiting review, most urgent first, then most recent. Sorting a column reorders this page only."
-        selectable
-        rowSelection={selection}
-        onRowSelectionChange={onSelectionChange}
-        canSelectRow={canBulkSelect}
-        selectDisabledReason={(r) => bulkLockReason(r)}
-        bulkActions={bulkActions}
-        onRowActivate={(r) => {
-          if (r.href) navigate(r.href);
-        }}
-        getRowHref={(r) => r.href}
-        getRowClassName={(r) => (r.tier === 3 ? "bg-danger-bg" : undefined)}
-        emptyState={emptyState}
-        stickyTop="var(--appbar-h, 0px)"
-      />
-    </div>
+    <NowContext.Provider value={now}>
+      <div className={cn(refreshing && "opacity-80 transition-opacity")}>
+        <DataTable<QueueRow>
+          data={rows}
+          columns={columns}
+          getRowId={(r) => r.key}
+          getRowLabel={(r) => `${r.display_label} ${SOURCE_LABEL[r.source].word.toLowerCase()}`}
+          caption="Check-ins, chart notes and phone calls awaiting review, most urgent first, then most recent. Sorting a column reorders this page only."
+          selectable
+          rowSelection={selection}
+          onRowSelectionChange={onSelectionChange}
+          canSelectRow={canBulkSelect}
+          selectDisabledReason={(r) => bulkLockReason(r)}
+          bulkActions={bulkActions}
+          onRowActivate={(r) => {
+            if (r.href) navigate(r.href);
+          }}
+          getRowHref={(r) => r.href}
+          getRowClassName={(r) => (r.tier === 3 ? "bg-danger-bg" : undefined)}
+          emptyState={emptyState}
+          stickyTop="var(--appbar-h, 0px)"
+        />
+      </div>
+    </NowContext.Provider>
   );
 }
