@@ -495,7 +495,8 @@ export function DataTable<TData>({
             ? "overflow-auto overscroll-contain"
             : scrollX
               ? "overflow-x-auto"
-              : "",
+              : // Below 1366 px a wide table scrolls inside its card instead of widening the page.
+                "max-[1365px]:overflow-x-auto",
         )}
         style={maxHeight !== undefined ? { maxHeight } : undefined}
       >

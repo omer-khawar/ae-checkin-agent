@@ -391,7 +391,7 @@ export function Layout() {
               trigger={
                 <>
                   <Cog aria-hidden="true" className="size-4" />
-                  System
+                  <span className="sr-only min-[1440px]:not-sr-only">System</span>
                 </>
               }
             >
@@ -426,7 +426,9 @@ export function Layout() {
               trigger={
                 <>
                   <User aria-hidden="true" className="size-4" />
-                  <span className="max-w-[9rem] truncate">{auth?.display_name ?? "—"}</span>
+                  <span className="sr-only min-[1440px]:not-sr-only min-[1440px]:max-w-[9rem] min-[1440px]:truncate">
+                    {auth?.display_name ?? "—"}
+                  </span>
                 </>
               }
             >
