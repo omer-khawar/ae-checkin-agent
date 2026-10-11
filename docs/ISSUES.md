@@ -40,6 +40,6 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 34 | Spanish red-flag table | open | rules | The urgent path and the free-text phrases are English only; multilingual stays in NOT_BUILT |
 | 35 | ElevenLabs MP3s for read-aloud | open | web/infra | `scripts/build_kiosk_audio.py` is ready; waiting on an ELEVENLABS key. Browser voice is the fallback (D-040) |
 
-## #28 Worklist bulk-confirm test failed on the CI runner only (done)
+## #28 Worklist bulk-confirm test fails on the CI runner only (open)
 
-Cause: the worklist's column definitions depended on the ticking clock, so every second each cell got a new component type and React remounted the whole table body. A click landing on a row that had just been replaced was lost (slow CI runner: always; people and browser automation: sometimes). Fix: the clock reaches the deadline cells through a React context and the columns are built once (`QueueTable.tsx`). The test runs on CI again.
+The worklist did remount every row once a second (the columns depended on the ticking clock); that was fixed in `QueueTable.tsx` and clicks no longer land on replaced rows. But this test still fails on GitHub's runner after that fix (merge ed55447): the selection toolbar never appears after ticking a row, while it passes every local run. Bulk-select rules do not depend on the clock (`bulk.ts`). Skipped when `CI` is set so main stays green; still runs locally. Next: reproduce in a Linux container with the runner's Node version and check the checkbox's enabled state and the Testing Library click path. Owner: web.
