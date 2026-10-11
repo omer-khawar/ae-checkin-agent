@@ -257,8 +257,8 @@ describe("Queue page", () => {
     expect(r1.getByText("Review within 1 business day")).toBeInTheDocument();
     // The most severe provisional grade moved into the tier badge's hover text.
     expect(r1.getByTitle(/provisional grade 2, investigator to confirm/)).toBeInTheDocument();
-    expect(r1.getByText("Simulated (ignored for rules)")).toBeInTheDocument();
-    expect(r1.getByText("SIMULATED")).toBeInTheDocument();
+    expect(r1.queryByText("Simulated (ignored for rules)")).toBeNull();
+    expect(r1.queryByText("SIMULATED")).toBeNull(); // no vitals column (R5.5)
     // Plain words first, SDTM domain codes one step deeper.
     expect(r1.getByText("2 side effects · 2 vital signs · 1 medication")).toBeInTheDocument();
     expect(r1.getByTitle(/AE 2 · VS 2 · CM 1/)).toBeInTheDocument();
@@ -274,12 +274,10 @@ describe("Queue page", () => {
     // Local time with UTC on hover.
     expect(r1.getByTitle("2026-10-10T18:04:12.345Z (UTC)").tagName).toBe("TIME");
 
-    // Row 2: chart note → note route, no vitals badge, unacked escalation.
+    // Row 2: chart note → note route, unacked escalation.
     const r2 = within(rows[1]);
     expect(r2.getByText("Chart note")).toBeInTheDocument();
     expect(r2.getByText("Nurse call today")).toBeInTheDocument();
-    expect(r2.queryByText("SIMULATED")).toBeNull();
-    expect(r2.queryByText("MEASURED")).toBeNull();
     expect(r2.getByText("Not acknowledged")).toBeInTheDocument();
     expect(r2.getByRole("link", { name: "Open chart note for P-003" })).toHaveAttribute(
       "href",
@@ -301,14 +299,14 @@ describe("Queue page", () => {
     expect(screen.getByText(/^updated \d/)).toBeInTheDocument();
   });
 
-  it("shows a live SAE countdown and MEASURED badge for a Tier 3 row", async () => {
+  it("shows a live SAE countdown for a Tier 3 row", async () => {
     installMockFetch(routes({ pages: [page([tier3()])] }));
     renderQueue();
     const table = await screen.findByRole("grid");
     const row = within(table).getAllByRole("row")[1];
     expect(row).toHaveAttribute("data-row-id");
     expect(within(row).getByText("Urgent")).toBeInTheDocument();
-    expect(within(row).getByText("MEASURED")).toBeInTheDocument();
+    expect(within(row).queryByText("MEASURED")).toBeNull(); // no vitals column (R5.5)
     const chip = within(row)
       .getByText(/^Serious event: report due in 2[23] hours \d+ minutes?$/)
       .closest("[data-sae]");
@@ -328,8 +326,7 @@ describe("Queue page", () => {
     await user.selectOptions(screen.getByLabelText("Status"), "all");
     await waitFor(() => expect(lastQueueQuery(mock).get("status")).toBe("all"));
 
-    await user.click(screen.getByLabelText(/Include eval runs/));
-    await waitFor(() => expect(lastQueueQuery(mock).get("include_eval")).toBe("true"));
+    expect(screen.queryByLabelText(/Include eval runs/)).toBeNull();
 
     // Typed display label resolves to the USUBJID through GET /participants.
     await user.type(screen.getByLabelText("Participant"), "p-007");

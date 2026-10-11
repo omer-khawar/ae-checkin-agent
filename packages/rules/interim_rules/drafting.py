@@ -525,6 +525,7 @@ def build_cm_draft(
     match: ConMedMatch,
     conmed_answer_id: str,
     protocol: ProtocolAssessment | None = None,
+    seq: int = 1,
 ) -> tuple[DraftRecord, RuleFired]:
     """The CM draft for the reported medication change.
 
@@ -556,7 +557,7 @@ def build_cm_draft(
         _field("STUDYID", inp.studyid, (context,)),
         _field("INTERIM_NCT_ID", inp.nct_id, (context,) if inp.nct_id is not None else ()),
         _field("USUBJID", inp.usubjid, (context,)),
-        _field("CMSEQ", 1, (context,)),
+        _field("CMSEQ", seq, (context,)),
         _field("CMTRT", match.verbatim, (gate_ev,)),
         _field("CMDECOD", cmdecod, cmdecod_ev),
         _field("CMSTDTC", cmstdtc, (gate_ev,) if cmstdtc is not None else ()),

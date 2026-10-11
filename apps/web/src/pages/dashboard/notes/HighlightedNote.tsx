@@ -32,7 +32,22 @@ const KIND_CLASS: Record<SpanKind, string> = {
   symptom: "bg-warning-bg text-warning-fg",
   med: "bg-sky-100 text-sky-900",
   excluded: "bg-surface-subtle text-muted-foreground line-through decoration-slate-400",
+  gemini:
+    "bg-violet-100 text-violet-900 underline decoration-violet-500 decoration-dotted decoration-2 underline-offset-2",
 };
+
+/** Small mark after a segment that both the scanner and Gemini found. */
+function GeminiMark() {
+  return (
+    <sup
+      className="ml-0.5 rounded bg-violet-100 px-1 text-[10px] font-semibold text-violet-900"
+      data-testid="gemini-mark"
+      title="Also found by Gemini · quote checked"
+    >
+      G
+    </sup>
+  );
+}
 
 const LEGEND: Array<{ kind: SpanKind; label: string; hint: string }> = [
   { kind: "symptom", label: "Symptom", hint: "CTCAE term matched; drafted as an AE" },
@@ -41,6 +56,11 @@ const LEGEND: Array<{ kind: SpanKind; label: string; hint: string }> = [
     kind: "red_flag",
     label: "Red flag",
     hint: "Urgent / emergency pattern; raises the escalation",
+  },
+  {
+    kind: "gemini",
+    label: "Found by Gemini · quote checked",
+    hint: "Second reader; its exact words were found in the note",
   },
   {
     kind: "excluded",
@@ -102,6 +122,7 @@ export function HighlightedNote({
             );
           }
           const top = seg.spans[0];
+          const both = seg.spans.some((x) => x.foundBy === "both") && seg.end === top.end;
           const title = seg.spans
             .map((s) => (s.title ? `${s.label}: ${s.title}` : s.label))
             .join("\n");
@@ -130,13 +151,17 @@ export function HighlightedNote({
                 {...common}
               >
                 <mark className={cx("bg-transparent", KIND_CLASS[top.kind])}>{seg.text}</mark>
+                {both && <GeminiMark />}
               </button>
             );
           }
           return (
-            <mark key={seg.start} className={cls} {...common}>
-              {seg.text}
-            </mark>
+            <span key={seg.start}>
+              <mark className={cls} {...common}>
+                {seg.text}
+              </mark>
+              {both && <GeminiMark />}
+            </span>
           );
         })}
       </p>

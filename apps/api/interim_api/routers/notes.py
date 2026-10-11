@@ -9,6 +9,7 @@ D-004). ``POST /scan`` stores nothing and writes no audit event: it is the
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -17,17 +18,42 @@ from ..audit import Actor
 from ..auth import require_admin_for, require_role
 from ..db import Database
 from ..deps import Pagination, get_database, get_settings
+from ..readers import gemini_reader
 from ..schemas import NoteIngestRequest, ScanRequest
 from ..services.common import get_study
-from ..services.notes import get_note_or_404, ingest_note, list_notes, note_detail, scan_only
+from ..services.notes import (
+    get_note_or_404,
+    ingest_note,
+    list_notes,
+    note_detail,
+    reader_kind,
+    scan_only,
+)
 from ..settings import Settings
 
 router = APIRouter(tags=["notes"])
 
 
+def second_reader(
+    text: str, note_type: str | None, ref_date: str | None
+) -> gemini_reader.ReaderResult:
+    """The second reader's answer for ``text`` (R5.3), recorded or live.
+
+    Called by the routes *before* ``database.write_scope()``: a model call can take seconds
+    and must never sit inside the single-writer lock. Never raises; an off or failed reader
+    is a result with a reason and the route carries on with the scanner alone.
+    """
+    try:
+        note_date = date.fromisoformat(ref_date.strip()) if ref_date else None
+    except ValueError:
+        note_date = None  # the service answers 422 for a bad date
+    return gemini_reader.read(text, kind=reader_kind(note_type), note_date=note_date)  # type: ignore[arg-type]
+
+
 @router.post("/scan")
 def post_scan(body: ScanRequest, _actor: Actor = Depends(require_role())) -> dict[str, Any]:
-    return scan_only(body.text, body.ref_date)
+    reader = second_reader(body.text, getattr(body, "note_type", None), body.ref_date)
+    return scan_only(body.text, body.ref_date, reader)
 
 
 @router.post("/notes", status_code=201)
@@ -40,6 +66,7 @@ def post_note(
     override_actor: Actor | None = None
     if body.ingested_at_override is not None:
         override_actor = require_admin_for(actor, "ingested_at_override")
+    reader = second_reader(body.text, body.note_type, body.note_date)  # outside the write lock
     with database.write_scope() as db:
         return ingest_note(
             db,
@@ -54,6 +81,7 @@ def post_note(
             override_actor=override_actor,
             caller=body.caller,
             call_direction=body.call_direction,
+            reader=reader,
         )
 
 

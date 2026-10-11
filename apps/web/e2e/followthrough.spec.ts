@@ -33,7 +33,12 @@ async function shot(page: Page, name: string) {
 function watchConsole(page: Page): string[] {
   const errors: string[] = [];
   page.on("console", (m) => {
-    if (m.type() === "error") errors.push(`${page.url()} :: ${m.text()}`);
+    // The vitals bridge is optional and lives outside this stack: the browser logs a
+    // network-level error when it is absent or rejects the connection (for example a
+    // live demo bridge on 8787 that requires a token). The app handles that state, so
+    // it is environmental noise here, not an app console error.
+    if (m.type() === "error" && !/WebSocket connection to '?ws:\/\/[^\s']*:8787\//.test(m.text()))
+      errors.push(`${page.url()} :: ${m.text()}`);
   });
   page.on("pageerror", (e) => errors.push(`${page.url()} :: pageerror ${e.message}`));
   return errors;

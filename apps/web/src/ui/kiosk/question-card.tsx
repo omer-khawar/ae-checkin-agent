@@ -36,6 +36,10 @@ export interface QuestionCardProps extends Omit<HTMLAttributes<HTMLElement>, "ti
   titleId?: string;
   /** When this value changes (and on mount), focus moves to the heading. */
   focusKey?: string | number;
+  /** Tighter padding and gaps, for two-part questions that must fit above the action bar. */
+  compact?: boolean;
+  /** Use the full width of the shell (two-part questions lay their halves side by side). */
+  wide?: boolean;
   /** Content under the heading: the AnswerGroup, inputs, etc. */
   children?: ReactNode;
 }
@@ -48,6 +52,8 @@ export function QuestionCard({
   titleSize = "question",
   titleId,
   focusKey,
+  compact = false,
+  wide = false,
   children,
   className,
   ...props
@@ -68,7 +74,9 @@ export function QuestionCard({
       aria-labelledby={headingId}
       data-slot="question-card"
       className={cn(
-        "glass mx-auto flex w-full max-w-k-content flex-col gap-6 rounded-sheet p-6 sm:p-10",
+        "glass mx-auto flex w-full flex-col rounded-sheet",
+        wide ? "max-w-none" : "max-w-k-content",
+        compact ? "gap-3 p-4 sm:px-8 sm:py-5" : "gap-6 p-6 sm:p-10",
         className,
       )}
       {...props}

@@ -1,6 +1,6 @@
 {
   "source": "CLAUDE.md §3.4(c) and §3.4(e); CONTRACTS.md §1.4. Seriousness criterion for hospitalization from ICH E2A (1994) §II.B.",
-  "rationale": "Red flags are conditions that bypass composite grading and set a floor on the escalation tier so that an urgent situation is never under-triaged by the grade crosswalk alone. They are evaluated after grading and before vitals. A 'severe item' is defined once here so every rule means the same thing: for items that ask severity, severity >= 3 (Severe or Very severe); for items that do not ask severity, a composite of 3. Conditions are declarative so the rule and its threshold are visible as data; the engine evaluates them without any clinical number in code.",
+  "rationale": "Red flags are conditions that bypass composite grading and set a floor on the escalation tier so that an urgent situation is never under-triaged by the grade crosswalk alone. They are evaluated after grading and before vitals. A 'severe item' is defined once here so every rule means the same thing: for items that ask severity, severity >= 3 (Severe or Very severe); for items that do not ask severity, a composite of 3. Conditions are declarative so the rule and its threshold are visible as data; the engine evaluates them without any clinical number in code. R5.1 (2026-10-11 playtest): urgent symptoms must not wait for twelve more questions, so the kiosk's first question ('Right now, are you having trouble breathing, or chest pain or tightness?') and a Severe/Very severe shortness-of-breath answer end the check-in at once; redflag.urgent_now is the former's floor and redflag.ended_early is the floor for any early stop, whatever triggered it. R5.2: the 'anything else' box is read by the chart-note scanner in utterance mode; the floors for that live in the free_text section below (a phrase the scanner flags -> 3, a request to talk to a person -> 2), and free text never lowers a tier.",
   "severe_item_definition": {
     "severity_attribute_min": 3,
     "no_severity_attribute_composite_min": 3,
@@ -26,8 +26,16 @@
       "description": "Fever or chills present together with at least one severe item",
       "condition": {
         "all": [
-          { "kind": "item_attribute", "item": "fever_or_chills", "attribute": "presence", "op": ">=", "value": 1 },
-          { "kind": "any_severe_item" }
+          {
+            "kind": "item_attribute",
+            "item": "fever_or_chills",
+            "attribute": "presence",
+            "op": ">=",
+            "value": 1
+          },
+          {
+            "kind": "any_severe_item"
+          }
         ]
       },
       "tier_floor": 2,
@@ -37,7 +45,11 @@
     {
       "id": "redflag.hospitalization",
       "description": "Participant reports a hospital admission or emergency-room visit since the last visit",
-      "condition": { "kind": "gate_bool", "field": "hospitalization", "equals": true },
+      "condition": {
+        "kind": "gate_bool",
+        "field": "hospitalization",
+        "equals": true
+      },
       "tier_floor": 3,
       "seriousness": true,
       "effect": "tier floor = 3 (Urgent); seriousness suspected; SAE clock starts"
@@ -47,13 +59,55 @@
       "description": "Free-text comment present together with at least one severe item",
       "condition": {
         "all": [
-          { "kind": "gate_text_nonempty", "field": "other_text" },
-          { "kind": "any_severe_item" }
+          {
+            "kind": "gate_text_nonempty",
+            "field": "other_text"
+          },
+          {
+            "kind": "any_severe_item"
+          }
         ]
       },
       "tier_floor": 2,
       "seriousness": false,
       "effect": "tier floor = 2 (Nurse call today); flag for human read; text is never parsed"
+    },
+    {
+      "id": "redflag.urgent_now",
+      "description": "Participant says they are having trouble breathing, or chest pain or tightness, right now",
+      "condition": {
+        "kind": "gate_bool",
+        "field": "urgent_now",
+        "equals": true
+      },
+      "tier_floor": 3,
+      "seriousness": false,
+      "effect": "tier floor = 3 (Urgent); the kiosk stops at once"
+    },
+    {
+      "id": "redflag.ended_early",
+      "description": "The check-in was ended early by the urgent path",
+      "condition": {
+        "kind": "ended_early"
+      },
+      "tier_floor": 3,
+      "seriousness": false,
+      "effect": "tier floor = 3 (Urgent); remaining questions were not asked"
     }
-  ]
+  ],
+  "free_text": {
+    "source": "CONTRACTS.md R5.2; the 2026-10-11 playtest (a caregiver typed 'He says his chest feels tight and he can't catch his breath RIGHT NOW' into the comment box and nothing happened).",
+    "rationale": "The comment box is read by the deterministic scanner (chartscan_red_flags.json, utterance mode). Any phrase it flags, at urgent or emergency level, puts the tier floor at 3 so the study team calls the same day; asking for a person puts it at 2. A hospital or ER mention while the hospital question was answered No is a conflict the coordinator must see: it suspects seriousness and starts the 24-hour clock as the question would. Nothing here lowers a tier, and the participant never sees the rule output.",
+    "red_flag": {
+      "id": "redflag.free_text",
+      "tier_floor": 3,
+      "effect": "tier floor = 3 (Urgent); the participant's own words are quoted as evidence"
+    },
+    "human_request": {
+      "id": "redflag.free_text_human_request",
+      "tier_floor": 2,
+      "effect": "tier floor = 2 (Nurse call today); asked to talk to a person"
+    },
+    "hospital_conflict_reason": "free text mentions a hospital or ER visit that conflicts with the No answer"
+  }
 }

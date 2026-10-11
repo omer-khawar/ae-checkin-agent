@@ -42,7 +42,7 @@ Do not reset between rehearsal and the real demo unless you rehearsed on a diffe
 
 **Click:** **Open report packet**.
 
-**Say:** "This is the report a coordinator would type from scratch under a deadline. Every field is pre-filled from evidence; click any chip and you see the source. Below, what is still missing: last dose, action taken, outcome, causality. That is the coordinator's phone list. And a draft narrative. Every sentence is built from the facts and cites them, and it says 'written by template'. No language model wrote this; decisions come from rules, text from templates, and a person signs."
+**Say:** "This is the report a coordinator would type from scratch under a deadline. Every field is pre-filled from evidence; click any chip and you see the source. Below, what is still missing: last dose, action taken, outcome, causality. That is the coordinator's phone list. And a draft narrative. Every sentence is built from the facts and cites them, and it says 'written by template'. Gemini reads, rules decide, people confirm: the narrative is template-written, decisions come from rules, and a person signs."
 
 **Click:** a narrative sentence's evidence chip.
 
@@ -103,6 +103,20 @@ Do not reset between rehearsal and the real demo unless you rehearsed on a diffe
 **Say:** "Same rules, same tables, every time. Our answer keys pass 36 of 36 check-in personas and every scanner case. On Synthea notes the scanner was never tuned on, it does worse, and we publish that too."
 
 ---
+
+## 5b. Gemini beats (optional, about 40 seconds)
+
+"Gemini reads, rules decide, people confirm. Nothing is accepted without a word-for-word quote."
+
+1. **Kiosk urgent stop.** Open `/kiosk`, type P-007, answer **Yes** to "Right now, are you having trouble breathing, or chest pain or tightness?". The kiosk stops at once on the fixed 911 screen with the site phone line; the dashboard shows a Tier 3 item.
+2. **Notes page, scanner misses it, Gemini adds it.** Paste this note (exact text) and scan:
+
+   > Clinic follow-up, cycle 4 day 1. Pt reports fatigue, worse over 2 weeks. Denies diarrhea. No rash. TSH 18.2, free T4 low. Assessment: Hypothyroidism, grade 2, likely immune-related. Started levothyroxine 50 mcg daily. Continue cemiplimab.
+
+   The scanner alone misses hypothyroidism. The reader adds it, marked "found by Gemini", with the quote highlighted in the note. The grade still comes from the rules ("grade 2" is read from the quote's own sentence).
+3. **A quote that fails the check is rejected.** Open the "rejected by the quote check" list under the scan: any finding whose quote is not found word for word in the note is listed with its reason and never becomes a draft.
+
+No key needed: the committed cache replays the recorded answer; with neither a key nor a cache hit the page runs rules-only and says so. Recall is measured in `docs/eval/reader_results.md`.
 
 ## 6. Audit and honesty (2:50–3:00)
 

@@ -14,7 +14,18 @@ import {
   temperatureField,
   temperatureProblem,
 } from "../lib/format";
-import { buildGatesBody, gatePrompts, INITIAL_GATE_STATE } from "../lib/gates";
+import {
+  buildGatesBody,
+  EMPTY_CONMED_ROW,
+  FALLBACK_URGENT_LABEL,
+  GATE_ORDER,
+  gateComplete,
+  gatePrompts,
+  INITIAL_GATE_STATE,
+  isSevereDyspnea,
+  urgentLabel,
+  yesFirst,
+} from "../lib/gates";
 import { resolveUsubjid } from "../lib/participant";
 import type { Item } from "../lib/types";
 import { FEVER_ITEM_TABLE, GATES_TABLE, ITEMS, SOB_ITEM_TABLE } from "./fixtures";
@@ -121,8 +132,7 @@ describe("gate wording and body", () => {
         ...INITIAL_GATE_STATE,
         hospitalization: false,
         conmedChanged: true,
-        conmedText: "  loratadine ",
-        conmedDirection: "started",
+        conmeds: [{ text: "  loratadine ", direction: "started" }],
         otherText: " feeling ok\n",
       },
       38.5,
@@ -130,26 +140,113 @@ describe("gate wording and body", () => {
     );
     expect(body).toEqual({
       hospitalization: false,
+      urgent_now: false,
       conmed_changed: true,
+      conmeds: [{ text: "  loratadine ", direction: "started" }],
+      // Old servers read the single text field.
       conmed_text: "  loratadine ",
       conmed_direction: "started",
       other_text: " feeling ok\n",
       temp_c: 38.5,
       ts_client: "2026-10-10T18:00:00.000Z",
     });
-    // Whitespace-only text is treated as empty; con-med text is dropped when the answer is No.
+    // Whitespace-only text is treated as empty; con-med rows are dropped when the answer is No.
     const none = buildGatesBody(
       {
         ...INITIAL_GATE_STATE,
         hospitalization: true,
         conmedChanged: false,
-        conmedText: "x",
+        conmeds: [{ text: "x", direction: "started" }],
         otherText: "   ",
       },
       null,
       "t",
     );
-    expect(none).toEqual({ hospitalization: true, conmed_changed: false, ts_client: "t" });
+    expect(none).toEqual({
+      hospitalization: true,
+      urgent_now: false,
+      conmed_changed: false,
+      ts_client: "t",
+    });
+  });
+
+  it("buildGatesBody sends several medications (R5.2) and a joined text for old servers", () => {
+    const state = {
+      ...INITIAL_GATE_STATE,
+      hospitalization: false,
+      conmedChanged: true,
+      conmeds: [
+        { text: "cefalexin antibiotic pill", direction: "started" as const },
+        { text: "hydrocortisone cream", direction: "started" as const },
+      ],
+    };
+    const same = buildGatesBody(state, null, "t");
+    expect(same.conmeds).toEqual([
+      { text: "cefalexin antibiotic pill", direction: "started" },
+      { text: "hydrocortisone cream", direction: "started" },
+    ]);
+    expect(same.conmed_text).toBe("cefalexin antibiotic pill, hydrocortisone cream");
+    expect(same.conmed_direction).toBe("started");
+    // Mixed directions: the single legacy field says "both".
+    const mixed = buildGatesBody(
+      {
+        ...state,
+        conmeds: [state.conmeds[0], { text: "loratadine", direction: "stopped" as const }],
+      },
+      null,
+      "t",
+    );
+    expect(mixed.conmed_direction).toBe("both");
+    // Blank rows are not sent.
+    const blank = buildGatesBody(
+      { ...state, conmeds: [state.conmeds[0], EMPTY_CONMED_ROW] },
+      null,
+      "t",
+    );
+    expect(blank.conmeds).toHaveLength(1);
+  });
+
+  it("gateComplete needs every medication row to have a name and a direction", () => {
+    const idx = GATE_ORDER.indexOf("conmed");
+    const base = { ...INITIAL_GATE_STATE, conmedChanged: true };
+    expect(gateComplete({ ...base, conmeds: [{ text: "a", direction: "started" }] }, idx)).toBe(
+      true,
+    );
+    expect(
+      gateComplete(
+        { ...base, conmeds: [{ text: "a", direction: "started" }, EMPTY_CONMED_ROW] },
+        idx,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("R5.1 / R5.6 helpers", () => {
+  it("only Severe and Very severe shortness of breath severity ends the check-in", () => {
+    expect(isSevereDyspnea("shortness_of_breath", "severity", 2)).toBe(false);
+    expect(isSevereDyspnea("shortness_of_breath", "severity", 3)).toBe(true);
+    expect(isSevereDyspnea("shortness_of_breath", "severity", 4)).toBe(true);
+    // Interference or another symptom never triggers it.
+    expect(isSevereDyspnea("shortness_of_breath", "interference", 4)).toBe(false);
+    expect(isSevereDyspnea("cough", "severity", 4)).toBe(false);
+  });
+
+  it("urgentLabel takes the table's wording, else the R5.1 text", () => {
+    expect(urgentLabel(ITEMS.gates)).toBe(FALLBACK_URGENT_LABEL);
+    expect(urgentLabel([{ id: "urgent_now", label: "From the table" }])).toBe("From the table");
+  });
+
+  it("yesFirst puts Yes before No and leaves other scales alone", () => {
+    const yn = [
+      { label: "No", value: 0 },
+      { label: "Yes", value: 1 },
+    ];
+    expect(yesFirst(yn).map((o) => o.label)).toEqual(["Yes", "No"]);
+    const sev = [
+      { label: "None", value: 0 },
+      { label: "Mild", value: 1 },
+    ];
+    expect(yesFirst(sev).map((o) => o.label)).toEqual(["None", "Mild"]);
   });
 });
 

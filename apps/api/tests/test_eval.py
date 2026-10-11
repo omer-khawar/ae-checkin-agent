@@ -61,7 +61,7 @@ def test_persona_list_and_full_run_pass_100_percent(client) -> None:
     scanner = results["chartscan"]
     assert scanner["passed"] is True and results["all_passed"] is True
     key = scanner["answer_key"]
-    assert key["n_cases"] == 42 and key["passed"] is True and key["misses"] == []
+    assert key["n_cases"] == 43 and key["passed"] is True and key["misses"] == []
     assert key["ae_terms"]["precision"] == 1.0 and key["ae_terms"]["recall"] == 1.0
     assert key["meds"]["precision"] == 1.0 and key["meds"]["recall"] == 1.0
     assert key["over_escalations"] == 0

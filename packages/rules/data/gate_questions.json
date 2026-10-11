@@ -1,14 +1,31 @@
 {
-  "source": "Interim team, hand-written per CLAUDE.md §3.2. Seriousness wording follows ICH E2A (hospitalization or prolongation of hospitalization is a seriousness criterion).",
-  "rationale": "Three non-PRO-CTCAE gate questions close every check-in: a seriousness trigger (hospital/ER), a concomitant-medication capture whose text is stored verbatim and matched only by string distance, and a free-text field that is stored verbatim and never parsed (it can only raise a 'read by a human' flag together with a severe item). The optional typed temperature belongs to the fever item but is captured with the gates so the kiosk can ask it on the same screen.",
+  "source": "Interim team, hand-written per CLAUDE.md §3.2 and CONTRACTS.md R5.1. Seriousness wording follows ICH E2A (hospitalization or prolongation of hospitalization is a seriousness criterion).",
+  "rationale": "Four non-PRO-CTCAE gate questions: an urgent-now question asked first (R5.1: a participant having trouble breathing or chest pain right now must not wait for twelve more questions; Yes ends the check-in at once), a seriousness trigger (hospital/ER), a concomitant-medication capture whose text is stored verbatim and matched only by string distance (one box may hold several medicines and the kiosk can add more; each becomes its own CM draft, R5.2), and a free-text box. The free text is stored verbatim and shown to a person, and since R5.2 it is also read by the deterministic chart-note scanner in utterance mode at completion: a phrase the scanner flags (trouble breathing, chest pain, ...) raises the tier floor to 3, a request to talk to a person raises it to 2, and a hospital/ER mention that conflicts with a No answer suspects seriousness. It is never interpreted by a language model, and the participant never sees the rule output. Yes always lists before No (R5.6). The optional typed temperature belongs to the fever item but is captured with the gates so the kiosk can ask it on the same screen.",
   "questions": [
+    {
+      "id": "urgent_now",
+      "order": 0,
+      "type": "yes_no",
+      "field": "urgent_now",
+      "label": "Right now, are you having trouble breathing, or chest pain or tightness?",
+      "options": {
+        "Yes": true,
+        "No": false
+      },
+      "red_flag_rule": "redflag.urgent_now",
+      "ends_check_in_when": "yes",
+      "note": "Asked first (R5.1). Yes stops the check-in at once and shows the fixed stop screen."
+    },
     {
       "id": "hospitalization",
       "order": 11,
       "type": "yes_no",
       "field": "hospitalization",
       "label": "Since your last study visit, were you admitted to a hospital or seen in an emergency room?",
-      "options": { "No": false, "Yes": true },
+      "options": {
+        "Yes": true,
+        "No": false
+      },
       "seriousness_trigger": true,
       "red_flag_rule": "redflag.hospitalization"
     },
@@ -18,13 +35,21 @@
       "type": "yes_no_with_text",
       "field": "conmed_changed",
       "label": "Since your last study visit, have you started or stopped any medication? This includes over-the-counter medicines, vitamins and supplements.",
-      "options": { "No": false, "Yes": true },
+      "options": {
+        "Yes": true,
+        "No": false
+      },
       "text_field": "conmed_text",
       "text_prompt": "Please type the name of the medication as it appears on the label.",
-      "text_note": "Stored exactly as typed. A deterministic string matcher proposes a normalized name; a coordinator confirms it.",
+      "text_note": "Stored exactly as typed. A deterministic string matcher proposes a normalized name for each medicine (one box may hold several: split on commas, 'and', '&', '+'); a coordinator confirms it.",
       "direction_field": "conmed_direction",
       "direction_prompt": "Did you start it, stop it, or both?",
-      "direction_options": ["started", "stopped", "both"]
+      "direction_options": [
+        "started",
+        "stopped",
+        "both"
+      ],
+      "multi_prompt": "Add another medication"
     },
     {
       "id": "other",
@@ -32,7 +57,7 @@
       "type": "free_text",
       "field": "other_text",
       "label": "Is there anything else you would like the study team to know?",
-      "note": "Stored verbatim and never parsed by software. It is read by a person.",
+      "note": "Stored verbatim. Read by a person, and at completion by the deterministic phrase scanner (utterance mode) that can raise the tier floor; never interpreted by a language model.",
       "red_flag_rule": "redflag.other_text_with_severe"
     }
   ],

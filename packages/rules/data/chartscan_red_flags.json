@@ -1,7 +1,12 @@
 {
   "source": "Ported from the RED_FLAGS table in backend/app/services/extract.py of omer-khawar/ae-checkin-agent (Omer Khawar, MIT), 2026-10-10 (CONTRACTS.md R2.4). Emergency categories follow the Regeneron starter-sheet list (chest pain, cannot breathe, fainting, seizure, anaphylaxis, stroke signs, bleeding, self-harm); urgent categories are the oncology-trial warning signs a research nurse must hear about the same day (neutropenic fever, worsening dyspnea, new confusion, GI bleeding, dehydration, jaundice, blistering, hospitalization). The temperature pattern inside the fever rule is identical to chartscan_lexicon.json temperature_high; the hospitalization pattern is identical to chartscan_lexicon.json hospital.",
-  "rationale": "A red flag is a phrase that needs escalation regardless of grading. Each pattern is compiled once as (?<!\\w)(?:pattern) with re.IGNORECASE and checked with the same NegEx-style exclusion as symptoms ('denies chest pain' does not fire). One flag per category, the first match in the text. In a participant utterance the level is the one written here; in a chart note every flag routes to the coordinator as 'urgent' (notes are retrospective, nobody is told to call 911, and a note never produces Tier 3: decision D-017). seriousness = true marks the category that makes the API suspect a serious AE and start the SAE clock at ingestion time (ICH E2A hospitalization criterion).",
-  "escalation_levels": ["none", "human_requested", "urgent", "emergency"],
+  "rationale": "A red flag is a phrase that needs escalation regardless of grading. Each pattern is compiled once as (?<!\\w)(?:pattern) with re.IGNORECASE and checked with the same NegEx-style exclusion as symptoms ('denies chest pain' does not fire). One flag per category, the first match in the text. In a participant utterance the level is the one written here; in a chart note every flag routes to the coordinator as 'urgent' (notes are retrospective, nobody is told to call 911, and a note never produces Tier 3: decision D-017). seriousness = true marks the category that makes the API suspect a serious AE and start the SAE clock at ingestion time (ICH E2A hospitalization criterion). Participant phrasings added from the 2026-10-11 playtest (R5.2): \"can't catch my/his/her breath\", \"chest feels tight/heavy\", \"trouble breathing right now\".",
+  "escalation_levels": [
+    "none",
+    "human_requested",
+    "urgent",
+    "emergency"
+  ],
   "escalation_levels_note": "Ordered from lowest to highest; the escalation of a scan is the highest level among its red flags (and 'human_requested' when a person was asked for). The answer key's expected.escalation uses the same vocabulary.",
   "levels": {
     "emergency": "Participant-facing: the fixed 911 message (utterances only). Coordinator-facing: urgent.",
@@ -12,14 +17,14 @@
       "category": "chest_pain",
       "level": "emergency",
       "seriousness": false,
-      "pattern": "chest (?:pain|pressure|tightness)",
+      "pattern": "chest (?:pain|pressure|tightness)|chest (?:feels |is |felt |was |has been |gets |getting )?(?:really |very |so |kind of )?(?:tight|heavy)",
       "reason": "Chest pain/pressure reported"
     },
     {
       "category": "cannot_breathe",
       "level": "emergency",
       "seriousness": false,
-      "pattern": "(?:can't|cannot|can not|couldn't|unable to) breathe|struggling to breathe|gasping|(?:lips|face) (?:turning |are |is )?blue",
+      "pattern": "(?:can't|cannot|can not|couldn't|unable to) breathe|struggling to breathe|gasping|(?:lips|face) (?:turning |are |is )?blue|can(?:'|no)t catch (?:my|his|her|their|your) breath|trouble breathing right now|(?:having|has|have) trouble breathing (?:right )?now",
       "reason": "Severe breathing difficulty reported"
     },
     {

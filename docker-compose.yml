@@ -49,6 +49,12 @@ services:
       VITALS_SCENARIO: ${VITALS_SCENARIO:-resting}
       TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-12}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Gemini second reader (CONTRACTS.md R5.3). Empty key = off; recorded readings in the
+      # image's /app/data/llm_cache still replay. The key is read from the environment only.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      INTERIM_LLM_MODE: ${INTERIM_LLM_MODE:-auto}
+      INTERIM_GEMINI_MODEL: ${INTERIM_GEMINI_MODEL:-gemini-3.5-flash}
+      INTERIM_GEMINI_TIMEOUT_S: ${INTERIM_GEMINI_TIMEOUT_S:-25}
     volumes:
       - interim-db:/var/lib/interim
     ports:

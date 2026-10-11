@@ -102,6 +102,8 @@ KNOWN_EXPECTED_KEYS: frozenset[str] = frozenset(
         "aesi_items",
         "aesi_clock_started",
         "protocol_tier_floor",
+        # R5.1 early-stop path (kiosk personas): the trigger the API reports back.
+        "ended_early",
     }
 )
 
@@ -389,8 +391,15 @@ def run_checkin(
     rule_settings: Mapping[str, Any] | None,
     completed_at: str,
     protocol_context: Mapping[str, Any] | None = None,
+    early_stop: str | None = None,
 ) -> dict[str, Any]:
-    """One kiosk check-in over HTTP, backdated to ``completed_at``; returns the check-in detail."""
+    """One kiosk check-in over HTTP, backdated to ``completed_at``; returns the check-in detail.
+
+    ``early_stop`` (``urgent_now`` | ``severe_dyspnea``, CONTRACTS.md R5.1) is the kiosk's
+    immediate-stop path: only the answers the persona lists are sent (an unanswered item is
+    "not reported", never zero-filled), then ``POST /sessions/{id}/urgent`` replaces the gates
+    and ``/complete``.
+    """
     api = ctx.api
     started_at = shift(completed_at, seconds=-SESSION_SECONDS)
     context_body: dict[str, Any] = (
@@ -410,10 +419,15 @@ def run_checkin(
     )
     session_id = str(session["id"])
     # Answer-key convention: an item or attribute a persona omits means "none / never" (0); it
-    # is answered explicitly so the check-in passes the API's completeness check.
-    full: dict[str, dict[str, int]] = {
-        item_id: dict.fromkeys(attributes, 0) for item_id, attributes in ctx.instrument.items()
-    }
+    # is answered explicitly so the check-in passes the API's completeness check. The early-stop
+    # path is the exception: it sends exactly the answers given before the kiosk stopped.
+    full: dict[str, dict[str, int]]
+    if early_stop:
+        full = {item_id: {} for item_id in responses}
+    else:
+        full = {
+            item_id: dict.fromkeys(attributes, 0) for item_id, attributes in ctx.instrument.items()
+        }
     for item_id, attrs in responses.items():
         full.setdefault(item_id, {}).update({str(k): int(v) for k, v in attrs.items()})
     for item_id, attrs in full.items():
@@ -428,10 +442,8 @@ def run_checkin(
                     "ts_client": completed_at,
                 },
             )
-    api.call(
-        "POST",
-        f"/sessions/{session_id}/gates",
-        json={
+    if not early_stop:
+        gate_body: dict[str, Any] = {
             "hospitalization": bool(gates.get("hospitalization", False)),
             "conmed_changed": bool(gates.get("conmed_changed", False)),
             "conmed_text": gates.get("conmed_text"),
@@ -439,8 +451,12 @@ def run_checkin(
             "other_text": gates.get("other_text"),
             "temp_c": gates.get("temp_c"),
             "ts_client": completed_at,
-        },
-    )
+        }
+        # R5.1/R5.2 gate fields, sent only when the persona sets them (older API: never sent).
+        for key in ("urgent_now", "conmeds"):
+            if key in gates:
+                gate_body[key] = gates[key]
+        api.call("POST", f"/sessions/{session_id}/gates", json=gate_body)
     if vitals and consent_camera:
         headers = {"X-Bridge-Token": api.bridge_token} if api.bridge_token else None
         api.call(
@@ -449,16 +465,23 @@ def run_checkin(
             json={"samples": materialize_samples(vitals, started_at)},
             headers=headers,
         )
-    api.call(
-        "POST",
-        f"/sessions/{session_id}/complete",
-        json={
-            "ts_client": completed_at,
-            "completed_at_override": completed_at,
-            "settings_override": dict(rule_settings or {}),
-            **(context_body if ctx.protocol_context_via == "complete" else {}),
-        },
-    )
+    if early_stop:
+        api.call(
+            "POST",
+            f"/sessions/{session_id}/urgent",
+            json={"trigger": early_stop, "ts_client": completed_at},
+        )
+    else:
+        api.call(
+            "POST",
+            f"/sessions/{session_id}/complete",
+            json={
+                "ts_client": completed_at,
+                "completed_at_override": completed_at,
+                "settings_override": dict(rule_settings or {}),
+                **(context_body if ctx.protocol_context_via == "complete" else {}),
+            },
+        )
     detail: dict[str, Any] = api.call("GET", f"/checkins/{session_id}")
     return detail
 
@@ -518,6 +541,7 @@ def replay_persona(
         rule_settings=effective,
         completed_at=completed_at,
         protocol_context=persona.get("protocol_context"),
+        early_stop=persona.get("early_stop"),
     )
 
 
@@ -651,6 +675,7 @@ def compare(
         "aesi_items": sorted(str(i) for i in protocol.get("aesi_items") or []),
         "aesi_clock_started": aesi_clock is not None,
         "protocol_tier_floor": result.get("protocol_tier_floor"),
+        "ended_early": result.get("ended_early"),
     }
 
     def check(key: str, got: Any, want: Any) -> None:
@@ -793,6 +818,8 @@ def compare(
                 mismatches.append("aesi_clock: the stored due_at differs from the engine's")
     if "protocol_tier_floor" in expected:
         check("protocol_tier_floor", actual["protocol_tier_floor"], expected["protocol_tier_floor"])
+    if "ended_early" in expected:
+        check("ended_early", actual["ended_early"], expected["ended_early"])
 
     # Invariants (as in the in-process harness), on the engine's drafts *and* on the stored
     # Draft rows the dashboard and the exports actually show.
@@ -1454,6 +1481,8 @@ def all_mismatches(run: Mapping[str, Any]) -> list[str]:
         out.extend(f"`{row['persona_id']}`: {m}" for m in row["mismatches"])
     for c in p["counterfactuals"]:
         out.extend(f"`{c['persona_id']}` [{c['label']}]: {m}" for m in c["mismatches"])
+    for row in (run.get("kiosk") or {}).get("rows", []):
+        out.extend(f"kiosk `{row['persona_id']}`: {m}" for m in row["mismatches"])
     for miss in s["answer_key"]["misses"]:
         out.extend(f"scan `{miss['case_id']}`: {m}" for m in miss["problems"])
     for n in s["notes"]["per_note"]:
@@ -1520,6 +1549,13 @@ def render_markdown(run: Mapping[str, Any]) -> str:
             f"- **{n_cf_pass} / {len(cfs)} counterfactuals pass**: same answers, one setting "
             "changed; the tier moves and no grade does."
         )
+    kiosk = run.get("kiosk") or {"n_personas": 0, "n_pass": 0, "n_fail": 0, "rows": []}
+    if kiosk["n_personas"]:
+        add(
+            f"- **{kiosk['n_pass']} / {kiosk['n_personas']} R5 kiosk personas pass**: the "
+            "early-stop path (`POST /sessions/{id}/urgent`), free text read at completion, and "
+            f"several medicines in one box ({'PASS' if not kiosk['n_fail'] else 'FAIL'})."
+        )
     partial = ""
     if key["n_partially_scorable"]:
         ids = ", ".join(f"`{i}`" for i in key["partially_scorable_ids"])
@@ -1546,6 +1582,19 @@ def render_markdown(run: Mapping[str, Any]) -> str:
     )
     add(f"- Overall: **{'PASS' if run['all_passed'] else 'FAIL'}**.")
     add("")
+
+    if kiosk["rows"]:
+        add("## R5 kiosk personas (early stop, free text, medication text)")
+        add("")
+        add("| Persona | Path | Expected tier | Actual tier | Result |")
+        add("|---|---|---|---|---|")
+        for row in kiosk["rows"]:
+            path = f"early stop: `{row['early_stop']}`" if row["early_stop"] else "full check-in"
+            add(
+                f"| `{row['persona_id']}` | {path} | {_tier(row['expected_tier'])} | "
+                f"{_tier(row['actual_tier'])} | {'PASS' if row['pass'] else 'FAIL'} |"
+            )
+        add("")
 
     add("## Tier precision / recall / F1")
     add("")
@@ -1796,6 +1845,10 @@ def local_server(*, port: int, password: str, log: Log) -> Iterator[str]:
                 "PYTHONUNBUFFERED": "1",
             }
         )
+        # The canonical run scores the deterministic scanner alone (R5.3: scanner-only stays
+        # 100% on the answer key) and must never touch the network, so the optional second
+        # reader is off unless the caller asked for a mode explicitly.
+        env.setdefault("INTERIM_LLM_MODE", "off")
         log_path = Path(tmp) / "uvicorn.log"
         with log_path.open("w", encoding="utf-8") as log_fh:
             proc = subprocess.Popen(
@@ -1886,17 +1939,35 @@ def evaluate(api: Api, args: argparse.Namespace, *, api_label: str, log: Log) ->
         protocol_context_via=protocol_context_input(api.openapi()),
     )
     persona_table = load_table("personas")
-    selected = select_personas(
-        persona_table["personas"],
-        include_hidden=args.include_hidden,
-        persona_ids=args.persona_ids,
-    )
+    # R5 kiosk personas live under their own key so the answer-key mix and totals stay fixed.
+    kiosk_all: list[Mapping[str, Any]] = list(persona_table.get("kiosk_personas") or [])
+    kiosk_ids = {str(p["id"]) for p in kiosk_all}
+    wanted_ids = list(args.persona_ids or [])
+    if wanted_ids:
+        kiosk_selected = [p for p in kiosk_all if p["id"] in wanted_ids]
+        main_ids = [i for i in wanted_ids if i not in kiosk_ids]
+    else:
+        kiosk_selected = [p for p in kiosk_all if args.include_hidden or not p.get("hidden")]
+        main_ids = []
+    if wanted_ids and not main_ids:
+        selected = []
+    else:
+        selected = select_personas(
+            persona_table["personas"],
+            include_hidden=args.include_hidden,
+            persona_ids=main_ids or None,
+        )
     completed_at = now_iso()
     suffix = f"h{datetime.now(UTC):%Y%m%d%H%M%S}{os.urandom(2).hex()}"
     sae_hours = site_to_sponsor_hours()
     log(f"API {api.base_url} version {health.get('version')}: {len(selected)} personas")
     personas = run_personas(
         ctx, selected, suffix=suffix, completed_at=completed_at, sae_hours=sae_hours, log=log
+    )
+    if kiosk_selected:
+        log(f"R5 kiosk personas (early stop, free text, medication text): {len(kiosk_selected)}")
+    kiosk = run_kiosk_personas(
+        ctx, kiosk_selected, suffix=suffix, completed_at=completed_at, sae_hours=sae_hours, log=log
     )
     answer_key_table = load_table("chartscan_answer_key")
     cases = list(answer_key_table["cases"])
@@ -1908,8 +1979,10 @@ def evaluate(api: Api, args: argparse.Namespace, *, api_label: str, log: Log) ->
     notes = notes_via_api(ctx, cases, suffix=suffix, sae_hours=sae_hours, rank=escalation_rank())
     isolation = isolation_check(api)
     scanner_passed = bool(answer_key["passed"]) and notes["n_pass"] == notes["n_notes"]
-    personas_passed = personas["n_fail"] == 0 and all(
-        c["pass"] for c in personas["counterfactuals"]
+    personas_passed = (
+        personas["n_fail"] == 0
+        and all(c["pass"] for c in personas["counterfactuals"])
+        and kiosk["n_fail"] == 0
     )
     problems = strict_problems(
         personas["notices"],
@@ -1928,6 +2001,7 @@ def evaluate(api: Api, args: argparse.Namespace, *, api_label: str, log: Log) ->
         "persona_ids": list(args.persona_ids or []),
         "personas_version": persona_table.get("version", "?"),
         "personas": personas,
+        "kiosk": kiosk,
         "scanner": {"answer_key": answer_key, "notes": notes, "passed": scanner_passed},
         "isolation": isolation,
         "strict": bool(args.strict),
@@ -1939,6 +2013,57 @@ def evaluate(api: Api, args: argparse.Namespace, *, api_label: str, log: Log) ->
         "synthea_present": SYNTHEA_RESULTS.is_file(),
         "vitals_samples": count_samples(selected),
     }
+
+
+def run_kiosk_personas(
+    ctx: Context,
+    selected: Sequence[Mapping[str, Any]],
+    *,
+    suffix: str,
+    completed_at: str,
+    sae_hours: float,
+    log: Log,
+) -> dict[str, Any]:
+    """Replay the R5 kiosk personas (``kiosk_personas`` in personas.json) over HTTP.
+
+    They cover what the 36 answer-key personas cannot: the early-stop path
+    (``POST /sessions/{id}/urgent``, answers given so far, nothing zero-filled), free text and
+    medication text read at completion. They are reported as their own block so the
+    answer-key totals (tier precision/recall, grade confusion) keep their meaning.
+    """
+    rows: list[dict[str, Any]] = []
+    for persona in selected:
+        expected = persona.get("expected") or {}
+        actual: dict[str, Any] | None = None
+        detail: Mapping[str, Any] = {}
+        try:
+            detail = replay_persona(ctx, persona, suffix=suffix, completed_at=completed_at)
+        except ApiError as exc:
+            mismatches = [f"API error: {exc}"]
+        else:
+            actual, mismatches, _ = compare(
+                detail, expected, completed_at=completed_at, sae_hours=sae_hours
+            )
+        rows.append(
+            {
+                "persona_id": persona["id"],
+                "name": persona.get("name", persona["id"]),
+                "category": persona.get("category", "kiosk"),
+                "early_stop": persona.get("early_stop"),
+                "pass": not mismatches,
+                "expected_tier": expected.get("tier"),
+                "actual_tier": actual["tier"] if actual is not None else None,
+                "mismatches": mismatches,
+                "session_id": (detail.get("session") or {}).get("id"),
+            }
+        )
+        log(
+            f"  {'PASS' if not mismatches else 'FAIL'}  {persona['id']}  tier "
+            f"{rows[-1]['actual_tier']} (expected {expected.get('tier', '-')})"
+            + (f"  {'; '.join(mismatches)}" if mismatches else "")
+        )
+    n_pass = sum(1 for r in rows if r["pass"])
+    return {"n_personas": len(rows), "n_pass": n_pass, "n_fail": len(rows) - n_pass, "rows": rows}
 
 
 def count_samples(selected: Sequence[Mapping[str, Any]]) -> dict[str, int]:
@@ -2007,6 +2132,12 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         default=None,
         help="demo password (default: $DEMO_PASSWORD, then .env, then 'interim-demo')",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="port for the --start-server API (default: a free ephemeral port, never a fixed one)",
+    )
     parser.add_argument("--timeout", type=float, default=60.0, help="per-request timeout (s)")
     parser.add_argument("--quiet", action="store_true", help="print only the summary line")
     args = parser.parse_args(argv)
@@ -2035,7 +2166,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         if args.start_server:
-            with local_server(port=free_port(), password=args.password, log=log) as base:
+            with local_server(
+                port=args.port or free_port(), password=args.password, log=log
+            ) as base:
                 api = Api(base, timeout=args.timeout, bridge_token=None)
                 try:
                     run = evaluate(

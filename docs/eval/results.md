@@ -4,23 +4,36 @@
 
 | Run | Value |
 |---|---|
-| Generated (UTC) | 2026-10-11T05:11:25.371Z |
+| Generated (UTC) | 2026-10-11T10:00:30.183Z |
 | API | temporary server started by `--start-server` (fresh SQLite database with the demo seed) on 127.0.0.1 |
 | API version (`GET /health`) | 0.1.0 |
-| Harness run id | `h20261011051115dd36` |
+| Harness run id | `h202610111000194ff7` |
 | Personas | 36 replayed of 36 selected from `packages/rules/data/personas.json` v0.1.0 (include_hidden = true) |
-| Chart-note answer key | 42 cases (8 notes + 34 utterances), `packages/rules/data/chartscan_answer_key.json` |
+| Chart-note answer key | 43 cases (8 notes + 35 utterances), `packages/rules/data/chartscan_answer_key.json` |
 | Checks | strict = true (eval isolation, API version), strict_keys = false (unknown `expected` keys) |
-| HTTP requests | 928 in 9.6 s |
+| HTTP requests | 1036 in 10.9 s |
 
 ## Headline
 
 - **36 / 36 personas pass (100.0%)**; 0 fail.
 - **3 / 3 counterfactuals pass**: same answers, one setting changed; the tier moves and no grade does.
-- **Chart-note scanner through `POST /scan`: 41 / 41 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
+- **7 / 7 R5 kiosk personas pass**: the early-stop path (`POST /sessions/{id}/urgent`), free text read at completion, and several medicines in one box (PASS).
+- **Chart-note scanner through `POST /scan`: 42 / 42 fully scorable answer-key cases exact**; 1 / 1 partially scorable case(s) (`T6`) exact on every attribute observable over HTTP, see below (PASS).
 - **Chart notes through `POST /notes`: 8 / 8 notes pass** (PASS).
 - **Eval isolation: 0 eval rows** in the default coordinator lists (PASS).
 - Overall: **PASS**.
+
+## R5 kiosk personas (early stop, free text, medication text)
+
+| Persona | Path | Expected tier | Actual tier | Result |
+|---|---|---|---|---|
+| `K-urgent-now-yes-early-stop` | early stop: `urgent_now` | 3 | 3 | PASS |
+| `K-severe-dyspnea-early-stop` | early stop: `severe_dyspnea` | 3 | 3 | PASS |
+| `K-caregiver-free-text-chest-tight` | full check-in | 3 | 3 | PASS |
+| `K-free-text-asks-for-a-person` | full check-in | 2 | 2 | PASS |
+| `K-free-text-er-visit-conflicts-with-no` | full check-in | 3 | 3 | PASS |
+| `K-two-medicines-one-box` | full check-in | 0 | 0 | PASS |
+| `K-conmeds-list-with-prohibited-bevacizumab` | full check-in | 2 | 2 | PASS |
 
 ## Tier precision / recall / F1
 
@@ -107,15 +120,15 @@ Scanner ported from omer-khawar/ae-checkin-agent (Omer Khawar, MIT). Each answer
 
 | Category | Precision | Recall | F1 | TP | FP | FN |
 |---|---|---|---|---|---|---|
-| AE terms (CTCAE v5) | 1.00 | 1.00 | 1.00 | 38 | 0 | 0 |
-| Medications (drug) | 1.00 | 1.00 | 1.00 | 17 | 0 | 0 |
+| AE terms (CTCAE v5) | 1.00 | 1.00 | 1.00 | 39 | 0 | 0 |
+| Medications (drug) | 1.00 | 1.00 | 1.00 | 18 | 0 | 0 |
 | Escalation (urgent or emergency flagged) | 1.00 | 1.00 | 1.00 | 14 | 0 | 0 |
 | Possible SAE (hospitalization / ER cue) | 1.00 | 1.00 | 1.00 | 3 | 0 | 0 |
 
 | Check | Value |
 |---|---|
 | Medication change accuracy (started/stopped/changed/taking) | 1.00 |
-| Escalation level exact match | 1.00 (over 41 scorable cases) |
+| Escalation level exact match | 1.00 (over 42 scorable cases) |
 | Urgent/emergency cases caught | 14 / 14 |
 | Emergency cases caught | 3 / 3 |
 | Over-escalations | 0 |

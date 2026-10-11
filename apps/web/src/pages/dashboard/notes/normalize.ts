@@ -8,6 +8,7 @@
  * half-migrated API still renders instead of crashing the demo. Nothing here
  * invents data: an absent value becomes `null`, `false`, `""` or `[]`.
  */
+import type { ReaderInfo, ReaderRejected, ScanWithReader } from "./readerTypes";
 import type {
   ChartNote,
   ChartNoteListItem,
@@ -25,7 +26,6 @@ import type {
   RedFlag,
   RuleFired,
   RuleFiredPlain,
-  ScanResult,
   SymptomFinding,
 } from "../../../lib/types";
 
@@ -85,6 +85,28 @@ function medChange(x: unknown): MedChange {
     : "taking";
 }
 
+/** R5.3: keep `found_by` when present (absent on older servers). */
+function foundByProp(r: Rec): { found_by?: "scanner" | "gemini" | "both" } {
+  const v = r.found_by;
+  return v === "scanner" || v === "gemini" || v === "both" ? { found_by: v } : {};
+}
+
+function normalizeReader(x: unknown): ReaderInfo | null {
+  if (!isRec(x)) return null;
+  return {
+    status: str(x.status, "off"),
+    model: typeof x.model === "string" ? x.model : null,
+    cached: x.cached === true,
+    reason: typeof x.reason === "string" ? x.reason : null,
+  };
+}
+
+function normalizeRejected(x: unknown): ReaderRejected[] {
+  return arr(x)
+    .filter(isRec)
+    .map((e) => ({ quote: str(e.quote), reason: str(e.reason) }));
+}
+
 export function normalizeSymptom(raw: unknown): SymptomFinding {
   const r = isRec(raw) ? raw : {};
   const quote = str(pick(r, "quote", "mentioned_as"));
@@ -100,6 +122,7 @@ export function normalizeSymptom(raw: unknown): SymptomFinding {
     onset_days: num(pick(r, "onset_days", "onset_days_ago")),
     worsening: bool(r.worsening),
     excluded_reason: excludedReason(pick(r, "excluded_reason", "excluded")),
+    ...foundByProp(r),
   };
 }
 
@@ -115,6 +138,7 @@ export function normalizeMed(raw: unknown): MedFinding {
     span_end: int(r.span_end, start + quote.length),
     reason: str(pick(r, "reason", "reasoning")),
     excluded_reason: excludedReason(pick(r, "excluded_reason", "excluded")),
+    ...foundByProp(r),
   };
 }
 
@@ -132,11 +156,15 @@ export function normalizeRedFlag(raw: unknown): RedFlag {
   };
 }
 
-export function normalizeScan(raw: unknown): ScanResult {
+export function normalizeScan(raw: unknown): ScanWithReader {
   const r = isRec(raw) ? raw : {};
   // A note detail may nest the scan; a dry-run returns it bare.
   const s = isRec(r.scan) && !("symptoms" in r) ? r.scan : r;
+  const readerRaw = r.reader !== undefined ? r.reader : s.reader;
+  const rejectedRaw = r.reader_rejected !== undefined ? r.reader_rejected : s.reader_rejected;
   return {
+    ...(readerRaw !== undefined ? { reader: normalizeReader(readerRaw) } : {}),
+    ...(rejectedRaw !== undefined ? { reader_rejected: normalizeRejected(rejectedRaw) } : {}),
     symptoms: arr(s.symptoms).map(normalizeSymptom),
     excluded_symptoms: arr(s.excluded_symptoms).map(normalizeSymptom),
     meds: arr(s.meds).map(normalizeMed),

@@ -25,8 +25,10 @@ from ..audit import BRIDGE_ACTOR, Actor, append_event
 from ..models import Answer, Participant, Session, Study, VitalsSample
 from ..problems import problem
 from ..settings import Settings
-from ..util import dump_json, new_id, normalize_iso, now_iso, seconds_between
+from ..util import dump_json, load_json, new_id, normalize_iso, now_iso, seconds_between
 from .checkins import (
+    EXTRA_CONMED_DIRECTION_PREFIX,
+    EXTRA_CONMED_TEXT_PREFIX,
     GATE_ATTRIBUTE,
     GATE_CONMED,
     GATE_CONMED_DIRECTION,
@@ -35,6 +37,7 @@ from .checkins import (
     GATE_ITEM_IDS,
     GATE_OTHER,
     GATE_TEMP_C,
+    GATE_URGENT_NOW,
     DraftInput,
     apply_result,
     build_engine_input,
@@ -301,8 +304,16 @@ def record_gates(
     temp_c: float | None,
     ts_client: str,
     now: str | None = None,
+    urgent_now: bool | None = None,
+    conmeds: Sequence[Mapping[str, Any]] | None = None,
 ) -> list[Answer]:
     """Store the gate answers as ``gate_*`` rows.
+
+    R5.1: ``urgent_now`` (the kiosk's first question) is stored as ``gate_urgent_now`` when sent.
+    R5.2: ``conmeds`` (the kiosk's list of medications, each ``{text, direction}``) is the
+    source of truth when non-empty: the first entry takes the legacy ``gate_conmed_text`` /
+    ``gate_conmed_direction`` rows and the others ``gate_conmed_text_2`` ... so every medication
+    keeps its own answer id (the evidence of its CM draft).
 
     Like :func:`record_answer`, a re-submission (the kiosk's Back button) never
     deletes anything: an existing gate row is updated in place with an
@@ -319,15 +330,33 @@ def record_gates(
     if conmed_direction is not None and conmed_direction not in ("started", "stopped", "both"):
         raise problem(422, f"conmed_direction {conmed_direction!r} is not started/stopped/both")
 
+    entries = [
+        (str(c.get("text") or ""), c.get("direction") or None)
+        for c in (conmeds or [])
+        if isinstance(c, Mapping)
+    ]
+    for _, entry_direction in entries:
+        if entry_direction is not None and entry_direction not in ("started", "stopped", "both"):
+            raise problem(422, f"conmeds direction {entry_direction!r} is not started/stopped/both")
+    if entries:
+        conmed_changed = True
+        conmed_text, conmed_direction = entries[0]
+
     desired: dict[str, tuple[int | None, str | None]] = {
         GATE_HOSPITALIZATION: (int(hospitalization), None),
         GATE_CONMED: (int(conmed_changed), None),
     }
+    if urgent_now is not None:
+        desired[GATE_URGENT_NOW] = (int(urgent_now), None)
     if conmed_changed:
         # Verbatim, even when empty: a "yes" with no name is still a reported change.
         desired[GATE_CONMED_TEXT] = (None, conmed_text if conmed_text is not None else "")
         if conmed_direction is not None:
             desired[GATE_CONMED_DIRECTION] = (None, conmed_direction)
+        for number, (extra_text, extra_direction) in enumerate(entries[1:], start=2):
+            desired[f"{EXTRA_CONMED_TEXT_PREFIX}{number}"] = (None, extra_text)
+            if extra_direction is not None:
+                desired[f"{EXTRA_CONMED_DIRECTION_PREFIX}{number}"] = (None, extra_direction)
     if other_text is not None and other_text.strip() != "":
         desired[GATE_OTHER] = (None, other_text)
     if temp_c is not None:
@@ -423,6 +452,8 @@ def record_gates(
         {
             "answer_ids": {r.item_id: r.id for r in rows},
             "hospitalization": hospitalization,
+            "urgent_now": urgent_now,
+            "conmeds": [{"text": t, "direction": d} for t, d in entries] or None,
             "conmed_changed": conmed_changed,
             "conmed_text": conmed_text if conmed_changed else None,
             "conmed_direction": conmed_direction if conmed_changed else None,
@@ -434,7 +465,8 @@ def record_gates(
             "updated": updated,
             "cleared": cleared,
             "ts_client": client_ts,
-            "note": "other_text is stored verbatim and never parsed",
+            "note": "other_text is stored verbatim; at completion the deterministic scanner "
+            "reads it (R5.2) and a person reviews it",
         },
         ts_utc=stamp,
     )
@@ -655,8 +687,13 @@ def complete_session(
     completed_at_override: str | None = None,
     settings_override: Mapping[str, Any] | None = None,
     now: str | None = None,
+    ended_early: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run the rules engine and persist everything it decided.
+
+    ``ended_early`` (R5.1; ``urgent_now`` or ``severe_dyspnea``) is the early-stop path: the
+    instrument-completeness check is skipped, the unanswered items are "not reported" (the
+    engine grades nothing it was not given) and the engine forces tier 3.
 
     Returns ``(complete_response, result_dict)``.
     """
@@ -673,7 +710,7 @@ def complete_session(
             f"completed_at {completed_at} is before started_at {session.started_at}",
             title="Invalid completion time",
         )
-    missing = missing_instrument_parts(session_answers(db, session.id))
+    missing = [] if ended_early else missing_instrument_parts(session_answers(db, session.id))
     if missing:
         raise problem(
             422,
@@ -686,7 +723,9 @@ def complete_session(
     study = get_study(db)
     rule_settings = effective_rule_settings(db, settings, dict(settings_override or {}))
     try:
-        inp = build_engine_input(db, study, session, completed_at, rule_settings)
+        inp = build_engine_input(
+            db, study, session, completed_at, rule_settings, ended_early=ended_early
+        )
         result = evaluate_checkin(inp)
     except ValueError as exc:
         raise problem(422, f"The rules engine rejected the check-in: {exc}") from exc
@@ -733,9 +772,28 @@ def complete_session(
             "page_oncall": result.page_oncall,
             "n_rules_fired": len(result.rules_fired),
             "n_drafts": len(result.drafts),
+            "ended_early": ended_early,
         },
         ts_utc=stamp,
     )
+    if ended_early:
+        append_event(
+            db,
+            actor,
+            "session.ended_early",
+            "session",
+            session.id,
+            {
+                "trigger": ended_early,
+                "completed_at": completed_at,
+                "ts_client": client_ts,
+                "tier": result.escalation_tier,
+                "unanswered_not_reported": True,
+                "note": "The kiosk stopped at once; the items not yet asked are not reported "
+                "(never zero-filled into a grade).",
+            },
+            ts_utc=stamp,
+        )
     for rule in result_dict["rules_fired"]:
         append_event(db, actor, "rule.fired", "session", session.id, rule, ts_utc=stamp)
 
@@ -765,24 +823,155 @@ def complete_session(
         len(outcome.drafts),
         len(result.rules_fired),
     )
+    response = complete_response(session, result.escalation_tier, result.stop_screen, ended_early)
+    return response, result_dict
+
+
+def complete_response(
+    session: Session, tier: int, stop_screen: bool, ended_early: str | None = None
+) -> dict[str, Any]:
+    """The body of ``POST /complete`` (and of ``/urgent``, which adds ``ended_early``)."""
     response: dict[str, Any] = {
         "session_id": session.id,
-        "tier": result.escalation_tier,
-        "tier_name": tier_name(result.escalation_tier),
-        "tier_action": tier_action(result.escalation_tier),
-        "stop_screen": result.stop_screen,
+        "tier": tier,
+        "tier_name": tier_name(tier),
+        "tier_action": tier_action(tier),
+        "stop_screen": stop_screen,
         "checkin_url": f"/dashboard/checkins/{session.id}",
         "session": session_to_dict(session),
     }
-    if result.stop_screen:
-        response["stop_screen_text"] = stop_screen_text(result.escalation_tier)
-    return response, result_dict
+    if stop_screen:
+        response["stop_screen_text"] = stop_screen_text(tier)
+    if ended_early:
+        response["ended_early"] = ended_early
+    return response
+
+
+def _upsert_gate_row(
+    db: DbSession,
+    session: Session,
+    item_id: str,
+    *,
+    value_int: int | None,
+    value_text: str | None,
+    client_ts: str,
+    stamp: str,
+) -> Answer:
+    """Insert or update one ``gate_*`` row with the same audit events ``record_gates`` writes."""
+    actor = participant_actor(session.usubjid)
+    row = db.exec(
+        select(Answer)
+        .where(Answer.session_id == session.id)
+        .where(Answer.item_id == item_id)
+        .where(Answer.attribute == GATE_ATTRIBUTE)
+    ).first()
+    if row is None:
+        row = Answer(
+            id=new_id(),
+            session_id=session.id,
+            item_id=item_id,
+            attribute=GATE_ATTRIBUTE,
+            value_int=value_int,
+            value_text=value_text,
+            ts_client=client_ts,
+            ts_server=stamp,
+        )
+        db.add(row)
+        db.flush()
+        append_event(
+            db,
+            actor,
+            "answer.recorded",
+            "answer",
+            row.id,
+            {
+                "session_id": session.id,
+                "item_id": item_id,
+                "attribute": GATE_ATTRIBUTE,
+                "value_int": value_int,
+                "value_text": value_text,
+                "ts_client": client_ts,
+            },
+            ts_utc=stamp,
+        )
+    elif (row.value_int, row.value_text) != (value_int, value_text):
+        before = {"value_int": row.value_int, "value_text": row.value_text}
+        row.value_int = value_int
+        row.value_text = value_text
+        row.ts_client = client_ts
+        row.ts_server = stamp
+        db.add(row)
+        db.flush()
+        append_event(
+            db,
+            actor,
+            "answer.updated",
+            "answer",
+            row.id,
+            {
+                "session_id": session.id,
+                "item_id": item_id,
+                "attribute": GATE_ATTRIBUTE,
+                "before": before,
+                "after": {"value_int": value_int, "value_text": value_text},
+                "cleared": False,
+                "ts_client": client_ts,
+            },
+            ts_utc=stamp,
+        )
+    return row
+
+
+def end_session_early(
+    db: DbSession,
+    settings: Settings,
+    session: Session,
+    *,
+    trigger: str,
+    ts_client: str,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """R5.1: the kiosk stopped at once (``urgent_now`` = yes, or severe/very severe dyspnea).
+
+    Records ``gate_urgent_now = 1`` when the trigger is ``urgent_now``, completes the session
+    with the answers given so far (unanswered items are not reported, never zero-filled into a
+    grade), forces tier 3 with a stop screen, pages on-call and returns the ``/complete`` body
+    plus ``ended_early``. Idempotent: a second call for a session that already ended early with
+    the same trigger returns the same body; any other completed session is a 409.
+    """
+    if trigger not in ("urgent_now", "severe_dyspnea"):
+        raise problem(422, f"trigger {trigger!r} is not urgent_now/severe_dyspnea")
+    if session.completed_at is not None:
+        stored = load_json(session.result_json, {})
+        if stored.get("ended_early") == trigger:
+            return complete_response(
+                session, int(session.tier or 0), bool(session.stop_screen_shown), trigger
+            )
+        require_open(session)  # 409: completed some other way
+    stamp = now or now_iso()
+    client_ts = _iso_or_422(ts_client, "ts_client")
+    if trigger == "urgent_now":
+        _upsert_gate_row(
+            db,
+            session,
+            GATE_URGENT_NOW,
+            value_int=1,
+            value_text=None,
+            client_ts=client_ts,
+            stamp=stamp,
+        )
+    response, _ = complete_session(
+        db, settings, session, ts_client=ts_client, now=stamp, ended_early=trigger
+    )
+    return response
 
 
 __all__ = [
     "GATE_ITEM_IDS",
     "complete_session",
+    "complete_response",
     "create_session",
+    "end_session_early",
     "escalation_reasons",
     "is_blank_gate_row",
     "missing_instrument_parts",

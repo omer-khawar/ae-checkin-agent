@@ -193,6 +193,9 @@ export interface PublicSettings {
   simulated_as_measured: boolean;
   min_confidence: number;
   timing_gates: TimingGates;
+  /** R5.1: the study team's phone line, shown on Need help, thank-you and stop screens. */
+  site_phone?: string;
+  site_name?: string;
 }
 
 export type VitalsStatus =
@@ -243,11 +246,21 @@ export interface AnswerRequest {
   ts_client: IsoUtc;
 }
 
+/** R5.2: one medication the participant typed (the "Add another medication" rows). */
+export interface ConmedEntry {
+  text: string;
+  direction: ConmedDirection;
+}
+
 export interface GatesRequest {
   hospitalization: boolean;
+  /** R5.1: "Right now, are you having trouble breathing...?"; the kiosk sends false here. */
+  urgent_now?: boolean;
   conmed_changed: boolean;
   conmed_text?: string;
   conmed_direction?: ConmedDirection;
+  /** R5.2: the source of truth when present; conmed_text stays for old servers. */
+  conmeds?: ConmedEntry[];
   other_text?: string;
   temp_c?: number;
   ts_client: IsoUtc;
@@ -316,6 +329,16 @@ export interface CompleteResponse {
   /** Fixed, pre-approved Tier 3 text. The kiosk shows it verbatim and nothing else. */
   stop_screen_text?: string;
   checkin_url: string;
+  /** R5.1: set by POST /urgent to the trigger that ended the check-in early. */
+  ended_early?: UrgentTrigger;
+}
+
+/** R5.1: what ended the kiosk check-in early. */
+export type UrgentTrigger = "urgent_now" | "severe_dyspnea";
+
+export interface UrgentRequest {
+  trigger: UrgentTrigger;
+  ts_client: IsoUtc;
 }
 
 // ---------------------------------------------------------------------------

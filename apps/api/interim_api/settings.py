@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     vitals_source: str = Field(default="mock", description="Default for the admin setting.")
     vitals_scenario: str = Field(default="resting", description="Default for the admin setting.")
     token_ttl_hours: float = Field(default=12.0)
+    site_phone: str = Field(
+        default="(732) 555-0142",
+        description="R5.1: the study team's phone line the kiosk shows on 'Need help?', the "
+        "thank-you screen and the stop screen. A fictional 555-01xx number by default.",
+    )
+    site_name: str = Field(default="Study team", description="R5.1: the site's display name.")
     public_data_dir: Path = Field(default=REPO_ROOT / "data" / "public")
     log_level: str = Field(default="info")
     # [packets agent] Optional LLM writer (CLAUDE.md §00 "Generated text works with no API key").

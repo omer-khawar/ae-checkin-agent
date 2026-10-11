@@ -92,6 +92,8 @@ def public_settings(db: DbSession, settings: Settings) -> dict[str, Any]:
         "vitals_source": admin["vitals_source"],
         "mock_scenario": admin["mock_scenario"],
         "simulated_as_measured": admin["simulated_as_measured"],
+        "site_phone": settings.site_phone,
+        "site_name": settings.site_name,
         "min_confidence": cfg.min_confidence,
         "timing_gates": {
             "pulse_s": gates.get("pulse", 12.0),

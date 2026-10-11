@@ -1,0 +1,552 @@
+{
+  "09d23305a4f6e27761e001a2e4b09caf27cf109e3f33c7b8d4c9878e771e1f0f": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:34+00:00",
+    "response": {
+      "medications": [],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "pruritic",
+          "status": "current",
+          "term": "Pruritus"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "maculopapular rash",
+          "status": "current",
+          "term": "Rash maculo-papular"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Afebrile",
+          "status": "negated",
+          "term": "Fever"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "no mucosal involvement",
+          "status": "negated",
+          "term": "Mucositis oral"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "no blistering",
+          "status": "negated",
+          "term": "UNMAPPED"
+        }
+      ]
+    }
+  },
+  "1dc52cd970a866e428b96d284c3c7eecce66d11add54daebb71e314d1ac1676b": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:23+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "taking",
+          "generic": "loperamide",
+          "name": "loperamide",
+          "quote": "loperamide"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": 2,
+          "count_unit": "stools/day",
+          "quote": "diarrhea",
+          "status": "current",
+          "term": "Diarrhea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Nausea resolved",
+          "status": "resolved",
+          "term": "Nausea"
+        }
+      ]
+    }
+  },
+  "2b799fe8f55a630ff1052833b7b2477de9bbec0e03768576bea62ba80def65fd": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:48+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "started",
+          "generic": "levothyroxine",
+          "name": "levothyroxine",
+          "quote": "levothyroxine"
+        },
+        {
+          "action": "taking",
+          "generic": "cemiplimab",
+          "name": "cemiplimab",
+          "quote": "cemiplimab"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "fatigue",
+          "status": "current",
+          "term": "Fatigue"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "diarrhea",
+          "status": "negated",
+          "term": "Diarrhea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "rash",
+          "status": "negated",
+          "term": "Rash maculo-papular"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Hypothyroidism",
+          "status": "current",
+          "term": "Hypothyroidism"
+        }
+      ]
+    }
+  },
+  "6015a98f668a01829c078d49b6f6d999fe6c7066b9c1067e9681244f8b3c768c": {
+    "model": "gemini-3.5-flash",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T09:36:06+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "taking",
+          "generic": "amlodipine",
+          "name": "amlodipine",
+          "quote": "Continue amlodipine."
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Denies nausea",
+          "status": "negated",
+          "term": "Nausea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "diarrhea",
+          "status": "negated",
+          "term": "Diarrhea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "cough",
+          "status": "negated",
+          "term": "Cough"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "shortness of breath",
+          "status": "negated",
+          "term": "Dyspnea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Afebrile",
+          "status": "negated",
+          "term": "Fever"
+        }
+      ]
+    }
+  },
+  "638733f69ad45f52a5627c19e011cbb41276e0733027087da4bdf4047b96f737": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:03:06+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "started",
+          "generic": "loperamide",
+          "name": "Imodium",
+          "quote": "started Imodium"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": 7,
+          "count_unit": "stools a day",
+          "quote": "6 or 7 watery stools a day",
+          "status": "current",
+          "term": "Diarrhea"
+        }
+      ]
+    }
+  },
+  "64ccad73e1910a37a51150cd9b774def4e05689175eb458f4fd21ad828c0b083": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:43+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "taking",
+          "generic": "cemiplimab",
+          "name": "cemiplimab",
+          "quote": "cemiplimab"
+        },
+        {
+          "action": "started",
+          "generic": "levothyroxine",
+          "name": "levothyroxine",
+          "quote": "levothyroxine 50 mcg daily"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "feeling more tired than usual",
+          "status": "current",
+          "term": "Fatigue"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "cold intolerance",
+          "status": "current",
+          "term": "UNMAPPED"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "dry skin",
+          "status": "current",
+          "term": "UNMAPPED"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "diarrhea",
+          "status": "negated",
+          "term": "Diarrhea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "shortness of breath",
+          "status": "negated",
+          "term": "Dyspnea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "rash",
+          "status": "negated",
+          "term": "Rash maculo-papular"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "fever",
+          "status": "negated",
+          "term": "Fever"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Hypothyroidism",
+          "status": "current",
+          "term": "Hypothyroidism"
+        }
+      ]
+    }
+  },
+  "7270094b0867994023b0dce801dfbe0f913dcf0e6c71e023d7cf1dac804218c7": {
+    "model": "gemini-3.5-flash",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T09:35:54+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "started",
+          "generic": "amoxicillin-clavulanate",
+          "name": "amoxicillin-clavulanate",
+          "quote": "prescribed amoxicillin-clavulanate 875 mg BID x10 days"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "acute sinusitis",
+          "status": "current",
+          "term": "Sinusitis"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Afebrile",
+          "status": "negated",
+          "term": "Fever"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "mild headache",
+          "status": "current",
+          "term": "Headache"
+        }
+      ]
+    }
+  },
+  "9b0e0d08b04658f655a2977df805884b951e4eef1c826a34f485d53af5ae635a": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:19+00:00",
+    "response": {
+      "medications": [],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "headaches",
+          "status": "current",
+          "term": "Headache"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "oral ulcers",
+          "status": "current",
+          "term": "Mucositis oral"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "migraines",
+          "status": "historical",
+          "term": "Headache"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "No nausea",
+          "status": "negated",
+          "term": "Nausea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "vomiting",
+          "status": "negated",
+          "term": "Vomiting"
+        }
+      ]
+    }
+  },
+  "b1b7b53c3de80a4c7d2da764fcd70c0ae94f4a10ec58b5fc04257c7775cb578e": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:15+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "started",
+          "generic": "loperamide",
+          "name": "loperamide",
+          "quote": "loperamide"
+        },
+        {
+          "action": "taking",
+          "generic": "ondansetron",
+          "name": "ondansetron",
+          "quote": "ondansetron"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "diarrhea",
+          "status": "current",
+          "term": "Diarrhea"
+        },
+        {
+          "count": 5,
+          "count_unit": "stools per day",
+          "quote": "4-5 loose stools per day",
+          "status": "current",
+          "term": "Diarrhea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Mild nausea",
+          "status": "current",
+          "term": "Nausea"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "fever",
+          "status": "negated",
+          "term": "Fever"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "chills",
+          "status": "negated",
+          "term": "Chills"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "vomiting",
+          "status": "negated",
+          "term": "Vomiting"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "fever > 100.4",
+          "status": "hypothetical",
+          "term": "Fever"
+        }
+      ]
+    }
+  },
+  "c30de5606f7b2e81b0e7168f1951110d7c5a6755189986d3e9615978e2902da4": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T09:59:47+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "held",
+          "generic": "lisinopril",
+          "name": "lisinopril",
+          "quote": "Holding lisinopril"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "increasing SOB over the past week",
+          "status": "current",
+          "term": "Dyspnea"
+        },
+        {
+          "count": 5,
+          "count_unit": "days",
+          "quote": "Dry cough x5 days",
+          "status": "current",
+          "term": "Cough"
+        }
+      ]
+    }
+  },
+  "ed9897e208b880a8e6dd9dfd8a00d0050ca7741dbf98af070b13587e09e0e56e": {
+    "model": "gemini-3-flash-preview",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T10:05:38+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "stopped",
+          "generic": "dexamethasone",
+          "name": "Dexamethasone",
+          "quote": "Dexamethasone discontinued"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "confusion",
+          "status": "current",
+          "term": "Confusion"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "decreased appetite",
+          "status": "current",
+          "term": "Anorexia"
+        }
+      ]
+    }
+  },
+  "f50e8f8c604c0bdcbce24a82ef6336c75b90150f92b89d739a48d8ac0611c147": {
+    "model": "gemini-3.5-flash",
+    "prompt_version": "interim-reader-2026-10-11.1",
+    "recorded_at": "2026-10-11T09:35:45+00:00",
+    "response": {
+      "medications": [
+        {
+          "action": "started",
+          "generic": "triamcinolone",
+          "name": "triamcinolone 0.1% cream",
+          "quote": "Started triamcinolone 0.1% cream BID"
+        },
+        {
+          "action": "started",
+          "generic": "cetirizine",
+          "name": "cetirizine 10 mg daily",
+          "quote": "Started triamcinolone 0.1% cream BID and cetirizine 10 mg daily"
+        }
+      ],
+      "symptoms": [
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "Maculopapular rash",
+          "status": "current",
+          "term": "Rash maculo-papular"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "pruritic",
+          "status": "current",
+          "term": "Pruritus"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "no mucosal involvement",
+          "status": "negated",
+          "term": "UNMAPPED"
+        },
+        {
+          "count": null,
+          "count_unit": null,
+          "quote": "no blistering",
+          "status": "negated",
+          "term": "UNMAPPED"
+        }
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@
 import { Button } from "@/ui/button";
 import { cx } from "../../../lib/format";
 import { exclusionWording } from "./highlight";
+import { FoundByBadge, ReaderPanel } from "./ReaderPanel";
 import type { MedFinding, RedFlag, ScanResult, SymptomFinding } from "../../../lib/types";
 
 type Range = { start: number; end: number };
@@ -119,6 +120,7 @@ export function SymptomTable({
                   )}
                 >
                   {f.term}
+                  {!excluded && <FoundByBadge finding={f} />}
                 </td>
                 <td className={cx(TD, "font-mono text-xs")}>“{f.quote}”</td>
                 {excluded ? (
@@ -213,6 +215,7 @@ export function MedTable({
                   )}
                 >
                   {f.drug}
+                  {!excluded && <FoundByBadge finding={f} />}
                 </td>
                 <td className={TD}>
                   <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs font-medium text-sky-900">
@@ -341,6 +344,7 @@ export function ScanTables({ scan, selectedRange, onSelectRange }: ScanTablesPro
   const excludedCount = scan.excluded_symptoms.length + scan.excluded_meds.length;
   return (
     <div className="divide-y divide-border">
+      <ReaderPanel scan={scan} />
       <section aria-labelledby="scan-red-flags">
         <SectionHeading id="scan-red-flags" count={scan.red_flags.length}>
           Red flags

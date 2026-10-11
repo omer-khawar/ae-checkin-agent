@@ -18,6 +18,8 @@ dependencies = [
   "pydantic==2.14.0",
   "pydantic-settings==2.15.0",
   "python-ulid==4.0.1",
+  # Runtime: the Gemini second reader (interim_api/readers) calls the REST API over httpx.
+  "httpx==0.28.1",
 ]
 keywords = ["clinical-trials", "adverse-events", "SDTM", "audit-trail", "FastAPI"]
 classifiers = [
@@ -28,7 +30,6 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx==0.28.1",
   "pytest==9.1.1",
   "ruff==0.17.0",
 ]
@@ -39,7 +40,13 @@ llm = [
 ]
 
 [tool.setuptools]
-packages = ["interim_api", "interim_api.services", "interim_api.routers", "interim_api.writers"]
+packages = [
+  "interim_api",
+  "interim_api.services",
+  "interim_api.routers",
+  "interim_api.readers",
+  "interim_api.writers",
+]
 
 [tool.ruff]
 line-length = 100

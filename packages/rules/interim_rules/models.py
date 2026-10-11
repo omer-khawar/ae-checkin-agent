@@ -70,6 +70,15 @@ class ProResponse:
 
 
 @dataclass(frozen=True)
+class ConMedEntry:
+    """One reported medication: its text exactly as typed, the direction and the evidence id."""
+
+    text: str
+    direction: ConMedDirection | None
+    answer_id: str | None
+
+
+@dataclass(frozen=True)
 class GateAnswers:
     """The three gate questions plus the optional typed temperature.
 
@@ -87,6 +96,13 @@ class GateAnswers:
     other_answer_id: str | None
     temp_c: float | None
     temp_answer_id: str | None
+    urgent_now: bool = False
+    """R5.1: "Right now, are you having trouble breathing, or chest pain or tightness?" = yes."""
+    urgent_now_answer_id: str | None = None
+    conmeds: tuple[ConMedEntry, ...] = ()
+    """R5.2: several medications (the kiosk's "Add another medication"). When non-empty it is
+    the source of truth; otherwise a single ``conmed_text`` is split on commas, semicolons,
+    " and ", " & " and " + " (see :func:`interim_rules.conmed.conmed_entries`)."""
 
 
 @dataclass(frozen=True)
@@ -167,6 +183,9 @@ class CheckInInput:
     """Public registry id of the demo study, carried into drafts as ``INTERIM_NCT_ID``."""
     protocol_context: ProtocolContext = ProtocolContext()
     """Protocol facts about the participant (default: no PI3K inhibitor, last dose unknown)."""
+    ended_early: str | None = None
+    """R5.1: ``"urgent_now"`` or ``"severe_dyspnea"`` when the kiosk stopped the check-in at once;
+    the unanswered items are then "not reported" (never zero-filled into a grade)."""
 
 
 # --------------------------------------------------------------------------- #
@@ -367,3 +386,7 @@ class CheckInResult:
     """The 24-hour AESI clock (``kind == "aesi"``) when an AESI is suspected."""
     protocol_tier_floor: int = 0
     """Tier floor from the protocol rules (2 for a prohibited con-med, else 0)."""
+    conmeds: tuple[ConMedMatch, ...] = ()
+    """Every reported medication matched separately (R5.2); ``conmed`` is the first of them."""
+    ended_early: str | None = None
+    """The trigger that ended the check-in early (R5.1), else ``None``."""

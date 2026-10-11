@@ -41,6 +41,7 @@ from .participants import create_participant
 from .sessions import (
     complete_session,
     create_session,
+    end_session_early,
     record_answer,
     record_gates,
     record_vitals,
@@ -72,6 +73,8 @@ KNOWN_EXPECTED_KEYS: frozenset[str] = frozenset(
         "aesi_items",
         "aesi_clock_started",
         "protocol_tier_floor",
+        # R5.1 early-stop path (kiosk personas).
+        "ended_early",
     }
 )
 
@@ -122,6 +125,12 @@ def personas(*, include_hidden: bool = True) -> list[dict[str, Any]]:
     return out
 
 
+def kiosk_personas() -> list[dict[str, Any]]:
+    """The R5 kiosk personas (early stop, free text, medication text), kept apart from the
+    36 answer-key personas so their mix and totals stay fixed; run them by naming their ids."""
+    return list(load_answer_key().get("kiosk_personas") or [])
+
+
 def persona_summaries() -> list[dict[str, Any]]:
     return [
         {
@@ -141,7 +150,7 @@ def persona_summaries() -> list[dict[str, Any]]:
 
 
 def persona_by_id(persona_id: str) -> dict[str, Any]:
-    for p in personas():
+    for p in [*personas(), *kiosk_personas()]:
         if p["id"] == persona_id:
             return p
     raise problem(404, f"No persona with id {persona_id!r}", title="Persona not found")
@@ -173,7 +182,14 @@ def _run_checkin(
     consent_camera: bool,
     rule_settings: Mapping[str, Any] | None,
     completed_at: str,
+    early_stop: str | None = None,
 ) -> tuple[Session, dict[str, Any], dict[str, Any]]:
+    """One kiosk check-in, backdated to ``completed_at``.
+
+    ``early_stop`` (``urgent_now`` | ``severe_dyspnea``, R5.1) is the kiosk's immediate stop:
+    only the persona's listed answers are recorded (never zero-filled) and the session ends
+    through :func:`end_session_early` instead of the gates and ``complete_session``.
+    """
     started_at = shift(completed_at, seconds=-SESSION_SECONDS)
     session = create_session(
         db,
@@ -187,9 +203,11 @@ def _run_checkin(
     # Answer-key convention: an item or attribute a persona omits means "none / never" (0).
     # It is recorded as an explicit 0 so the session satisfies the completeness check that
     # a kiosk check-in must satisfy (sessions.missing_instrument_parts).
-    full: dict[str, dict[str, int]] = {
-        item.id: dict.fromkeys(item.attributes, 0) for item in items()
-    }
+    full: dict[str, dict[str, int]] = (
+        {item_id: {} for item_id in responses}
+        if early_stop
+        else {item.id: dict.fromkeys(item.attributes, 0) for item in items()}
+    )
     for item_id, attrs in responses.items():
         full.setdefault(item_id, {}).update({str(k): int(v) for k, v in attrs.items()})
     for item_id, attrs in full.items():
@@ -204,18 +222,21 @@ def _run_checkin(
                 ts_client=completed_at,
                 now=completed_at,
             )
-    record_gates(
-        db,
-        session,
-        hospitalization=bool(gates.get("hospitalization", False)),
-        conmed_changed=bool(gates.get("conmed_changed", False)),
-        conmed_text=gates.get("conmed_text"),
-        conmed_direction=gates.get("conmed_direction") or None,
-        other_text=gates.get("other_text"),
-        temp_c=gates.get("temp_c"),
-        ts_client=completed_at,
-        now=completed_at,
-    )
+    if not early_stop:
+        record_gates(
+            db,
+            session,
+            hospitalization=bool(gates.get("hospitalization", False)),
+            conmed_changed=bool(gates.get("conmed_changed", False)),
+            conmed_text=gates.get("conmed_text"),
+            conmed_direction=gates.get("conmed_direction") or None,
+            other_text=gates.get("other_text"),
+            temp_c=gates.get("temp_c"),
+            ts_client=completed_at,
+            now=completed_at,
+            urgent_now=gates.get("urgent_now"),
+            conmeds=gates.get("conmeds"),
+        )
     if vitals:
         # The harness is admin-driven and its sessions are eval-only (hidden from the queue and
         # the exports), so a persona may legitimately say "suppose the sensor measured this".
@@ -227,6 +248,11 @@ def _run_checkin(
             measured_allowed=True,
             now=completed_at,
         )
+    if early_stop:
+        response = end_session_early(
+            db, settings, session, trigger=early_stop, ts_client=completed_at, now=completed_at
+        )
+        return session, response, load_json(session.result_json, {})
     response, result = complete_session(
         db,
         settings,
@@ -310,6 +336,7 @@ def replay_persona(
         consent_camera=bool(persona.get("consent_camera", True)),
         rule_settings=effective,
         completed_at=completed_at,
+        early_stop=persona.get("early_stop"),
     )
 
 
@@ -382,6 +409,7 @@ def compare(
         "aesi_items": sorted(str(i) for i in protocol.get("aesi_items") or []),
         "aesi_clock_started": aesi_clock is not None,
         "protocol_tier_floor": result.get("protocol_tier_floor"),
+        "ended_early": result.get("ended_early"),
     }
 
     def check(key: str, got: Any, want: Any) -> None:
@@ -408,6 +436,8 @@ def compare(
         check("red_flag_tier_floor", actual["red_flag_tier_floor"], expected["red_flag_tier_floor"])
     if "corroboration_bump" in expected:
         check("corroboration_bump", actual["corroboration_bump"], expected["corroboration_bump"])
+    if "ended_early" in expected:
+        check("ended_early", actual["ended_early"], expected["ended_early"])
     for rule_id in expected.get("rules_fired_includes", []):
         if rule_id not in fired:
             mismatches.append(f"rules_fired_includes: {rule_id} did not fire")
@@ -893,6 +923,7 @@ def run_eval(
     suffix = run_id[-8:].lower()
     selected = personas(include_hidden=True)
     if persona_ids:
+        selected = [*selected, *kiosk_personas()]  # named ids may be R5 kiosk personas
         wanted = set(persona_ids)
         unknown = sorted(wanted - {p["id"] for p in selected})
         if unknown:

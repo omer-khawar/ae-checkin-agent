@@ -52,6 +52,7 @@ from sqlmodel import Session as DbSession
 from sqlmodel import select
 
 from interim_rules import chartscan
+from interim_rules.conmed import match_conmed
 from interim_rules.dedup import (
     DEDUP_TABLE_FILE,
     OpenAESearch,
@@ -65,6 +66,9 @@ from interim_rules.tables import escalation_ladder, seriousness_config
 from ..audit import Actor, append_event
 from ..models import AEOpen, ChartNote, Draft, Escalation, Participant, SAEClock, Study
 from ..problems import problem
+from ..readers.apply import apply_reader
+from ..readers.gemini_reader import ReaderResult
+from ..schemas_reader import DEFAULT_READER
 from ..settings import Settings
 from ..util import (
     dump_json,
@@ -77,7 +81,7 @@ from ..util import (
     seconds_between,
     to_jsonable,
 )
-from .calls import call_fields, calls_for, enrich_with_calls, store_call
+from .calls import call_fields, calls_for, enrich_with_calls, is_phone_call, store_call
 from .checkins import DraftInput, apply_result, next_aeseq_for, open_aes_for
 from .common import (
     ae_link,
@@ -97,11 +101,16 @@ from .settings_svc import effective_rule_settings
 LEXICON_TABLE_FILE = "chartscan_lexicon.json"
 RED_FLAG_TABLE_FILE = "chartscan_red_flags.json"
 LADDER_TABLE_FILE = "escalation_ladder.json"
+CTCAE_TABLE_FILE = "ctcae_terms.json"
 NOTE_MAX_TIER = 2
 """A chart note escalates to Tier 2 at most (D-017); asserted, never exceeded."""
 MATCH_KIND_LEXICON = "lexicon"
 """``INTERIM_MATCH_KIND`` of a note CM draft: the scanner's lexicon matched the words
 (an exact pattern match, confidence 1.0), as opposed to the kiosk's string-distance kinds."""
+MATCH_KIND_READER = "reader"
+"""``INTERIM_MATCH_KIND`` of a note CM draft the second reader found (R5.3): its generic name
+was checked against the bundled list by string distance; confidence 0.0 means not in the list
+(flagged for the coordinator, as on the kiosk)."""
 DOMAINS: tuple[str, ...] = ("AE", "VS", "CM")
 
 
@@ -133,12 +142,21 @@ there is no note id to point at and ``ts`` is ``None`` (``Evidence.ts: str | Non
 
 
 def note_pointer(
-    note_id: str, ingested_at: str | None, quote: str, span_start: int, span_end: int
+    note_id: str,
+    ingested_at: str | None,
+    quote: str,
+    span_start: int,
+    span_end: int,
+    *,
+    found_by: str = "scanner",
+    reader: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The ``chart_note`` evidence pointer (R2.4): which words of which note, and when.
 
-    ``ingested_at`` is ``None`` only for a dry run (no ingestion happened)."""
-    return {
+    ``ingested_at`` is ``None`` only for a dry run (no ingestion happened). A finding the
+    second reader (R5.3) also found carries ``found_by`` (``"gemini"`` or ``"both"``) and the
+    ``reader`` block ``{model, prompt_version, cached}``; a scanner-only pointer is unchanged."""
+    pointer: dict[str, Any] = {
         "kind": "chart_note",
         "id": note_id,
         "ts": ingested_at,
@@ -146,6 +164,11 @@ def note_pointer(
         "span_start": span_start,
         "span_end": span_end,
     }
+    if found_by != "scanner":
+        pointer["found_by"] = found_by
+        if reader is not None:
+            pointer["reader"] = dict(reader)
+    return pointer
 
 
 def _rule_pointer(rule_id: str, ts: str, note: str) -> dict[str, Any]:
@@ -265,10 +288,25 @@ def open_ae_inputs(rows: Sequence[AEOpen]) -> list[OpenAE]:
 # --------------------------------------------------------------------------- #
 
 
-def scan_only(text: str, ref_date: str | None) -> dict[str, Any]:
-    """``POST /scan``: the ``ScanResult`` plus the rules it would fire; nothing is stored."""
+def reader_kind(note_type: str | None) -> str:
+    """``"call"`` for a logged phone call, else ``"note"`` (the second reader's text kind)."""
+    return "call" if is_phone_call(note_type) else "note"
+
+
+def scan_only(
+    text: str, ref_date: str | None, reader: ReaderResult | None = None
+) -> dict[str, Any]:
+    """``POST /scan``: the ``ScanResult`` plus the rules it would fire; nothing is stored.
+
+    ``reader`` is the second reader's answer (R5.3), obtained by the router outside any lock;
+    ``None`` (or an off / failed reader) gives exactly the scanner-only result."""
     ref = parse_iso_date(ref_date, "ref_date") if ref_date else None
-    result = chartscan.scan_text(text, ref)
+    scanned = chartscan.scan_text(text, ref)
+    outcome = apply_reader(text, scanned, reader, ref_date=ref)
+    result = outcome.result
+    dry_meta = outcome.reader_meta()
+    scanner_rules = chartscan.rules_fired(scanned)
+    outcome.annotate_scanner_rules(scanner_rules)  # type: ignore[arg-type]
     rules = [
         {
             **r,
@@ -279,18 +317,21 @@ def scan_only(text: str, ref_date: str | None) -> dict[str, Any]:
                     str(r["quote"]),
                     int(r["span_start"]),
                     int(r["span_end"]),
+                    found_by=str(r.get("inputs", {}).get("found_by", "scanner")),  # type: ignore[attr-defined]
+                    reader=dry_meta,
                 )
             ],
         }  # type: ignore[arg-type]
-        for r in chartscan.rules_fired(result)
+        for r in [*scanner_rules, *outcome.reader_rules()]
     ]
     level = chartscan.escalation_level(result, "note")
     serious = chartscan.seriousness_suspected(result)
     n_drafts = len(result.symptoms) + len(result.meds)
     tier = note_tier(level=level, seriousness_suspected=serious, n_drafts=n_drafts)
-    out = chartscan.scan_result_to_dict(result)
+    out = outcome.scan_dict()
     out.update(
         {
+            **outcome.stored(),
             "ref_date": ref.isoformat() if ref else None,
             "escalation_level": level,
             "seriousness_suspected": serious,
@@ -349,15 +390,36 @@ def _ae_draft(
     open_aes: Sequence[OpenAE],
     window_days: int,
     built: _Built,
+    found_by: str = "scanner",
+    reader_meta: Mapping[str, Any] | None = None,
 ) -> None:
     ingested = note.ingested_at
-    quote_ev = note_pointer(note.id, ingested, finding.quote, finding.span_start, finding.span_end)
+    quote_ev = note_pointer(
+        note.id,
+        ingested,
+        finding.quote,
+        finding.span_start,
+        finding.span_end,
+        found_by=found_by,
+        reader=reader_meta,
+    )
+    symptom_rule_id = (
+        chartscan.RULE_GEMINI_SYMPTOM if found_by == "gemini" else chartscan.RULE_SYMPTOM
+    )
     symptom_rule_ev = _rule_pointer(
-        chartscan.RULE_SYMPTOM, ingested, f"'{finding.quote}' -> {finding.term}"
+        symptom_rule_id, ingested, f"'{finding.quote}' -> {finding.term}"
     )
-    term_ev = _table_pointer(
-        LEXICON_TABLE_FILE, f"symptom_patterns: '{finding.quote}' -> {finding.term} (CTCAE v5.0)"
-    )
+    if found_by == "gemini":
+        term_ev = _table_pointer(
+            CTCAE_TABLE_FILE,
+            f"closed vocabulary: '{finding.quote}' -> {finding.term} (read by the second reader, "
+            "quote verified word for word)",
+        )
+    else:
+        term_ev = _table_pointer(
+            LEXICON_TABLE_FILE,
+            f"symptom_patterns: '{finding.quote}' -> {finding.term} (CTCAE v5.0)",
+        )
     context = _rule_pointer("draft.ae", ingested, f"chart note {note.id} context")
 
     search, read_before = find_open_ae_for_note(
@@ -437,7 +499,7 @@ def _ae_draft(
             aestdtc_ev = [
                 quote_ev,
                 _rule_pointer(
-                    chartscan.RULE_SYMPTOM,
+                    symptom_rule_id,
                     ingested,
                     f"onset {finding.onset_days} day(s) before the note dated {note.note_date}",
                 ),
@@ -447,7 +509,7 @@ def _ae_draft(
             aestdtc_ev = [
                 quote_ev,
                 _rule_pointer(
-                    chartscan.RULE_SYMPTOM,
+                    symptom_rule_id,
                     ingested,
                     "no onset stated in the note; the note date stands in",
                 ),
@@ -462,7 +524,7 @@ def _ae_draft(
         [
             quote_ev,
             _rule_pointer(
-                chartscan.RULE_SYMPTOM,
+                symptom_rule_id,
                 ingested,
                 "the note says the symptom resolved or improved; coordinator to set AEENDTC",
             ),
@@ -474,7 +536,7 @@ def _ae_draft(
         f"grade hint from the note text ({finding.grade_basis}); provisional, "
         "investigator to confirm"
     )
-    rules_for_ae = [chartscan.RULE_SYMPTOM, dedup_rule_id]
+    rules_for_ae = [symptom_rule_id, dedup_rule_id]
     followup_of = linked.ae_open_id if linked is not None else None
 
     fields: dict[str, Any] = {
@@ -528,7 +590,11 @@ def _ae_draft(
         "INTERIM_RULES_FIRED": [
             _rule_pointer(rid, ingested, "rule fired for this finding") for rid in rules_for_ae
         ],
-        "INTERIM_PROVISIONAL": [_table_pointer(LEXICON_TABLE_FILE, grade_note)],
+        "INTERIM_PROVISIONAL": [
+            _table_pointer(
+                CTCAE_TABLE_FILE if found_by == "gemini" else LEXICON_TABLE_FILE, grade_note
+            )
+        ],
         "INTERIM_FOLLOWUP_OF": (
             [_rule_pointer(dedup_rule_id, ingested, "dedup decision")] if followup_of else []
         ),
@@ -597,15 +663,38 @@ def _cm_draft(
     finding: chartscan.MedFinding,
     cmseq: int,
     built: _Built,
+    found_by: str = "scanner",
+    reader_meta: Mapping[str, Any] | None = None,
 ) -> None:
     ingested = note.ingested_at
-    quote_ev = note_pointer(note.id, ingested, finding.quote, finding.span_start, finding.span_end)
+    quote_ev = note_pointer(
+        note.id,
+        ingested,
+        finding.quote,
+        finding.span_start,
+        finding.span_end,
+        found_by=found_by,
+        reader=reader_meta,
+    )
+    from_reader = found_by == "gemini"
     med_rule_ev = _rule_pointer(
-        chartscan.RULE_MED, ingested, f"'{finding.quote}' -> {finding.drug} ({finding.change})"
+        chartscan.RULE_GEMINI_MED if from_reader else chartscan.RULE_MED,
+        ingested,
+        f"'{finding.quote}' -> {finding.drug} ({finding.change})",
     )
-    lexicon_ev = _table_pointer(
-        LEXICON_TABLE_FILE, f"med_patterns: '{finding.quote}' -> {finding.drug} (NOT RxNorm)"
-    )
+    if from_reader:
+        lexicon_ev = _table_pointer(
+            "medlist.json",
+            f"second reader named '{finding.drug}' (quote verified word for word; "
+            "string-distance match against the bundled list, NOT RxNorm)",
+        )
+        match = match_conmed(finding.drug)
+        match_kind, match_confidence = MATCH_KIND_READER, match.confidence
+    else:
+        lexicon_ev = _table_pointer(
+            LEXICON_TABLE_FILE, f"med_patterns: '{finding.quote}' -> {finding.drug} (NOT RxNorm)"
+        )
+        match_kind, match_confidence = MATCH_KIND_LEXICON, 1.0
     context = _rule_pointer("draft.cm", ingested, f"chart note {note.id} context")
     cmstdtc = note.note_date if finding.change in ("started", "changed") else None
     cmendtc = note.note_date if finding.change == "stopped" else None
@@ -619,8 +708,8 @@ def _cm_draft(
         "CMSTDTC": cmstdtc,
         "CMENDTC": cmendtc,
         "CMSTAT": None,
-        "INTERIM_MATCH_CONFIDENCE": 1.0,
-        "INTERIM_MATCH_KIND": MATCH_KIND_LEXICON,
+        "INTERIM_MATCH_CONFIDENCE": match_confidence,
+        "INTERIM_MATCH_KIND": match_kind,
         "INTERIM_DIRECTION": finding.change,
         "INTERIM_SOURCE": "chart_note",
         "INTERIM_NOTE_DATE": note.note_date,
@@ -697,8 +786,12 @@ def ingest_note(
     now: str | None = None,
     caller: str | None = None,
     call_direction: str | None = None,
+    reader: ReaderResult | None = None,
 ) -> dict[str, Any]:
     """``POST /notes``: store, scan, draft, de-duplicate, escalate, start the SAE clock.
+
+    ``reader`` is the second reader's answer (R5.3), obtained by the router *before* the write
+    lock was taken; ``None`` (the seed, the evaluation, an off reader) is the scanner alone.
 
     ``note_type = "phone_call"`` (R4.1) is a logged call: ``caller`` / ``call_direction``
     are kept in ``ChartNoteCall`` (``services/calls.py``) and the summary is scanned like
@@ -780,18 +873,30 @@ def ingest_note(
         ts_utc=stamp,
     )
 
-    # Scan (clinician text: never detect a "talk to a human" request).
-    result = chartscan.scan_text(text, ref)
+    # Scan (clinician text: never detect a "talk to a human" request), then the second
+    # reader's verified additions (R5.3): additive, the scanner's findings are never changed.
+    scanned = chartscan.scan_text(text, ref)
+    outcome = apply_reader(text, scanned, reader, ref_date=ref)
+    result = outcome.result
+    reader_meta = outcome.reader_meta()
+    scanner_rules = chartscan.rules_fired(scanned)
+    outcome.annotate_scanner_rules(scanner_rules)  # type: ignore[arg-type]
     scan_rules = [
         {
             **r,
             "evidence": [
                 note_pointer(
-                    note.id, ingested_at, str(r["quote"]), int(r["span_start"]), int(r["span_end"])
+                    note.id,
+                    ingested_at,
+                    str(r["quote"]),
+                    int(r["span_start"]),
+                    int(r["span_end"]),
+                    found_by=str(r.get("inputs", {}).get("found_by", "scanner")),  # type: ignore[attr-defined]
+                    reader=reader_meta,
                 )  # type: ignore[arg-type]
             ],
         }
-        for r in chartscan.rules_fired(result)
+        for r in [*scanner_rules, *outcome.reader_rules()]
     ]
     level = chartscan.escalation_level(result, "note")
     serious = chartscan.seriousness_suspected(result)
@@ -816,6 +921,8 @@ def ingest_note(
             open_aes=open_aes,
             window_days=window_days,
             built=built,
+            found_by=outcome.symptom_found_by(finding.term),
+            reader_meta=reader_meta,
         )
     for index, med in enumerate(result.meds, start=1):
         _cm_draft(
@@ -825,6 +932,8 @@ def ingest_note(
             finding=med,
             cmseq=index,
             built=built,
+            found_by=outcome.med_found_by(med.drug),
+            reader_meta=reader_meta,
         )
 
     # Escalation (tier.final) and seriousness (sae.clock_started) in the engine's wording.
@@ -900,7 +1009,8 @@ def ingest_note(
     note.tier = tier
     note.scan_json = dump_json(
         {
-            "scan": chartscan.scan_result_to_dict(result),
+            "scan": outcome.scan_dict(),
+            **outcome.stored(),
             "ref_date": ref.isoformat(),
             "escalation_level": level,
             "seriousness_suspected": serious,
@@ -914,6 +1024,28 @@ def ingest_note(
     )
     db.add(note)
     db.flush()
+    if reader is not None and reader.status != "off":
+        append_event(
+            db,
+            actor,
+            "llm.read",
+            "note",
+            note.id,
+            {
+                "reader": "gemini",
+                "kind": reader_kind(note.note_type),
+                "input_sha256": note_text_sha256(text),
+                "status": reader.status,
+                "model": reader.model,
+                "cached": reader.cached,
+                "reason": reader.reason,
+                **outcome.counts(),
+                "statement": "Gemini reads, rules decide, people confirm: the reader only adds "
+                "findings whose quote was found word for word; grades, tiers and seriousness "
+                "come from the rules.",
+            },
+            ts_utc=stamp,
+        )
     append_event(
         db,
         actor,
@@ -1084,6 +1216,9 @@ def note_detail(
             "is_eval": bool(participant.is_eval) if participant else False,
         },
         "scan": stored.get("scan", {}),
+        "reader": stored.get("reader") or DEFAULT_READER.model_dump(),
+        "reader_rejected": list(stored.get("reader_rejected") or []),
+        "reader_notes": list(stored.get("reader_notes") or []),
         "escalation_level": stored.get("escalation_level"),
         "seriousness_suspected": bool(stored.get("seriousness_suspected", False)),
         "tier": note.tier,

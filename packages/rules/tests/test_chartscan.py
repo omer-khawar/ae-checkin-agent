@@ -77,12 +77,12 @@ def all_findings(result: cs.ScanResult) -> list[tuple[str, int, int]]:
 
 def test_answer_key_reproduces_source_evaluation() -> None:
     ev = cs.evaluate_answer_key()
-    assert ev.n_cases == 42
+    assert ev.n_cases == 43
     assert ev.misses == () and ev.passed
     assert (ev.ae_terms.precision, ev.ae_terms.recall, ev.ae_terms.f1) == (1.0, 1.0, 1.0)
-    assert (ev.ae_terms.tp, ev.ae_terms.fp, ev.ae_terms.fn) == (38, 0, 0)
+    assert (ev.ae_terms.tp, ev.ae_terms.fp, ev.ae_terms.fn) == (39, 0, 0)
     assert (ev.meds.precision, ev.meds.recall, ev.meds.f1) == (1.0, 1.0, 1.0)
-    assert (ev.meds.tp, ev.meds.fp, ev.meds.fn) == (17, 0, 0)
+    assert (ev.meds.tp, ev.meds.fp, ev.meds.fn) == (18, 0, 0)
     assert ev.med_change_accuracy == 1.0
     assert (ev.urgent_or_emergency_caught, ev.urgent_or_emergency_needed) == (14, 14)
     assert (ev.emergency_caught, ev.emergency_needed) == (3, 3)
@@ -92,13 +92,17 @@ def test_answer_key_reproduces_source_evaluation() -> None:
     payload = cs.evaluation_to_dict(ev)
     json.dumps(payload, allow_nan=False)
     assert payload["misses"] == [] and payload["passed"] is True
-    assert len(payload["per_case"]) == 42
+    assert len(payload["per_case"]) == 43
 
 
 def test_original_source_cases_still_reproduce_the_source_evaluation() -> None:
     """The 25 cases ported from the source repository, scored alone, give exactly the numbers
     its ``scripts/evaluate.py`` reported (the 14 review cases are T18+)."""
-    original = [c for c in cs.answer_key() if not (c.id[0] == "T" and int(c.id[1:]) >= 18)]
+    original = [
+        c
+        for c in cs.answer_key()
+        if c.id != "C-STOOLS" and not (c.id[0] == "T" and int(c.id[1:]) >= 18)
+    ]
     ev = cs.evaluate_answer_key(original)
     assert ev.n_cases == 25 and ev.passed
     assert (ev.ae_terms.tp, ev.ae_terms.fp, ev.ae_terms.fn) == (31, 0, 0)
@@ -119,10 +123,10 @@ def test_answer_key_composition_and_participant_mapping() -> None:
     cases = cs.answer_key()
     notes = [c for c in cases if c.kind == "note"]
     utterances = [c for c in cases if c.kind == "utterance"]
-    assert (len(notes), len(utterances)) == (8, 34)
-    assert len({c.id for c in cases}) == 42
+    assert (len(notes), len(utterances)) == (8, 35)
+    assert len({c.id for c in cases}) == 43
     review_cases = [c for c in raw_cases(cs.answer_key()) if c.get("review_fix")]
-    assert [c["id"] for c in review_cases] == [f"T{n}" for n in range(18, 35)]
+    assert [c["id"] for c in review_cases] == [*(f"T{n}" for n in range(18, 35)), "C-STOOLS"]
     raw = load_table("chartscan_answer_key")
     mapping = raw["subject_mapping"]
     assert mapping == {f"101-{n:03d}": f"P-{n:03d}" for n in range(1, 7)}
@@ -307,6 +311,10 @@ def test_bsa_grading(text: str, grade: int) -> None:
     [
         ("diarrhea, 3 stools/day", 1),
         ("diarrhea, 4-5 loose stools per day", 2),
+        ("6 or 7 watery stools a day since Friday", 3),
+        ("diarrhea, 6-7 liquid stools per day", 3),
+        ("diarrhea, 3 to 5 loose stools daily", 2),
+        ("diarrhea, 2 or 3 loose stools a day", 1),
         ("diarrhea 6 BMs a day", 2),
         ("diarrhea with 8 episodes per day", 3),
     ],
@@ -315,6 +323,16 @@ def test_stool_count_grading(text: str, grade: int) -> None:
     finding = symptom(scan(text), "Diarrhea")
     assert finding.grade_hint == grade
     assert f"CTCAE v5 diarrhea grade {grade}" in finding.grade_basis
+
+
+def test_stool_range_takes_the_larger_number_and_says_so() -> None:
+    result = scan("6 or 7 watery stools a day since Friday, started Imodium")
+    finding = symptom(result, "Diarrhea")
+    assert finding.grade_hint == 3
+    assert "range (6 to 7)" in finding.grade_basis and "larger number (7)" in finding.grade_basis
+    assert [(m.drug, m.change) for m in result.meds] == [("loperamide", "started")]
+    single = symptom(scan("diarrhea, 5 stools/day"), "Diarrhea")
+    assert "range" not in single.grade_basis
 
 
 def test_explicit_grade_beats_every_other_cue() -> None:
@@ -792,7 +810,7 @@ def test_malformed_answer_key_fails_loudly(table_dir: Path, mutate: Any, message
 
 
 def test_valid_tables_reload_from_the_scratch_directory(table_dir: Path) -> None:
-    assert len(cs.answer_key()) == 42
+    assert len(cs.answer_key()) == 43
     assert terms(cs.scan_text("severe nausea")) == ["Nausea"]
 
 

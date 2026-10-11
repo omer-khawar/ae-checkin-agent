@@ -32,6 +32,7 @@ from .models import (
     CheckInInput,
     CheckInResult,
     ConMedDirection,
+    ConMedEntry,
     GateAnswers,
     OpenAE,
     ProResponse,
@@ -194,6 +195,26 @@ def _answer_id(source: Mapping[str, Any], key: str, synthesized: str) -> str | N
     return None if value is None else str(value)
 
 
+def conmed_entries_from(raw: object, session_id: str) -> tuple[ConMedEntry, ...]:
+    """The ``conmeds`` list: dicts ``{text, direction, answer_id}`` or :class:`ConMedEntry`."""
+    if raw is None:
+        return ()
+    out: list[ConMedEntry] = []
+    for index, item in enumerate(cast(Sequence[object], raw)):
+        if isinstance(item, ConMedEntry):
+            out.append(item)
+            continue
+        d = cast(Mapping[str, Any], item) if isinstance(item, Mapping) else {}
+        out.append(
+            ConMedEntry(
+                text=str(_pick(d, "text", "conmed_text", default="")),
+                direction=_direction(_pick(d, "direction", "conmed_direction")),
+                answer_id=_answer_id(d, "answer_id", f"{session_id}:gate_conmed_text_{index + 1}"),
+            )
+        )
+    return tuple(out)
+
+
 def gates_from(raw: object, session_id: str) -> GateAnswers:
     """Build :class:`GateAnswers` from a dict; missing answers default to 'no'/'none'."""
     if isinstance(raw, GateAnswers):
@@ -213,6 +234,9 @@ def gates_from(raw: object, session_id: str) -> GateAnswers:
         other_answer_id=_answer_id(d, "other_answer_id", f"{session_id}:gate_other"),
         temp_c=_float_or_none(_pick(d, "temp_c", "tempC")),
         temp_answer_id=_answer_id(d, "temp_answer_id", f"{session_id}:gate_temp_c"),
+        urgent_now=bool(_pick(d, "urgent_now", "urgentNow", default=False)),
+        urgent_now_answer_id=_answer_id(d, "urgent_now_answer_id", f"{session_id}:gate_urgent_now"),
+        conmeds=conmed_entries_from(d.get("conmeds"), session_id),
     )
 
 
@@ -344,6 +368,7 @@ def input_from_dict(data: Mapping[str, Any]) -> CheckInInput:
         next_aeseq=int(_pick(data, "next_aeseq", "nextAeseq", default=1)),
         nct_id=None if nct is None else str(nct),
         protocol_context=protocol_context_from(_pick(data, "protocol_context", "protocolContext")),
+        ended_early=_str_or_none(_pick(data, "ended_early", "endedEarly")),
     )
 
 
@@ -362,6 +387,7 @@ def build_input(
     nct_id: str | None = None,
     started_at: str | None = None,
     protocol_context: object = None,
+    ended_early: str | None = None,
 ) -> CheckInInput:
     """Keyword convenience for the API: each piece may be a dataclass instance or a dict."""
     return input_from_dict(
@@ -379,5 +405,6 @@ def build_input(
             "next_aeseq": next_aeseq,
             "nct_id": nct_id,
             "protocol_context": protocol_context,
+            "ended_early": ended_early,
         }
     )

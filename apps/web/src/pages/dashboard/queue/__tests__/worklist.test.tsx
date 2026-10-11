@@ -199,12 +199,7 @@ describe("worklist: keyboard", () => {
 });
 
 describe("worklist: bulk confirm", () => {
-  // Skipped on CI only: fails on the GitHub runner (UTC), passes locally (ISSUES #28).
-  it.skipIf(
-    Boolean(
-      (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.CI,
-    ),
-  )("ticks rows, confirms every unconfirmed draft once, then clears the selection", async () => {
+  it("ticks rows, confirms every unconfirmed draft once, then clears the selection", async () => {
     const confirmed: string[] = [];
     const mock = installMockFetch(routes([CHECK_IN, NOTE_T1, URGENT], (id) => confirmed.push(id)));
     const user = userEvent.setup();

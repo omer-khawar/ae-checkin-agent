@@ -22,7 +22,7 @@ export interface WelcomeProps {
    */
   startFailure?: unknown;
   initialId?: string;
-  /** `useCamera` is true unless the participant ticked "I'd rather not use the camera". */
+  /** `useCamera` is false unless the participant ticked the optional camera box (R5.6). */
   onStart: (studyId: string, useCamera: boolean) => void;
 }
 
@@ -30,16 +30,16 @@ const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 /** Exact copy kept from the old consent screen (CLAUDE.md §00, D-026). */
 export const NO_VIDEO_TEXT = "Only pulse and breathing numbers are kept; no video is stored.";
-export const CAMERA_OPT_OUT_LABEL = "I'd rather not use the camera";
+export const CAMERA_OPT_IN_LABEL = "Use the camera to read my pulse and breathing (optional)";
 
 /**
  * Screen 1 (and the only screen before the questions): welcome, study ID and
- * the camera opt-out, on one glass card. No study title and no clinical words.
+ * the optional camera box, on one glass card. No study title and no clinical words.
  *
  * There is no per-session consent step any more: camera use is covered by the
  * informed consent form signed at enrollment (CLAUDE.md §00, DECISIONS.md
- * D-026; the API records `consent_basis: "enrollment_icf"`). The camera is on
- * by default; the participant can still opt out here with one tap, and the
+ * D-026; the API records `consent_basis: "enrollment_icf"`). The camera is OFF
+ * by default (R5.6); the participant can opt in here with one tap, and the
  * check-in runs exactly the same without it. The kiosk is unauthenticated, so
  * there is no participant picker; the ID is validated for real by POST /sessions.
  */
@@ -55,7 +55,8 @@ export function Welcome({
 }: WelcomeProps) {
   const [id, setId] = useState(initialId);
   const [touched, setTouched] = useState(false);
-  const [noCamera, setNoCamera] = useState(false);
+  /** Camera is OFF by default; the participant opts in (R5.6). */
+  const [useCamera, setUseCamera] = useState(false);
   /** The normalised ID of the last submit, so a rejection can be tied to it. */
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const trimmed = id.trim();
@@ -73,7 +74,7 @@ export function Welcome({
     setTouched(true);
     if (!valid || busy) return;
     setSubmittedId(normalized);
-    onStart(normalized, !noCamera);
+    onStart(normalized, useCamera);
   }
 
   function submit(e: FormEvent) {
@@ -139,7 +140,7 @@ export function Welcome({
             )}
           </div>
 
-          {/* Camera opt-out. The whole row is the label, so the tap target is large;
+          {/* Camera opt-in. The whole row is the label, so the tap target is large;
               the native checkbox keeps Space/Enter and screen-reader semantics. */}
           <div className="rounded-control border-2 border-border bg-surface p-5">
             <p className="m-0 text-k-helper text-muted-foreground" id="camera-note">
@@ -147,28 +148,28 @@ export function Welcome({
               <span className="font-semibold text-foreground">{NO_VIDEO_TEXT}</span>
             </p>
             <label
-              htmlFor="no-camera"
+              htmlFor="use-camera"
               className="mt-3 flex min-h-k-option cursor-pointer items-center gap-4 rounded-control px-1 text-k-answer font-semibold hover:bg-surface-subtle"
             >
               <input
-                id="no-camera"
+                id="use-camera"
                 type="checkbox"
-                checked={noCamera}
-                onChange={(e) => setNoCamera(e.target.checked)}
+                checked={useCamera}
+                onChange={(e) => setUseCamera(e.target.checked)}
                 disabled={busy}
                 aria-describedby="camera-note camera-state"
                 className="size-8 shrink-0 cursor-pointer accent-primary"
               />
-              {CAMERA_OPT_OUT_LABEL}
+              {CAMERA_OPT_IN_LABEL}
             </label>
             <p
               id="camera-state"
               className="mt-1 text-k-helper text-muted-foreground"
               aria-live="polite"
             >
-              {noCamera
-                ? "The camera will stay off. The check-in is exactly the same without it."
-                : "The camera will be on. You can tick the box above to turn it off."}
+              {useCamera
+                ? "The camera will be on. You can untick the box above to turn it off."
+                : "The camera will stay off. The check-in is exactly the same without it."}
             </p>
           </div>
 

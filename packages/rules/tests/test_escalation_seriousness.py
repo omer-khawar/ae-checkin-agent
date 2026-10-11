@@ -14,8 +14,8 @@ from interim_rules.tables import vitals_config
 from interim_rules.timefmt import shift
 
 STOP_SCREEN_TEXT = (
-    "Thank you. A member of the study team will contact you today. If you feel you need "
-    "urgent help right now, call 911 or go to the nearest emergency room."
+    "If you are having trouble breathing or chest pain right now, call 911 now. Your answers "
+    "were saved. A member of the study team has been alerted and will contact you today."
 )
 
 

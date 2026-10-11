@@ -21,18 +21,28 @@ instead of only when a later stage happens to parse it.
 
 from __future__ import annotations
 
+import dataclasses
+
 from .conditions import ConditionContext
-from .conmed import conmed_rule, match_conmed
+from .conmed import conmed_entries, conmed_rule, match_conmed
 from .corroboration import evaluate_corroboration
 from .dedup import decide_dedup
 from .drafting import build_ae_drafts, build_cm_draft, build_vs_drafts
 from .escalation import compute_tier
+from .free_text import assess_free_text
 from .grading import grade_items, grading_rule
-from .models import CheckInInput, CheckInResult, DraftRecord, RuleFired
+from .models import (
+    CheckInInput,
+    CheckInResult,
+    ConMedMatch,
+    DraftRecord,
+    ProtocolAssessment,
+    RuleFired,
+)
 from .protocol import assess_protocol, parse_last_dose_date, start_aesi_clock
 from .red_flags import evaluate_red_flags
 from .scoring import score_responses, scoring_rule
-from .seriousness import assess_seriousness
+from .seriousness import SeriousnessOutcome, assess_seriousness
 from .tables import red_flag_table
 from .timefmt import parse_iso_utc
 from .vitals import assess_vitals, classify_samples, corroboration_maxima
@@ -90,6 +100,7 @@ def gate_evidence_ids(inp: CheckInInput) -> dict[str, str]:
     gates, sid = inp.gates, inp.session_id
     conmed_id = gates.conmed_answer_id or f"{sid}:gate_conmed"
     return {
+        "urgent_now": gates.urgent_now_answer_id or f"{sid}:gate_urgent_now",
         "hospitalization": gates.hospitalization_answer_id or f"{sid}:gate_hospitalization",
         "conmed_changed": conmed_id,
         "conmed_text": conmed_id,
@@ -97,6 +108,41 @@ def gate_evidence_ids(inp: CheckInInput) -> dict[str, str]:
         "other_text": gates.other_answer_id or f"{sid}:gate_other",
         "temp_c": gates.temp_answer_id or f"{sid}:gate_temp_c",
     }
+
+
+_PROTOCOL_LEVEL_RANK = {"prohibited": 0, "discouraged": 1, "permitted": 2}
+_PER_ENTRY_PROTOCOL_RULES = ("protocol.conmed_", "protocol.cm_fields")
+
+
+def _merge_protocol(
+    primary: ProtocolAssessment, extras: list[ProtocolAssessment]
+) -> ProtocolAssessment:
+    """Fold the medication-specific parts of the other entries' assessments into the first.
+
+    Each extra entry was assessed with the full protocol stage; only its medication rules,
+    flags, notes, missing CM fields and tier floor are taken (the AESI half is identical).
+    """
+    if not extras:
+        return primary
+    flags = sorted(
+        [*primary.conmed_flags, *(f for e in extras for f in e.conmed_flags)],
+        key=lambda f: _PROTOCOL_LEVEL_RANK[f.level],
+    )
+    missing = list(primary.cm_missing_fields)
+    for extra in extras:
+        missing.extend(f for f in extra.cm_missing_fields if f not in missing)
+    extra_rules = [
+        r for e in extras for r in e.rules_fired if r.rule_id.startswith(_PER_ENTRY_PROTOCOL_RULES)
+    ]
+    return dataclasses.replace(
+        primary,
+        conmed_flags=tuple(flags),
+        conmed_flag=flags[0].level if flags else None,
+        conmed_notes=(*primary.conmed_notes, *(n for e in extras for n in e.conmed_notes)),
+        cm_missing_fields=tuple(missing),
+        tier_floor=max([primary.tier_floor, *(e.tier_floor for e in extras)]),
+        rules_fired=(*primary.rules_fired, *extra_rules),
+    )
 
 
 def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
@@ -130,33 +176,68 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
         gate_ids=gate_ids,
         vitals_max=maxima,
         severe_item=red_flag_table().severe_item,
+        ended_early=inp.ended_early,
     )
 
-    # 3. Red flags -> tier floor.
+    # 3. Red flags -> tier floor. R5.1: an early stop and urgent_now are red-flag table rules.
     red = evaluate_red_flags(ctx)
+    # 3b. R5.2: the comment box is read by the deterministic scanner (utterance mode).
+    free_text = assess_free_text(inp.gates, gate_ids["other_text"])
+    red_flag_floor = max(red.tier_floor, free_text.tier_floor)
+    red_flag_rules = (*red.rules_fired, *free_text.rules_fired)
 
     # 5. Corroboration -> at most +1 tier, only when vitals status is ok.
     corroboration = evaluate_corroboration(ctx, assessment)
 
     # 8. Con-med matching (verbatim text is never altered). A "yes" with no name
     #    typed is still a reported change: it is matched as empty -> unmatched and
-    #    drafted so the coordinator can ask, instead of vanishing. Computed before the
-    #    ladder because the protocol stage reads it.
-    conmed_match = None
+    #    drafted so the coordinator can ask, instead of vanishing. R5.2: several medicines
+    #    (the kiosk's list, or one box split on commas / "and") are matched one by one.
+    #    Computed before the ladder because the protocol stage reads it.
+    entries = conmed_entries(inp.gates)
+    entry_gate_ids: list[str] = []
+    entry_inputs: list[CheckInInput] = []
+    conmed_matches: list[ConMedMatch] = []
     conmed_rules: list[RuleFired] = []
-    if inp.gates.conmed_changed:
-        conmed_match = match_conmed(inp.gates.conmed_text or "")
-        conmed_rules.append(conmed_rule(conmed_match, gate_ids["conmed_text"]))
-
-    # 8b. Protocol: possible AESI, con-med level, CM completeness, tier floor.
-    protocol = assess_protocol(
-        item_results,
-        conmed_match,
-        inp.gates,
-        inp.protocol_context,
-        completed_at=inp.completed_at,
-        gate_ids=gate_ids,
-    )
+    entry_protocols: list[ProtocolAssessment] = []
+    for entry in entries:
+        answer_id = entry.answer_id or gate_ids["conmed_text"]
+        entry_gates = dataclasses.replace(
+            inp.gates,
+            conmed_changed=True,
+            conmed_text=entry.text,
+            conmed_direction=entry.direction,
+            conmed_answer_id=answer_id,
+            conmeds=(),
+        )
+        match = match_conmed(entry.text)
+        conmed_matches.append(match)
+        conmed_rules.append(conmed_rule(match, answer_id))
+        entry_gate_ids.append(answer_id)
+        entry_inputs.append(dataclasses.replace(inp, gates=entry_gates))
+        # 8b. Protocol: possible AESI, con-med level, CM completeness, tier floor.
+        entry_protocols.append(
+            assess_protocol(
+                item_results,
+                match,
+                entry_gates,
+                inp.protocol_context,
+                completed_at=inp.completed_at,
+                gate_ids={**gate_ids, "conmed_text": answer_id},
+            )
+        )
+    conmed_match = conmed_matches[0] if conmed_matches else None
+    if entry_protocols:
+        protocol = _merge_protocol(entry_protocols[0], entry_protocols[1:])
+    else:
+        protocol = assess_protocol(
+            item_results,
+            None,
+            inp.gates,
+            inp.protocol_context,
+            completed_at=inp.completed_at,
+            gate_ids=gate_ids,
+        )
     protocol_floor_rule_ids = [
         r.rule_id for r in protocol.rules_fired if r.rule_id == "protocol.conmed_prohibited"
     ]
@@ -165,8 +246,8 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
     tier = compute_tier(
         max_grade=max_grade,
         grade_rule_ids=max_grade_rule_ids,
-        red_flag_floor=red.tier_floor,
-        red_flag_rule_ids=[r.rule_id for r in red.rules_fired],
+        red_flag_floor=red_flag_floor,
+        red_flag_rule_ids=[r.rule_id for r in red_flag_rules],
         corroboration_bump=corroboration.bump,
         corroboration_rule_ids=[r.rule_id for r in corroboration.rules_fired],
         protocol_floor=protocol.tier_floor,
@@ -175,6 +256,11 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
 
     # 7. Seriousness + SAE clock.
     serious = assess_seriousness(inp.gates, gate_ids, inp.completed_at)
+    if not serious.suspected:
+        # R5.2: a hospital/ER mention in the comment box that conflicts with a No answer.
+        conflict = free_text.seriousness_clock(gate_ids["other_text"], inp.completed_at)
+        if conflict is not None:
+            serious = SeriousnessOutcome(True, conflict[0], (conflict[1],))
 
     # 9. De-duplication against open AEs (never against this session's own AEs).
     # Decided before the AESI clock (pure; its rules are still listed after the protocol's)
@@ -208,7 +294,7 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
     prior: list[RuleFired] = [
         *scoring_rules,
         *grading_rules,
-        *red.rules_fired,
+        *red_flag_rules,
         *assessment.rules_fired,
         *corroboration.rules_fired,
         *tier.rules_fired,
@@ -223,8 +309,14 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
     vs_drafts, vs_rules = build_vs_drafts(inp, assessment, readings)
     drafts: list[DraftRecord] = [*ae_drafts, *vs_drafts]
     cm_rules: list[RuleFired] = []
-    if conmed_match is not None:
-        cm_draft, cm_rule = build_cm_draft(inp, conmed_match, gate_ids["conmed_text"], protocol)
+    for index, match in enumerate(conmed_matches):
+        cm_draft, cm_rule = build_cm_draft(
+            entry_inputs[index],
+            match,
+            entry_gate_ids[index],
+            entry_protocols[index],
+            seq=index + 1,
+        )
         drafts.append(cm_draft)
         cm_rules.append(cm_rule)
 
@@ -233,7 +325,7 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
         items=item_results,
         max_grade=max_grade,
         base_tier=tier.base_tier,
-        red_flag_tier_floor=red.tier_floor,
+        red_flag_tier_floor=red_flag_floor,
         corroboration_bump=tier.bump,
         escalation_tier=tier.final_tier,
         stop_screen=tier.stop_screen,
@@ -248,4 +340,6 @@ def evaluate_checkin(inp: CheckInInput) -> CheckInResult:
         protocol=protocol,
         aesi_clock=aesi_clock,
         protocol_tier_floor=protocol.tier_floor,
+        conmeds=tuple(conmed_matches),
+        ended_early=inp.ended_early,
     )

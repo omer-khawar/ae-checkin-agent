@@ -214,8 +214,9 @@ export function session(overrides: Partial<Session> = {}): Session {
   };
 }
 
+/** R5.1: escalation_ladder.json `stop_screen_text`. */
 export const STOP_TEXT =
-  "Thank you. A member of the study team will contact you today. If you feel you need urgent help right now, call 911 or go to the nearest emergency room.";
+  "If you are having trouble breathing or chest pain right now, call 911 now. Your answers were saved. A member of the study team has been alerted and will contact you today.";
 
 export function completeResponse(overrides: Partial<CompleteResponse> = {}): CompleteResponse {
   return {

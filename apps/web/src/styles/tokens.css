@@ -157,7 +157,7 @@
   --radius-lg: 28px; /* glass question / welcome / login cards */
 
   /* Type scale. Root 20px; data-text-size="large" raises it to 24px and every
-     kiosk size scales with it: 16 disclaimer / 18 helper / 20 body / 22 answer /
+     kiosk size scales with it (large = 26px root, 1.3x): 16 disclaimer / 18 helper / 20 body / 22 answer /
      24 lead / 30 question / 36 screen title. */
   --k-root: 20px;
   --fs-k-disclaimer: calc(var(--k-root) * 0.8);
@@ -186,7 +186,7 @@
 
 [data-surface="kiosk"][data-text-size="large"],
 [data-surface="kiosk"] [data-text-size="large"] {
-  --k-root: 24px;
+  --k-root: 26px; /* "Larger text": 1.3x every kiosk size (R5.6 asks for at least 1.25x) */
 }
 
 /* Status colours (global). Every chip pairs the colour with an icon and a word. */

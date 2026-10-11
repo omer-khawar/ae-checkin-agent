@@ -75,6 +75,13 @@ class AnswerRequest(BaseModel):
     ts_client: str
 
 
+class ConmedEntryBody(BaseModel):
+    """One medication from the kiosk's "Add another medication" list (CONTRACTS R5.2)."""
+
+    text: str = Field(max_length=200)
+    direction: ConmedDirection
+
+
 class GatesRequest(BaseModel):
     hospitalization: bool
     conmed_changed: bool
@@ -82,6 +89,21 @@ class GatesRequest(BaseModel):
     conmed_direction: ConmedDirection | None = None
     other_text: str | None = Field(default=None, max_length=4000)
     temp_c: float | None = Field(default=None, ge=25.0, le=45.0)
+    ts_client: str
+    # R5.1: the kiosk's first question; true here (no early stop) is still a tier-3 red flag.
+    urgent_now: bool | None = None
+    # R5.2: several medications. When present it is the source of truth for the CM drafts;
+    # conmed_text / conmed_direction stay accepted for old clients.
+    conmeds: list[ConmedEntryBody] | None = Field(default=None, max_length=10)
+
+
+UrgentTrigger = Literal["urgent_now", "severe_dyspnea"]
+
+
+class UrgentRequest(BaseModel):
+    """R5.1: the kiosk stopped the check-in at once; the answers given so far are kept."""
+
+    trigger: UrgentTrigger
     ts_client: str
 
 

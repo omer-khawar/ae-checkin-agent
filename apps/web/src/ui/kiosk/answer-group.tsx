@@ -75,6 +75,11 @@ export interface AnswerGroupProps<V extends string | number = string | number>
   /** Inline validation, e.g. "Please choose an answer". Announced via role="alert". */
   error?: ReactNode;
   required?: boolean;
+  /**
+   * `compact` (two-part questions): rows 56px tall with tighter gaps and padding so both
+   * halves fit above the action bar at 1280x800. Rows stay >= 56px (R5.6).
+   */
+  density?: "comfortable" | "compact";
 }
 
 /**
@@ -101,6 +106,7 @@ export function AnswerGroup<V extends string | number = string | number>({
   helperText,
   error,
   required = false,
+  density = "comfortable",
   disabled = false,
   className,
   id,
@@ -108,6 +114,7 @@ export function AnswerGroup<V extends string | number = string | number>({
   ...fieldsetProps
 }: AnswerGroupProps<V>) {
   const autoId = useId();
+  const compact = density === "compact";
   const baseId = id ?? `answer-${autoId}`;
   const helperId = helperText && !error ? `${baseId}-helper` : undefined;
   const errorId = error ? `${baseId}-error` : undefined;
@@ -188,13 +195,28 @@ export function AnswerGroup<V extends string | number = string | number>({
     >
       {legend ? (
         <legend
-          className={cn("mb-4 p-0 text-k-question text-foreground", legendHidden && "sr-only")}
+          className={cn(
+            compact ? "mb-2 text-k-lead leading-snug" : "mb-4 text-k-question",
+            "p-0 text-foreground",
+            legendHidden && "sr-only",
+          )}
         >
           {legend}
         </legend>
       ) : null}
 
-      <div className="flex flex-col gap-k-gap">
+      {/* The message sits above the rows so it can never end up under the sticky action bar. */}
+      {error ? (
+        <p
+          id={errorId}
+          role="alert"
+          className="mb-3 mt-0 text-k-helper font-semibold text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      <div className={cn("flex flex-col", compact ? "gap-2" : "gap-k-gap")}>
         {options.map((option, index) => {
           const checked = index === selectedIndex;
           const optionDisabled = !isEnabled(index);
@@ -207,10 +229,11 @@ export function AnswerGroup<V extends string | number = string | number>({
               data-state={checked ? "checked" : "unchecked"}
               data-disabled={optionDisabled || undefined}
               className={cn(
-                "transition-calm flex min-h-k-option w-full cursor-pointer select-none items-center gap-4",
+                "transition-calm flex w-full cursor-pointer select-none items-center gap-4",
+                compact ? "min-h-14 py-2" : "min-h-k-option py-3",
                 // Clear the sticky action bar when focused or scrolled to (WCAG 2.4.11).
                 "scroll-my-4",
-                "rounded-control border-2 px-5 py-3 text-left",
+                "rounded-control border-2 px-5 text-left",
                 // Focus ring on the row, from the kiosk focus tokens (blue, outside the row).
                 "has-[:focus-visible]:outline has-[:focus-visible]:outline-[length:var(--focus-width)]",
                 "has-[:focus-visible]:outline-ring has-[:focus-visible]:outline-offset-[var(--focus-offset)]",
@@ -271,11 +294,6 @@ export function AnswerGroup<V extends string | number = string | number>({
       {helperText && !error ? (
         <p id={helperId} className="mt-4 text-k-helper text-muted-foreground">
           {helperText}
-        </p>
-      ) : null}
-      {error ? (
-        <p id={errorId} role="alert" className="mt-4 text-k-helper font-semibold text-destructive">
-          {error}
         </p>
       ) : null}
     </fieldset>
