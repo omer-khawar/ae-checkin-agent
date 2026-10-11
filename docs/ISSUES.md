@@ -32,3 +32,7 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 26 | Web: investigator "Record seriousness decision" control for clocks with no AE draft (calls PATCH /sae-clocks/{id}/stop) | done | web | `pages/dashboard/detail/ClockActions.tsx` (used on check-in detail, note detail and `escalations/SaeClocksTable.tsx`), wrapper `detail/r34Api.ts#stopClock`, tests in `detail/__tests__/r34.test.tsx`; to be confirmed against the live API in the browser test |
 | 27 | render.yaml still deploys the legacy backend/ | done | infra | Fix with the legacy/ move |
 | 28 | Deployment path in the judges' terms (Jenkins → Argo CD → Kubernetes); Render CORS was `*` | done | infra | `deploy/k8s` (Kustomize: namespace, ConfigMap, API Deployment + PVC + Service, web Deployment + Service; Secret by reference only), `deploy/argocd/application.yaml`, root `Jenkinsfile`, `deploy/README.md`; CI renders the manifests. `render.yaml` CORS now the web URL. Not yet applied to a live cluster |
+
+## #28 Worklist bulk-confirm test is flaky on the CI runner only (open)
+
+`src/pages/dashboard/queue/__tests__/worklist.test.tsx` "ticks rows, confirms every unconfirmed draft once…" passes every local run but intermittently finds no selection toolbar on GitHub's runner after clicking a row checkbox. Marked `retry: 2` so CI stays meaningful for everything else. Next step: reproduce with a throttled runner and check whether a polling re-render or a row-click navigation swallows the checkbox click. Owner: web.

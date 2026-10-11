@@ -327,8 +327,8 @@ export function Layout() {
             className="focus-ring transition-calm inline-flex h-8 items-center gap-2 rounded-control border border-border-strong bg-surface/70 px-2 text-body text-muted-foreground hover:bg-surface"
           >
             <Search aria-hidden="true" className="size-4" />
-            <span className="hidden 2xl:inline">Search or jump to</span>
-            <span className="sr-only 2xl:hidden">Search</span>
+            <span className="hidden min-[1800px]:inline">Search or jump to</span>
+            <span className="sr-only min-[1800px]:hidden">Search</span>
             <span className="hidden items-center gap-0.5 md:inline-flex" aria-hidden="true">
               <Kbd>{MOD_KEY}</Kbd>
               <Kbd>K</Kbd>
@@ -350,7 +350,7 @@ export function Layout() {
               <>
                 <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
                 <span>{study?.nct_id ?? "Study"}</span>
-                <span className="hidden font-sans text-caption text-muted-foreground 2xl:inline">
+                <span className="hidden font-sans text-caption text-muted-foreground min-[1800px]:inline">
                   synthetic participants
                 </span>
               </>
