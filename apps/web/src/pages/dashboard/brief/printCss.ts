@@ -12,13 +12,15 @@
  */
 export const PRINT_CSS = `
 @media print {
-  header:has(nav), nav, [data-print-hide], [aria-live] { display: none !important; }
+  header:has(nav), [data-slot^="app-header"], nav, [data-print-hide], [aria-live] { display: none !important; }
   html, body { background: #fff !important; }
   main { max-width: none !important; padding: 0 !important; }
   [data-brief-root] { font-size: 11pt; }
   [data-brief-root] a { color: inherit !important; }
   [data-brief-root] section { break-inside: avoid; box-shadow: none !important; }
   footer { break-inside: avoid; }
+  .glass, .glass-strong { backdrop-filter: none !important; background: #fff !important; box-shadow: none !important; }
+  [data-brief-root] input[type="checkbox"] { appearance: auto; }
 }
 @page { margin: 14mm; }
 `;

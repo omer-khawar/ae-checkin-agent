@@ -398,7 +398,7 @@ export function ruleAt(
 
 /** Row highlight classes shared by answers, samples and rules (Tailwind literal so it is compiled). */
 export function highlightClass(active: boolean): string {
-  return active ? "bg-amber-50 ring-2 ring-amber-400 ring-inset" : "";
+  return active ? "bg-surface-selected ring-2 ring-primary ring-inset" : "";
 }
 
 /** Ids to highlight: the evidence ids plus, for a field selection, the rule ids it cites. */

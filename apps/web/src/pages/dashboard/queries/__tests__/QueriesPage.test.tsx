@@ -105,7 +105,7 @@ describe("QueriesPage", () => {
     expect(
       screen.getByText(/A query is a question the drug company sends back/),
     ).toBeInTheDocument();
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("grid");
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(3);
 
@@ -212,8 +212,8 @@ describe("QueriesPage", () => {
     installMockFetch(routes());
     const user = userEvent.setup();
     renderPage();
-    await screen.findByRole("table");
-    await user.click(screen.getByRole("tab", { name: /Closed/ }));
+    await screen.findByRole("grid");
+    await user.click(screen.getByRole("radio", { name: /Closed/ }));
     expect(await screen.findByText("No closed queries yet.")).toBeInTheDocument();
   });
 
@@ -234,7 +234,7 @@ describe("QueriesPage", () => {
     const panel = await screen.findByTestId("query-panel");
     await within(panel).findByText("Corrected: the end date was mistyped.");
     expect(within(panel).getByTestId("current-value")).toHaveTextContent("2026-10-05");
-    expect(screen.getByRole("button", { name: "Raise query" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Raise query", hidden: true })).toBeInTheDocument();
 
     await user.click(within(panel).getByRole("button", { name: "Close query (as sponsor)" }));
     await waitFor(() =>
@@ -333,7 +333,7 @@ describe("QueriesPage", () => {
       signIn(role);
       installMockFetch(routes());
       const { unmount } = renderPage();
-      await screen.findByRole("table");
+      await screen.findByRole("grid");
       expect(screen.queryByRole("button", { name: "Raise query" })).toBeNull();
       unmount();
     }
@@ -396,5 +396,25 @@ describe("QueriesPage", () => {
     );
     expect(await within(panel).findByText("Not closed")).toBeInTheDocument();
     expect(screen.queryByText("Could not close the query")).toBeNull();
+  });
+
+  it("moves to the next open query with the button and with the ] key", async () => {
+    signIn("coordinator");
+    installMockFetch(routes());
+    const user = userEvent.setup();
+    renderPage(`/dashboard/queries?q=${OPEN_ROW.id}`);
+
+    const first = await screen.findByTestId("query-panel");
+    await within(first).findByText(/Dose, dose unit/);
+    await user.click(within(first).getByRole("button", { name: /Next open query/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("query-panel")).toHaveTextContent(SAFETY_DETAIL.text),
+    );
+
+    // "]" wraps back to the first open query when focus is not in a text field.
+    await user.keyboard("]");
+    await waitFor(() =>
+      expect(screen.getByTestId("query-panel")).toHaveTextContent(OPEN_DETAIL.text),
+    );
   });
 });

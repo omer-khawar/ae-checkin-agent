@@ -14,8 +14,8 @@ export function Pagination({ total, limit, offset, onChange, className }: Pagina
   const info = pageInfo({ total, limit, offset });
   return (
     <nav className={className} aria-label="Pagination">
-      <div className="flex items-center justify-between gap-3 text-sm text-slate-600">
-        <span className="tnum">
+      <div className="flex items-center justify-between gap-3 text-table text-muted-foreground">
+        <span className="tabular">
           {info.from}–{info.to} of {total}
         </span>
         <div className="flex items-center gap-2">
@@ -27,7 +27,7 @@ export function Pagination({ total, limit, offset, onChange, className }: Pagina
           >
             Previous
           </Button>
-          <span className="tnum">
+          <span className="tabular">
             Page {info.page} / {info.pages}
           </span>
           <Button

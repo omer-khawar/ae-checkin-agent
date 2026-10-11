@@ -3,7 +3,7 @@
  * a "Show" button that selects the row's span so the note view outlines it.
  * Grade hints are explicitly labelled "provisional" with their basis.
  */
-import { Button } from "../../../components/Button";
+import { Button } from "@/ui/button";
 import { cx } from "../../../lib/format";
 import { exclusionWording } from "./highlight";
 import type { MedFinding, RedFlag, ScanResult, SymptomFinding } from "../../../lib/types";
@@ -16,7 +16,8 @@ export interface ScanTablesProps {
   onSelectRange?: (range: Range | null) => void;
 }
 
-const TH = "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600";
+const TH =
+  "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 const TD = "px-3 py-2 align-top text-sm";
 
 function isSelected(f: { span_start: number; span_end: number }, r: Range | null | undefined) {
@@ -72,14 +73,14 @@ export function SymptomTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-2 text-sm text-slate-500">
+      <p className="px-3 py-2 text-sm text-muted-foreground">
         {excluded ? "No excluded symptom mentions." : "No symptom mentions found."}
       </p>
     );
   }
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200">
+      <table className="min-w-full divide-y divide-border">
         <thead>
           <tr>
             <th className={TH}>CTCAE term</th>
@@ -101,27 +102,31 @@ export function SymptomTable({
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-border">
           {rows.map((f, i) => {
             const sel = isSelected(f, selectedRange);
             return (
               <tr
                 key={`${f.term}-${f.span_start}-${i}`}
-                className={cx(sel && "bg-brand-50", excluded && "text-slate-500")}
+                className={cx(sel && "bg-surface-selected", excluded && "text-muted-foreground")}
                 data-testid={excluded ? "excluded-symptom-row" : "symptom-row"}
               >
                 <td
-                  className={cx(TD, "font-medium", excluded ? "text-slate-600" : "text-slate-900")}
+                  className={cx(
+                    TD,
+                    "font-medium",
+                    excluded ? "text-muted-foreground" : "text-foreground",
+                  )}
                 >
                   {f.term}
                 </td>
                 <td className={cx(TD, "font-mono text-xs")}>“{f.quote}”</td>
                 {excluded ? (
                   <td className={TD}>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium">
+                    <span className="rounded bg-surface-subtle px-1.5 py-0.5 text-xs font-medium">
                       {f.excluded_reason ?? "excluded"}
                     </span>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       {f.reason || exclusionWording(f.excluded_reason)}
                     </div>
                   </td>
@@ -130,12 +135,12 @@ export function SymptomTable({
                     <td className={TD} title={f.grade_basis || undefined}>
                       <div className="font-medium">{gradeText(f)}</div>
                       {f.grade_basis && (
-                        <div className="text-xs text-slate-600">{f.grade_basis}</div>
+                        <div className="text-xs text-muted-foreground">{f.grade_basis}</div>
                       )}
                     </td>
                     <td className={TD}>{onsetText(f)}</td>
                     <td className={TD}>{f.worsening ? "Yes" : "—"}</td>
-                    <td className={cx(TD, "text-slate-700")}>{f.reason || "—"}</td>
+                    <td className={cx(TD, "text-muted-foreground")}>{f.reason || "—"}</td>
                   </>
                 )}
                 {onSelectRange && (
@@ -170,14 +175,14 @@ export function MedTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-2 text-sm text-slate-500">
+      <p className="px-3 py-2 text-sm text-muted-foreground">
         {excluded ? "No excluded medication mentions." : "No medication mentions found."}
       </p>
     );
   }
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200">
+      <table className="min-w-full divide-y divide-border">
         <thead>
           <tr>
             <th className={TH}>Drug (lexicon)</th>
@@ -191,17 +196,21 @@ export function MedTable({
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-border">
           {rows.map((f, i) => {
             const sel = isSelected(f, selectedRange);
             return (
               <tr
                 key={`${f.drug}-${f.span_start}-${i}`}
-                className={cx(sel && "bg-brand-50", excluded && "text-slate-500")}
+                className={cx(sel && "bg-surface-selected", excluded && "text-muted-foreground")}
                 data-testid={excluded ? "excluded-med-row" : "med-row"}
               >
                 <td
-                  className={cx(TD, "font-medium", excluded ? "text-slate-600" : "text-slate-900")}
+                  className={cx(
+                    TD,
+                    "font-medium",
+                    excluded ? "text-muted-foreground" : "text-foreground",
+                  )}
                 >
                   {f.drug}
                 </td>
@@ -211,13 +220,13 @@ export function MedTable({
                   </span>
                 </td>
                 <td className={cx(TD, "font-mono text-xs")}>“{f.quote}”</td>
-                <td className={cx(TD, "text-slate-700")}>
+                <td className={cx(TD, "text-muted-foreground")}>
                   {excluded ? (
                     <>
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium">
+                      <span className="rounded bg-surface-subtle px-1.5 py-0.5 text-xs font-medium">
                         {f.excluded_reason ?? "excluded"}
                       </span>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {f.reason || exclusionWording(f.excluded_reason)}
                       </div>
                     </>
@@ -254,11 +263,11 @@ export function RedFlagTable({
   onSelectRange?: (range: Range | null) => void;
 }) {
   if (rows.length === 0) {
-    return <p className="px-3 py-2 text-sm text-slate-500">No red flags.</p>;
+    return <p className="px-3 py-2 text-sm text-muted-foreground">No red flags.</p>;
   }
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200">
+      <table className="min-w-full divide-y divide-border">
         <thead>
           <tr>
             <th className={TH}>Level</th>
@@ -272,13 +281,13 @@ export function RedFlagTable({
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-border">
           {rows.map((f, i) => {
             const sel = isSelected(f, selectedRange);
             return (
               <tr
                 key={`${f.category}-${f.span_start}-${i}`}
-                className={cx(sel && "bg-brand-50")}
+                className={cx(sel && "bg-surface-selected")}
                 data-testid="red-flag-row"
               >
                 <td className={TD}>
@@ -293,9 +302,9 @@ export function RedFlagTable({
                     {f.level}
                   </span>
                 </td>
-                <td className={cx(TD, "font-medium text-slate-900")}>{f.category}</td>
+                <td className={cx(TD, "font-medium text-foreground")}>{f.category}</td>
                 <td className={cx(TD, "font-mono text-xs")}>“{f.quote}”</td>
-                <td className={cx(TD, "text-slate-700")}>{f.reason || "—"}</td>
+                <td className={cx(TD, "text-muted-foreground")}>{f.reason || "—"}</td>
                 {onSelectRange && (
                   <td className={cx(TD, "text-right")}>
                     <ShowButton
@@ -318,9 +327,9 @@ export function RedFlagTable({
 /** The `id` is what the enclosing `<section aria-labelledby>` points at. */
 function SectionHeading({ id, children, count }: { id: string; children: string; count: number }) {
   return (
-    <h3 id={id} className="flex items-center gap-2 px-3 pt-3 text-sm font-semibold text-slate-900">
+    <h3 id={id} className="flex items-center gap-2 px-3 pt-3 text-sm font-semibold text-foreground">
       {children}
-      <span className="tnum rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+      <span className="tabular rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-muted-foreground">
         {count}
       </span>
     </h3>
@@ -331,7 +340,7 @@ function SectionHeading({ id, children, count }: { id: string; children: string;
 export function ScanTables({ scan, selectedRange, onSelectRange }: ScanTablesProps) {
   const excludedCount = scan.excluded_symptoms.length + scan.excluded_meds.length;
   return (
-    <div className="divide-y divide-slate-200">
+    <div className="divide-y divide-border">
       <section aria-labelledby="scan-red-flags">
         <SectionHeading id="scan-red-flags" count={scan.red_flags.length}>
           Red flags
@@ -362,7 +371,7 @@ export function ScanTables({ scan, selectedRange, onSelectRange }: ScanTablesPro
         <SectionHeading id="scan-excluded" count={excludedCount}>
           Excluded mentions
         </SectionHeading>
-        <p className="px-3 pt-1 text-xs text-slate-600">
+        <p className="px-3 pt-1 text-xs text-muted-foreground">
           Matched by a pattern but ruled out by a NegEx-style cue (negated, historical,
           hypothetical, resolved, allergy, indication). Shown so a reviewer can disagree.
         </p>

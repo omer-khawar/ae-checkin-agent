@@ -177,7 +177,9 @@ describe("CheckInDetail", () => {
 
     await user.click(within(aeCard()).getByRole("button", { name: /\(AETOXGR\): show evidence/ }));
     const panel = await screen.findByTestId("evidence-panel");
-    expect(panel).toHaveTextContent("Evidence for Severity grade (provisional) (AETOXGR)");
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Evidence for Severity grade (provisional) (AETOXGR)",
+    );
     expect(within(panel).getAllByTestId("evidence-row")).toHaveLength(3);
     expect(panel).toHaveTextContent("shortness_of_breath.severity = 2 (Moderate)");
 
@@ -262,7 +264,7 @@ describe("CheckInDetail", () => {
     expect(within(vitals).queryByText("SIMULATED")).not.toBeInTheDocument();
   });
 
-  it("keeps confirm/reject note fields distinct when two cards are open at once", async () => {
+  it("keeps reject reason fields distinct when two cards are open at once", async () => {
     installMockFetch(routes(detail()).list);
     const user = userEvent.setup();
     renderPage();
@@ -271,16 +273,16 @@ describe("CheckInDetail", () => {
     const cmCard = screen
       .getByRole("heading", { name: /Medication change: loratadine/ })
       .closest("section")!;
-    await user.click(within(aeCard()).getByRole("button", { name: "Confirm" }));
-    await user.click(within(cmCard).getByRole("button", { name: "Confirm" }));
-    const fields = screen.getAllByLabelText("Confirm this draft");
+    await user.click(within(aeCard()).getByRole("button", { name: "Reject" }));
+    await user.click(within(cmCard).getByRole("button", { name: "Reject" }));
+    const fields = screen.getAllByLabelText("Reject this draft");
     expect(fields).toHaveLength(2);
     expect(fields[0].id).not.toBe(fields[1].id);
     // The CM card's label resolves to the CM card's own textarea.
-    const cmField = within(cmCard).getByLabelText("Confirm this draft");
+    const cmField = within(cmCard).getByLabelText("Reject this draft");
     expect(cmCard.contains(cmField)).toBe(true);
     await user.type(cmField, "CM note");
-    expect(within(aeCard()).getByLabelText("Confirm this draft")).toHaveValue("");
+    expect(within(aeCard()).getByLabelText("Reject this draft")).toHaveValue("");
     expect(cmField).toHaveValue("CM note");
   });
 
@@ -326,7 +328,7 @@ describe("CheckInDetail", () => {
     expect("AESER" in body).toBe(false);
   });
 
-  it("confirms with an optional note and rejects only with a reason", async () => {
+  it("confirms in one click and rejects only with a reason", async () => {
     const confirmed: Draft = { ...AE, status: "confirmed" };
     const rejected: Draft = { ...CM, status: "rejected" };
     const api = routes(detail());
@@ -348,18 +350,15 @@ describe("CheckInDetail", () => {
     await screen.findByRole("heading", { name: /P-007/ });
 
     await user.click(within(aeCard()).getByRole("button", { name: "Confirm" }));
-    await user.type(screen.getByLabelText("Confirm this draft"), "Reviewed with participant");
-    await user.click(screen.getByRole("button", { name: "Confirm draft" }));
     await waitFor(() =>
       expect(mock.find("POST", `/api/v1/drafts/${AE_DRAFT}/confirm`)).toHaveLength(1),
     );
-    expect(mock.find("POST", `/api/v1/drafts/${AE_DRAFT}/confirm`)[0].body).toEqual({
-      note: "Reviewed with participant",
-    });
+    // One click, no form: the audit note is optional and not asked for.
+    expect(mock.find("POST", `/api/v1/drafts/${AE_DRAFT}/confirm`)[0].body ?? {}).toEqual({});
     expect(mock.find("POST", `/api/v1/drafts/${AE_DRAFT}/confirm`)[0].headers.authorization).toBe(
       "Bearer t.coordinator",
     );
-    expect(within(aeCard()).getByText("Confirmed")).toBeInTheDocument();
+    expect(await within(aeCard()).findByText("Confirmed")).toBeInTheDocument();
 
     const cmCard = screen
       .getByRole("heading", { name: /Medication change: loratadine/ })

@@ -9,13 +9,12 @@
  *
  * The page owns the API calls; this column only renders state and forms.
  */
-import { createContext, Fragment, useContext, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
-import { MeasuredBadge } from "../../../components/MeasuredBadge";
+import { Button } from "@/ui/button";
+import { Kbd } from "@/ui/kbd";
 import { getDraftVersions } from "../../../lib/api";
 import { cx, Time } from "../../../lib/format";
 import type {
@@ -27,7 +26,16 @@ import type {
   Evidence,
   Role,
 } from "../../../lib/types";
-import { Chip, Disclosure, EvidenceList, SdtmBadge } from "./bits";
+import { Chip, Disclosure, Panel, Prov, SdtmBadge } from "./bits";
+
+/** A shortcut cap inside a button: hidden from the accessible name so "Confirm" stays "Confirm". */
+function Hint({ k }: { k: string }) {
+  return (
+    <span aria-hidden="true" className="ml-1 opacity-80">
+      <Kbd>{k}</Kbd>
+    </span>
+  );
+}
 import {
   AEREL_OPTIONS,
   AESER_OPTIONS,
@@ -82,6 +90,14 @@ export interface DraftActions {
   attribution: (draft: Draft, body: AttributionRequest) => Promise<void>;
 }
 
+/** A keyboard (or button) request for one draft card to open a form. */
+export interface DraftModeRequest {
+  draftId: string;
+  mode: "edit" | "reject";
+  /** Bumped on every request so asking twice re-opens a form the user closed. */
+  nonce: number;
+}
+
 export interface DraftsColumnProps {
   detail: CheckInDetail;
   /** Item id for an AEDECOD (to match the protocol's `aesi_items`); optional. */
@@ -93,6 +109,15 @@ export interface DraftsColumnProps {
   onSelectField: (draftId: string, field: string) => void;
   onFocusEvidence: (e: Evidence) => void;
   actions: DraftActions;
+  /** One-click confirm: the page confirms, then moves focus to the next draft (or offers "Next item"). */
+  onConfirm: (draft: Draft) => Promise<void>;
+  /** The draft the single-key shortcuts act on. */
+  activeId: string | null;
+  onActivate: (draftId: string) => void;
+  /** Open the edit or reject form on a draft (shortcuts e / r). */
+  request: DraftModeRequest | null;
+  /** "Codes" label mode: SDTM variable names shown inline beside the plain labels. */
+  showCodes: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,16 +126,7 @@ export interface DraftsColumnProps {
 // in the DOM as screen-reader text and in the field's hover title.
 // ---------------------------------------------------------------------------
 
-const CODES_KEY = "interim.showEdcCodes";
 const ShowCodesContext = createContext(false);
-
-function readShowCodes(): boolean {
-  try {
-    return window.localStorage.getItem(CODES_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 /** An SDTM variable name beside its plain label: visible only when codes are on. */
 function SdtmCode({ name, boxed }: { name: string; boxed?: boolean }) {
@@ -121,8 +137,8 @@ function SdtmCode({ name, boxed }: { name: string; boxed?: boolean }) {
       className={
         show
           ? boxed
-            ? "rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-600"
-            : "font-mono text-[10px] text-slate-500"
+            ? "rounded-control bg-surface-subtle px-1 font-mono text-caption text-muted-foreground"
+            : "font-mono text-caption text-subtle-foreground"
           : "sr-only"
       }
     >
@@ -134,50 +150,30 @@ function SdtmCode({ name, boxed }: { name: string; boxed?: boolean }) {
 export function DraftsColumn(props: DraftsColumnProps) {
   const groups = groupDrafts(props.detail.drafts ?? []);
   const total = DOMAIN_ORDER.reduce((n, d) => n + groups[d].length, 0);
-  const [showCodes, setShowCodes] = useState(readShowCodes);
-  const toggleCodes = (on: boolean) => {
-    setShowCodes(on);
-    try {
-      window.localStorage.setItem(CODES_KEY, on ? "1" : "0");
-    } catch {
-      /* per-viewer convenience only */
-    }
-  };
   return (
-    <ShowCodesContext.Provider value={showCodes}>
-      <div className="space-y-4">
-        {total > 0 && (
-          <label className="flex items-center justify-end gap-1.5 text-xs text-slate-600">
-            <input
-              type="checkbox"
-              checked={showCodes}
-              onChange={(e) => toggleCodes(e.target.checked)}
-              className="h-3.5 w-3.5"
-            />
-            Show EDC codes (SDTM variable names)
-          </label>
-        )}
+    <ShowCodesContext.Provider value={props.showCodes}>
+      <div className="space-y-3">
         {total === 0 && (
-          <Card title="Drafts">
-            <p className="text-sm text-slate-500">
+          <Panel title="Drafts">
+            <p className="text-table text-subtle-foreground">
               No drafts were generated for this check-in (no symptom reached provisional grade 1, no
               vitals, no medication change).
             </p>
-          </Card>
+          </Panel>
         )}
         {DOMAIN_ORDER.map((domain) =>
           groups[domain].length === 0 ? null : (
-            <section key={domain} aria-label={DOMAIN_TITLES[domain]} className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+            <div key={domain} role="group" aria-label={DOMAIN_TITLES[domain]} className="space-y-2">
+              <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
                 {DOMAIN_TITLES[domain]}
-                <span className="tnum ml-2 font-normal normal-case text-slate-500">
+                <span className="tabular ml-2 font-normal normal-case text-subtle-foreground">
                   ({groups[domain].length})
                 </span>
               </h2>
               {groups[domain].map((d) => (
                 <DraftCard key={d.id} draft={d} {...props} />
               ))}
-            </section>
+            </div>
           ),
         )}
       </div>
@@ -189,7 +185,7 @@ export function DraftsColumn(props: DraftsColumnProps) {
 // One draft
 // ---------------------------------------------------------------------------
 
-type Mode = "view" | "edit" | "reject" | "confirm";
+type Mode = "view" | "edit" | "reject";
 
 function DraftCard({
   draft,
@@ -201,6 +197,10 @@ function DraftCard({
   onSelectField,
   onFocusEvidence,
   actions,
+  onConfirm,
+  activeId,
+  onActivate,
+  request,
 }: DraftsColumnProps & { draft: Draft }) {
   const [mode, setMode] = useState<Mode>("view");
   const [busy, setBusy] = useState(false);
@@ -211,13 +211,20 @@ function DraftCard({
   const followupOf = draft.linked_ae_open_id ?? link?.ae_open_id ?? null;
   const canAct = draft.status === "draft" && role !== null;
   const defs = draft.domain === "AE" ? gradeDefinitions(ctcae, draft.fields.AEDECOD) : null;
+  const active = activeId === draft.id;
 
-  const run = async (fn: () => Promise<void>) => {
+  // Shortcuts e / r from the page open the form on the active draft.
+  useEffect(() => {
+    if (request && request.draftId === draft.id && canAct) setMode(request.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.nonce]);
+
+  const run = async (fn: () => Promise<void>, after: Mode = "view") => {
     setBusy(true);
     setError(null);
     try {
       await fn();
-      setMode("view");
+      setMode(after);
     } catch (e) {
       setError(e);
     } finally {
@@ -226,10 +233,15 @@ function DraftCard({
   };
 
   return (
-    <Card
+    <Panel
       data-draft-id={draft.id}
+      data-active={active ? "true" : "false"}
+      tabIndex={-1}
+      onFocus={() => onActivate(draft.id)}
+      onClick={() => onActivate(draft.id)}
+      className={cx("outline-none", active && "border-primary ring-1 ring-primary")}
       title={
-        <span className="flex flex-wrap items-center gap-2">
+        <span className="flex flex-wrap items-center gap-1.5">
           <span>{plainDraftTitle(draft.domain, draft.fields)}</span>
           <SdtmBadge title="SDTM domain and record number">
             {sdtmBadge(draft.domain, draft.fields)}
@@ -237,17 +249,17 @@ function DraftCard({
           <Chip className={status.className} title={`Draft status: ${status.label}`}>
             {status.label}
           </Chip>
-          <span className="tnum text-xs font-normal text-slate-500">{`v${draft.version}`}</span>
+          <span className="tabular text-caption font-normal text-subtle-foreground">{`v${draft.version}`}</span>
           {source && (
             <Chip
-              className="bg-slate-100 text-slate-700 border-slate-300"
+              className="border-neutral-border bg-neutral-bg text-neutral-fg"
               title="Where this draft came from"
             >
               {sourceLabel(source)}
             </Chip>
           )}
           {draft.domain === "VS" && (
-            <MeasuredBadge
+            <Prov
               isMeasured={vsDraftIsMeasured(draft.fields)}
               source={
                 typeof draft.fields.INTERIM_SOURCE === "string" &&
@@ -261,15 +273,40 @@ function DraftCard({
       }
       aside={
         canAct && mode === "view" ? (
-          <span className="flex items-center gap-1.5">
-            <Button size="sm" variant="primary" onClick={() => setMode("confirm")}>
-              Confirm
+          <span className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="primary"
+              loading={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                void run(() => onConfirm(draft));
+              }}
+              title="Confirm this draft (c)"
+            >
+              Confirm <Hint k="c" />
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
-              Edit
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMode("edit");
+              }}
+              title="Edit this draft (e)"
+            >
+              Edit <Hint k="e" />
             </Button>
-            <Button size="sm" variant="danger" onClick={() => setMode("reject")}>
-              Reject
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMode("reject");
+              }}
+              title="Reject this draft (r)"
+            >
+              Reject <Hint k="r" />
             </Button>
           </span>
         ) : undefined
@@ -277,7 +314,7 @@ function DraftCard({
       flush
     >
       {(draft.is_followup || followupOf) && (
-        <p className="border-b border-slate-100 bg-indigo-50 px-4 py-2 text-xs text-indigo-900">
+        <p className="border-b border-border bg-info-bg px-3 py-1.5 text-caption text-info-fg">
           Follow-up of a side effect already on record{" "}
           <span className="font-mono">{followupOf ?? "(id not provided)"}</span>
           {link?.first_session_id && (
@@ -316,18 +353,6 @@ function DraftCard({
         />
       )}
 
-      {mode === "confirm" && (
-        <NoteForm
-          draftId={draft.id}
-          label="Confirm this draft"
-          hint="Optional audit note (recorded with the confirmation event)."
-          submitLabel="Confirm draft"
-          required={false}
-          busy={busy}
-          onCancel={() => setMode("view")}
-          onSubmit={(note) => run(() => actions.confirm(draft, note))}
-        />
-      )}
       {mode === "reject" && (
         <NoteForm
           draftId={draft.id}
@@ -343,7 +368,7 @@ function DraftCard({
       )}
 
       {error !== null && (
-        <div className="px-4 pb-3">
+        <div className="px-3 pb-2">
           <ErrorBanner error={error} message="The change was not saved" />
         </div>
       )}
@@ -360,10 +385,10 @@ function DraftCard({
         />
       )}
 
-      <div className="px-4 pb-3">
+      <div className="px-3 pb-2">
         <VersionHistory draft={draft} />
       </div>
-    </Card>
+    </Panel>
   );
 }
 
@@ -377,7 +402,6 @@ function FieldTable({
   defs,
   selection,
   onSelectField,
-  onFocusEvidence,
 }: {
   draft: Draft;
   detail: CheckInDetail;
@@ -388,7 +412,6 @@ function FieldTable({
 }) {
   const [showDefs, setShowDefs] = useState(false);
   const [showMoreState, setShowMore] = useState(false);
-  const showCodes = useContext(ShowCodesContext);
   const hover = gradeHover(defs);
   const r3 = detail as unknown as CheckInDetailR3;
   const labels: Labels = r3.labels;
@@ -426,22 +449,22 @@ function FieldTable({
         <tr
           data-field={name}
           data-selected={selected ? "true" : "false"}
-          className={cx("border-t border-slate-100", highlightClass(selected))}
+          className={cx("border-t border-border", highlightClass(selected))}
         >
-          <td className="w-44 px-4 py-1.5 align-top">
+          <td className="w-60 px-3 py-1 align-top">
             <button
               type="button"
               onClick={() => onSelectField(draft.id, name)}
               aria-expanded={selected}
               aria-label={`${plain} (${name}): show evidence (${evidence.length} pointer${evidence.length === 1 ? "" : "s"})`}
-              className="w-full rounded text-left hover:text-brand-800 hover:underline"
+              className="w-full rounded-control text-left hover:text-primary hover:underline"
               title={`Show evidence for ${plain} (${name})`}
             >
-              <span className="block text-xs font-medium text-slate-800">{plain}</span>
+              <span className="block text-caption font-medium text-muted-foreground">{plain}</span>
               <SdtmCode name={name} />
               {evidence.length > 0 && (
                 <span
-                  className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600"
+                  className="tabular ml-1 rounded-control bg-surface-subtle px-1 text-caption text-muted-foreground"
                   aria-hidden="true"
                 >
                   {evidence.length}
@@ -449,59 +472,65 @@ function FieldTable({
               )}
             </button>
           </td>
-          <td className="px-4 py-1.5 align-top">
+          <td className="px-3 py-1 align-top">
             <button
               type="button"
               onClick={() => onSelectField(draft.id, name)}
               tabIndex={-1}
-              className="w-full break-words rounded text-left text-slate-900 hover:bg-slate-50"
+              className="w-full break-words rounded-control text-left text-table text-foreground hover:bg-surface-subtle"
             >
               {chip ? (
                 <Chip className={chip.className} title={chip.title}>
                   {chip.text}
                 </Chip>
               ) : isGrade && typeof value === "number" ? (
-                <span className="tnum font-semibold" title={hover}>
+                <span className="tabular font-semibold" title={hover}>
                   <span>{`Grade ${value}`}</span>
-                  {word && <span className="font-normal text-slate-700">{` · ${word}`}</span>}
+                  {word && (
+                    <span className="font-normal text-muted-foreground">{` · ${word}`}</span>
+                  )}
                 </span>
               ) : (
                 <span
-                  className={cx(value === null || value === undefined ? "text-slate-500" : "")}
+                  className={cx(
+                    value === null || value === undefined ? "text-subtle-foreground" : "",
+                  )}
                   title={plainVal !== null ? `Stored value: ${formatValue(value)}` : undefined}
                 >
                   {plainVal ?? formatValue(value)}
                 </span>
               )}
               {isGrade && (
-                <Chip className="ml-2 bg-amber-50 text-amber-900 border-amber-300">
+                <Chip className="ml-2 border-warning-border bg-warning-bg text-warning-fg">
                   {PROVISIONAL_LABEL}
                 </Chip>
               )}
               {isAttr && (value === null || value === undefined) && (
-                <span className="ml-2 text-xs text-slate-500">the investigator decides</span>
+                <span className="ml-2 text-caption text-subtle-foreground">
+                  the investigator decides
+                </span>
               )}
               {vsBadge && (
-                <MeasuredBadge isMeasured={vsDraftIsMeasured(draft.fields)} className="ml-2" />
+                <Prov isMeasured={vsDraftIsMeasured(draft.fields)} className="ml-2 align-middle" />
               )}
               {name === "CMDECOD" && (value === null || value === undefined) && (
-                <span className="ml-2 text-xs text-slate-500">
+                <span className="ml-2 text-caption text-subtle-foreground">
                   not recognized · kept as typed for the coordinator
                 </span>
               )}
             </button>
             {isGrade && defs && (
-              <div className="mt-1">
+              <div className="mt-0.5">
                 <button
                   type="button"
                   onClick={() => setShowDefs((v) => !v)}
                   aria-expanded={showDefs}
-                  className="text-xs text-brand-700 underline"
+                  className="text-caption text-primary underline"
                 >
                   {showDefs ? "Hide" : "Show"} CTCAE v5.0 grade definitions
                 </button>
                 {showDefs && (
-                  <dl className="mt-1 space-y-0.5 rounded bg-slate-50 p-2 text-xs text-slate-700">
+                  <dl className="mt-1 space-y-0.5 rounded-control bg-surface-subtle p-2 text-caption text-foreground">
                     {Object.entries(defs)
                       .sort(([a], [b]) => Number(a) - Number(b))
                       .map(([g, t]) => (
@@ -509,10 +538,10 @@ function FieldTable({
                           key={g}
                           className={cx(
                             "flex gap-2",
-                            Number(g) > MAX_ASSIGNABLE_GRADE && "text-slate-500",
+                            Number(g) > MAX_ASSIGNABLE_GRADE && "text-subtle-foreground",
                           )}
                         >
-                          <dt className="tnum w-8 shrink-0 font-semibold">G{g}</dt>
+                          <dt className="tabular w-8 shrink-0 font-semibold">G{g}</dt>
                           <dd>
                             {t}
                             {Number(g) > MAX_ASSIGNABLE_GRADE && " (never assigned by Interim)"}
@@ -525,39 +554,23 @@ function FieldTable({
             )}
           </td>
         </tr>
-        {selected && (
-          <tr className="bg-amber-50/60">
-            <td colSpan={2} className="px-4 pb-3 pt-1" data-testid="evidence-panel">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Evidence for {plain}{" "}
-                <span className={showCodes ? "font-mono normal-case" : "sr-only"}>({name})</span>
-              </div>
-              <EvidenceList
-                evidence={evidence}
-                detail={detail}
-                onFocusEvidence={onFocusEvidence}
-                compact
-              />
-            </td>
-          </tr>
-        )}
       </Fragment>
     );
   };
 
   return (
-    <table className="w-full text-sm" aria-label={`${draftTitle(draft)} fields`}>
+    <table className="w-full" aria-label={`${draftTitle(draft)} fields`}>
       <tbody>
         {main.map(row)}
         {more.length > 0 && (
-          <tr className="border-t border-slate-100">
-            <td colSpan={2} className="px-4 py-1.5">
+          <tr className="border-t border-border">
+            <td colSpan={2} className="px-3 py-1">
               <button
                 type="button"
                 onClick={() => setShowMore((v) => !v)}
                 aria-expanded={showMore}
                 disabled={forcedOpen}
-                className="text-xs font-medium text-brand-700 underline disabled:no-underline disabled:opacity-60"
+                className="text-caption font-medium text-primary underline disabled:no-underline disabled:opacity-60"
               >
                 {showMore ? "Hide" : "Show"} {more.length} more field{more.length === 1 ? "" : "s"}{" "}
                 (record ids and where the draft came from)
@@ -604,11 +617,11 @@ function ProtocolNotes({
     if (!isAesiDraft(draft.fields, protocol, itemIdForTerm)) return null;
     return (
       <p
-        className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-900"
+        className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-table font-medium text-red-900"
         data-testid="aesi-banner"
       >
         {AESI_BANNER}
-        <span className="ml-2 font-normal text-red-800/80">protocol §9.4.3, p. 92</span>
+        <span className="ml-2 font-normal text-aesi-fg">protocol §9.4.3, p. 92</span>
       </p>
     );
   }
@@ -624,14 +637,14 @@ function ProtocolNotes({
   const exception = chip?.level === "discouraged" ? flag?.exception_text?.trim() : null;
   return (
     <div
-      className="space-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm"
+      className="space-y-1 border-b border-border bg-surface-subtle px-3 py-1.5 text-table"
       data-testid="cm-protocol"
     >
       {chip && (
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cx(
-              "inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold",
+              "inline-flex items-center rounded-md border px-1.5 py-0.5 text-caption font-semibold",
               chip.className,
             )}
             title={chip.title}
@@ -642,7 +655,7 @@ function ProtocolNotes({
             {chip.text}
           </span>
           {chip.level === "prohibited" && (
-            <span className="text-xs text-red-800">
+            <span className="text-caption text-danger-fg">
               possible protocol deviation · coordinator to confirm
             </span>
           )}
@@ -654,7 +667,7 @@ function ProtocolNotes({
         </div>
       )}
       {missing && (
-        <p className="text-xs text-slate-800" data-testid="cm-missing">
+        <p className="text-caption text-foreground" data-testid="cm-missing">
           {missing}
         </p>
       )}
@@ -692,7 +705,15 @@ function EditForm({
 
   return (
     <form
-      className="space-y-3 px-4 py-3"
+      className="space-y-2 px-3 py-2"
+      onKeyDown={(e) => {
+        // Esc cancels; Enter in any field submits (native form behaviour).
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         if (problems.length || nothingChanged) return;
@@ -700,7 +721,7 @@ function EditForm({
       }}
       aria-label={`Edit ${draftTitle(draft)}`}
     >
-      <p className="text-xs text-slate-600">
+      <p className="text-caption text-muted-foreground">
         {`Saving creates a new version (v${draft.version + 1}); the previous`} version is kept and
         the edit is audited. Identity, sequence and INTERIM_* provenance fields are not editable.
       </p>
@@ -710,10 +731,10 @@ function EditForm({
           const id = `edit-${draft.id}-${n}`;
           return (
             <div key={n}>
-              <label htmlFor={id} className="block text-xs text-slate-700">
+              <label htmlFor={id} className="block text-caption text-foreground">
                 <span className="font-medium">{fieldLabel(n)}</span> <SdtmCode name={n} />
                 {n === "AETOXGR" && (
-                  <span className="ml-1 font-sans text-slate-500">
+                  <span className="ml-1 font-sans text-subtle-foreground">
                     (0–{MAX_ASSIGNABLE_GRADE}, {PROVISIONAL_LABEL})
                   </span>
                 )}
@@ -723,8 +744,8 @@ function EditForm({
                 value={text[n] ?? ""}
                 onChange={(e) => setText((t) => ({ ...t, [n]: e.target.value }))}
                 className={cx(
-                  "mt-0.5 w-full rounded-lg border px-2 py-1 text-sm",
-                  problem ? "border-red-400" : "border-slate-300",
+                  "mt-0.5 w-full rounded-control border bg-surface px-2 py-1 text-table",
+                  problem ? "border-danger-border" : "border-input",
                 )}
                 aria-invalid={problem ? true : undefined}
                 aria-describedby={problem ? `${id}-problem` : undefined}
@@ -732,7 +753,7 @@ function EditForm({
                 inputMode={n === "AETOXGR" || n === "VSORRES" ? "decimal" : undefined}
               />
               {problem && (
-                <p id={`${id}-problem`} className="mt-0.5 text-xs text-red-700">
+                <p id={`${id}-problem`} className="mt-0.5 text-caption text-danger-fg">
                   {problem}
                 </p>
               )}
@@ -743,7 +764,7 @@ function EditForm({
       <div>
         <label
           htmlFor={`edit-note-${draft.id}`}
-          className="block text-xs font-medium text-slate-700"
+          className="block text-caption font-medium text-foreground"
         >
           Audit note (optional)
         </label>
@@ -751,7 +772,7 @@ function EditForm({
           id={`edit-note-${draft.id}`}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="mt-0.5 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
+          className="mt-0.5 w-full rounded-control border border-input bg-surface px-2 py-1 text-table"
           disabled={busy}
           placeholder="Why this edit was made"
         />
@@ -760,15 +781,17 @@ function EditForm({
         <Button
           type="submit"
           size="sm"
-          busy={busy}
+          loading={busy}
           disabled={problems.length > 0 || nothingChanged}
         >
-          Save as new version
+          Save as new version <Hint k="Enter" />
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={onCancel} disabled={busy}>
-          Cancel
+          Cancel <Hint k="Esc" />
         </Button>
-        {nothingChanged && <span className="text-xs text-slate-500">No field changed yet.</span>}
+        {nothingChanged && (
+          <span className="text-caption text-subtle-foreground">No field changed yet.</span>
+        )}
       </div>
     </form>
   );
@@ -806,7 +829,7 @@ function NoteForm({
   const id = `note-${draftId}-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <form
-      className="space-y-2 border-t border-slate-100 px-4 py-3"
+      className="space-y-2 border-t border-border px-3 py-2"
       onSubmit={(e) => {
         e.preventDefault();
         setTouched(true);
@@ -815,10 +838,10 @@ function NoteForm({
       }}
       aria-label={`${label} form`}
     >
-      <label htmlFor={id} className="block text-sm font-medium text-slate-800">
+      <label htmlFor={id} className="block text-table font-medium text-foreground">
         {label}
       </label>
-      <p className="text-xs text-slate-600">{hint}</p>
+      <p className="text-caption text-muted-foreground">{hint}</p>
       <textarea
         id={id}
         value={text}
@@ -826,20 +849,20 @@ function NoteForm({
         onBlur={() => setTouched(true)}
         rows={2}
         className={cx(
-          "w-full rounded-lg border px-2 py-1 text-sm",
-          touched && missing ? "border-red-400" : "border-slate-300",
+          "w-full rounded-control border bg-surface px-2 py-1 text-table",
+          touched && missing ? "border-danger-border" : "border-input",
         )}
         aria-required={required}
         aria-invalid={touched && missing ? true : undefined}
         disabled={busy}
       />
-      {touched && missing && <p className="text-xs text-red-700">A reason is required.</p>}
+      {touched && missing && <p className="text-caption text-danger-fg">A reason is required.</p>}
       <div className="flex items-center gap-2">
         <Button
           type="submit"
           size="sm"
           variant={danger ? "danger" : "primary"}
-          busy={busy}
+          loading={busy}
           disabled={missing}
         >
           {submitLabel}
@@ -887,21 +910,22 @@ function AttributionBlock({
   // null). See attributionBody.
   const body = attributionBody(current, { AESER: aeser, AEREL: aerel, INTERIM_IRAE: irae }, note);
   const changed = body !== null;
-  const selectClass = "mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm";
+  const selectClass =
+    "mt-0.5 w-full rounded-control border border-input bg-surface px-2 py-1 text-table";
 
   const label = (id: string, plain: string, sdtm: string) => (
-    <label htmlFor={id} className="block text-xs text-slate-700">
+    <label htmlFor={id} className="block text-caption text-foreground">
       <span className="font-medium">{plain}</span> <SdtmCode name={sdtm} boxed />
     </label>
   );
 
   return (
-    <div className="border-t border-slate-100 px-4 py-3">
+    <div className="border-t border-border px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-800">Investigator assessment</h3>
+        <h3 className="text-table font-semibold text-foreground">Investigator assessment</h3>
         {!investigator && (
           <Chip
-            className="bg-slate-100 text-slate-700 border-slate-300"
+            className="border-neutral-border bg-neutral-bg text-neutral-fg"
             title="Only the investigator role can set seriousness, relatedness and immune-related"
           >
             investigator only · read-only for your role
@@ -929,7 +953,7 @@ function AttributionBlock({
               ))}
             </select>
           ) : (
-            <div className="mt-0.5 text-sm text-slate-900">
+            <div className="mt-0.5 text-table text-foreground">
               {plainValue("AESER", draft.fields.AESER) ?? "not decided"}
             </div>
           )}
@@ -954,7 +978,7 @@ function AttributionBlock({
               ))}
             </select>
           ) : (
-            <div className="mt-0.5 text-sm text-slate-900">
+            <div className="mt-0.5 text-table text-foreground">
               {typeof draft.fields.AEREL === "string" ? draft.fields.AEREL : "not decided"}
             </div>
           )}
@@ -977,13 +1001,13 @@ function AttributionBlock({
               ))}
             </select>
           ) : (
-            <div className="mt-0.5 text-sm text-slate-900">
+            <div className="mt-0.5 text-table text-foreground">
               {plainValue("INTERIM_IRAE", draft.fields.INTERIM_IRAE) ?? "Not decided"}
             </div>
           )}
         </div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-caption text-subtle-foreground">
         The protocol asks the investigator to assess whether a side effect is immune-related
         (protocol p. 91).
       </p>
@@ -992,7 +1016,7 @@ function AttributionBlock({
           <div>
             <label
               htmlFor={`attr-note-${draft.id}`}
-              className="block text-xs font-medium text-slate-700"
+              className="block text-caption font-medium text-foreground"
             >
               Audit note (optional)
             </label>
@@ -1000,14 +1024,15 @@ function AttributionBlock({
               id={`attr-note-${draft.id}`}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="mt-0.5 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
+              className="mt-0.5 w-full rounded-control border border-input bg-surface px-2 py-1 text-table"
               disabled={busy}
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
-              busy={busy}
+              variant="primary"
+              loading={busy}
               disabled={!changed}
               onClick={() => {
                 if (body) onSave(body);
@@ -1016,7 +1041,10 @@ function AttributionBlock({
               Save attribution
             </Button>
             {clockHint && (
-              <span className="text-xs text-slate-600" data-testid="attribution-clock-hint">
+              <span
+                className="text-caption text-muted-foreground"
+                data-testid="attribution-clock-hint"
+              >
                 {clockHint}
               </span>
             )}
@@ -1055,42 +1083,44 @@ function VersionHistory({ draft }: { draft: Draft }) {
       summary={
         <span>
           Version history{" "}
-          <span className="tnum text-slate-500">{`(current v${draft.version})`}</span>
+          <span className="tabular text-subtle-foreground">{`(current v${draft.version})`}</span>
         </span>
       }
       onToggle={(open) => {
         if (open) load();
       }}
     >
-      {loading && <p className="text-xs text-slate-500">Loading versions…</p>}
+      {loading && <p className="text-caption text-subtle-foreground">Loading versions…</p>}
       <ErrorBanner error={error} message="Version history unavailable" onRetry={load} />
       {versions && sorted.length === 0 && (
-        <p className="text-xs text-slate-500">Only this version exists.</p>
+        <p className="text-caption text-subtle-foreground">Only this version exists.</p>
       )}
       {sorted.length > 0 && (
-        <ol className="space-y-2 text-xs" aria-label="Draft versions">
+        <ol className="space-y-2 text-caption" aria-label="Draft versions">
           {sorted.map((v, i) => {
             const diff = diffVersions(sorted[i - 1] ?? null, v);
             const st = draftStatusStyle(v.status);
             return (
-              <li key={v.id} className="rounded-lg border border-slate-200 p-2">
+              <li key={v.id} className="rounded-control border border-border p-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="tnum font-semibold">{`v${v.version}`}</span>
+                  <span className="tabular font-semibold">{`v${v.version}`}</span>
                   <Chip className={st.className}>{st.label}</Chip>
-                  <span className="text-slate-600">
+                  <span className="text-muted-foreground">
                     by <span className="font-medium">{v.created_by}</span> ·{" "}
                     <Time iso={v.created_at} style="short" />
                   </span>
-                  <span className="font-mono text-[10px] text-slate-500">{v.id}</span>
+                  <span className="font-mono text-caption text-subtle-foreground">{v.id}</span>
                 </div>
-                {v.note && <p className="mt-1 text-slate-700">Note: {v.note}</p>}
+                {v.note && <p className="mt-1 text-foreground">Note: {v.note}</p>}
                 {diff.length > 0 && (
                   <ul className="mt-1 space-y-0.5">
                     {diff.map((d) => (
                       <li key={d.name} className="font-mono">
                         {d.name}:{" "}
-                        <span className="text-slate-500 line-through">{formatValue(d.from)}</span> →{" "}
-                        <span className="font-semibold text-slate-900">{formatValue(d.to)}</span>
+                        <span className="text-subtle-foreground line-through">
+                          {formatValue(d.from)}
+                        </span>{" "}
+                        → <span className="font-semibold text-foreground">{formatValue(d.to)}</span>
                       </li>
                     ))}
                   </ul>

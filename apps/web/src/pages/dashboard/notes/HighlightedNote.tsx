@@ -27,10 +27,11 @@ export interface HighlightedNoteProps {
 }
 
 const KIND_CLASS: Record<SpanKind, string> = {
-  red_flag: "bg-red-100 text-red-900 underline decoration-red-500 decoration-2 underline-offset-2",
-  symptom: "bg-amber-100 text-amber-900",
+  red_flag:
+    "bg-red-100 text-danger-fg underline decoration-red-500 decoration-2 underline-offset-2",
+  symptom: "bg-warning-bg text-warning-fg",
   med: "bg-sky-100 text-sky-900",
-  excluded: "bg-slate-100 text-slate-500 line-through decoration-slate-400",
+  excluded: "bg-surface-subtle text-muted-foreground line-through decoration-slate-400",
 };
 
 const LEGEND: Array<{ kind: SpanKind; label: string; hint: string }> = [
@@ -56,7 +57,7 @@ export function HighlightLegend({ className }: { className?: string }) {
           <span className={cx("rounded px-1.5 py-0.5 font-medium", KIND_CLASS[l.kind])}>
             {l.label}
           </span>
-          <span className="text-slate-600">{l.hint}</span>
+          <span className="text-muted-foreground">{l.hint}</span>
         </li>
       ))}
     </ul>
@@ -77,14 +78,14 @@ export function HighlightedNote({
   }, [text, scan]);
 
   if (!text.trim()) {
-    return <p className={cx("text-sm text-slate-500", className)}>No note text.</p>;
+    return <p className={cx("text-sm text-muted-foreground", className)}>No note text.</p>;
   }
 
   return (
     <div className={className}>
       {legend && scan && <HighlightLegend className="mb-3" />}
       <p
-        className="whitespace-pre-wrap text-base leading-7 text-slate-900"
+        className="whitespace-pre-wrap text-title leading-7 text-foreground"
         data-testid="highlighted-note"
       >
         {segments.map((seg) => {
@@ -93,7 +94,7 @@ export function HighlightedNote({
             return (
               <span
                 key={seg.start}
-                className={cx(selected && "rounded bg-brand-50 ring-2 ring-brand-700")}
+                className={cx(selected && "rounded bg-surface-selected ring-2 ring-brand-700")}
                 data-selected={selected || undefined}
               >
                 {seg.text}

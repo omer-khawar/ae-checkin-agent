@@ -18,6 +18,9 @@
  *   /ui-preview                         design-system preview (UI revamp phase 1;
  *                                       synthetic data only, no API calls, no auth)
  *
+ * The dashboard shell (components/Layout.tsx) owns the header, command menu, shortcuts and
+ * global toasts for every /dashboard and /admin page.
+ *
  * `AppRoutes` is router-agnostic so tests can mount it in a MemoryRouter.
  *
  * The three stage-2 pages are code-split and loaded through `import.meta.glob`
@@ -63,9 +66,12 @@ const STAGE2_PAGES = import.meta.glob<PageModule>([
 /** Shown when a page module is not in this build (or exports no component). */
 function PageUnavailable({ name }: { name: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-700" role="status">
-      <h1 className="text-lg font-semibold text-slate-900">{name} is not available yet</h1>
-      <p className="mt-1 text-sm">
+    <div
+      className="rounded-panel border border-border bg-surface p-6 text-foreground"
+      role="status"
+    >
+      <h1 className="text-page font-semibold text-foreground">{name} is not available yet</h1>
+      <p className="mt-1 text-body text-muted-foreground">
         This page is not part of the current build. The rest of the dashboard works as usual.
       </p>
     </div>
@@ -124,10 +130,10 @@ function Lazy({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div className="px-4 py-12 text-center text-slate-600" role="status">
+        <div className="px-4 py-12 text-center text-muted-foreground" role="status">
           <span
             aria-hidden="true"
-            className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent align-middle"
+            className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent align-middle"
           />
           Loading page…
         </div>

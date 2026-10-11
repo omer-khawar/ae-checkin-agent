@@ -2,7 +2,7 @@
  * /dashboard/notes against a mocked API: pre-filled sample, dry-run scan,
  * highlighted spans, ingest outcome, list reload, error state.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -47,13 +47,19 @@ function routes(opts: { scanStatus?: number } = {}): Route[] {
   ];
 }
 
-function renderNotes() {
-  return render(
+/** The ingest form lives in a side sheet; open it unless the test is about the list. */
+function renderNotes(openIngest = true) {
+  const view = render(
     <MemoryRouter initialEntries={["/dashboard/notes"]}>
       <Notes />
     </MemoryRouter>,
   );
+  if (openIngest) fireEvent.click(screen.getByRole("button", { name: "Ingest a note" }));
+  return view;
 }
+
+const noteRows = () =>
+  Array.from(document.querySelectorAll('[data-testid="notes-table"] tbody tr[data-row-id]'));
 
 describe("Notes page", () => {
   beforeEach(() => {
@@ -145,7 +151,7 @@ describe("Notes page", () => {
     await waitFor(() =>
       expect(screen.getByRole("combobox", { name: "Participant" })).toHaveValue(USUBJID_P003),
     );
-    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(1));
+    await waitFor(() => expect(noteRows()).toHaveLength(1));
     const listCallsBefore = mock.find("GET", "/api/v1/notes").length;
 
     await user.click(screen.getByRole("button", { name: "Ingest" }));
@@ -164,7 +170,7 @@ describe("Notes page", () => {
     const outcome = screen.getByTestId("ingest-outcome");
     expect(outcome).toHaveTextContent("1 AE");
     expect(outcome).toHaveTextContent("1 CM");
-    expect(within(outcome).getByText("Nurse call today")).toBeInTheDocument();
+    expect(within(outcome).getByText(/Nurse call today/)).toBeInTheDocument();
     expect(outcome).toHaveTextContent("urgent red flag: dyspnea");
     expect(within(outcome).getByRole("link", { name: "Open note detail" })).toHaveAttribute(
       "href",
@@ -210,14 +216,15 @@ describe("Notes page", () => {
 
   it("lists ingested notes with counts, tier chip and links", async () => {
     installMockFetch(routes());
-    renderNotes();
-    const row = (await screen.findAllByTestId("note-row"))[0];
+    renderNotes(false);
+    await waitFor(() => expect(noteRows()).toHaveLength(1));
+    const row = noteRows()[0] as HTMLElement;
     expect(within(row).getByRole("link", { name: "P-003" })).toHaveAttribute(
       "href",
       `/dashboard/participants/${USUBJID_P003}`,
     );
     expect(row).toHaveTextContent("Triage RN");
-    expect(within(row).getByText("Nurse call today")).toBeInTheDocument();
+    expect(within(row).getByText(/Nurse call today/)).toBeInTheDocument();
     expect(within(row).getByRole("link", { name: "Open" })).toHaveAttribute(
       "href",
       `/dashboard/notes/${NOTE_ID}`,
@@ -269,7 +276,7 @@ describe("Notes page", () => {
     const select = await screen.findByRole("combobox", { name: "Participant" });
     expect(select).toHaveValue("");
     // Give any stray effect a chance to run; it must not assign P-003.
-    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(1));
+    await waitFor(() => expect(noteRows()).toHaveLength(1));
     expect(screen.getByRole("combobox", { name: "Participant" })).toHaveValue("");
     expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
   });
@@ -314,8 +321,8 @@ describe("Notes page", () => {
     const ingest = screen.getByRole("button", { name: "Ingest" });
     expect(ingest).toBeDisabled();
     expect(ingest).toHaveAttribute("title", expect.stringMatching(/coordinator or admin only/i));
-    // Both the ingest form and the "Log a call" form are gated for the investigator.
-    expect(screen.getAllByText(/read-only for your role/)).toHaveLength(2);
+    // The ingest form is gated for the investigator (the call form has its own notice).
+    expect(screen.getAllByText(/read-only for your role/)).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Scan only (dry run)" })).toBeEnabled();
   });
 

@@ -110,8 +110,8 @@ export const AppHeader = React.forwardRef<HTMLElement, AppHeaderProps>(function 
         {...props}
       >
         <div className="flex shrink-0 items-center">{brand}</div>
-        {nav ? <div className="flex min-w-0 items-center self-stretch">{nav}</div> : null}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        {nav ? <div className="flex shrink-0 items-center self-stretch">{nav}</div> : null}
+        <div className="ml-auto flex min-w-0 items-center gap-2">
           {search}
           {study}
           {actions}

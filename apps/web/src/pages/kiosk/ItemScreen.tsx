@@ -1,6 +1,10 @@
 /**
- * One PRO-CTCAE-style item per screen. The item's attributes (e.g. severity then
- * interference) are stacked as big button rows; each tap is POSTed immediately.
+ * One PRO-CTCAE-style item per screen on a glass question card. Each attribute
+ * (e.g. severity then interference) is an AnswerGroup: single column, 64px rows,
+ * solid selected + check. Each tap is POSTed immediately by the flow.
+ *
+ * Next is always enabled (KioskActionBar). Pressing it with a question unanswered
+ * shows "Please choose an answer" next to that question instead of doing nothing.
  *
  * Wording comes from the rules table via GET /items: the heading is the item's
  * `label` (the symptom in plain words), each attribute's question is
@@ -8,8 +12,8 @@
  * label, unit and plausibility bounds from `optional_fields[]`. No clinical
  * number is hardcoded here.
  */
-import { Button } from "../../components/Button";
-import { ErrorBanner } from "../../components/ErrorBanner";
+import { useState } from "react";
+
 import {
   optionsFor,
   parseTemperature,
@@ -19,6 +23,14 @@ import {
   temperatureProblem,
 } from "../../lib/format";
 import type { Attribute, Item } from "../../lib/types";
+import { AnswerGroup } from "@/ui/kiosk/answer-group";
+import { KioskActionBar } from "@/ui/kiosk/action-bar";
+import { KioskProgress } from "@/ui/kiosk/progress";
+import { QuestionCard } from "@/ui/kiosk/question-card";
+import { KioskError } from "./KioskError";
+import { KioskBottom } from "./KioskShell";
+
+export const CHOOSE_ANSWER_TEXT = "Please choose an answer";
 
 export interface ItemScreenProps {
   item: Item;
@@ -40,11 +52,14 @@ export interface ItemScreenProps {
   onTempChange: (raw: string) => void;
   canBack: boolean;
   onBack: () => void;
+  /** Everything else allows moving on (no save in flight or failed, temperature valid). */
   canNext: boolean;
   nextBusy: boolean;
   onNext: () => void;
   error: unknown;
   onRetry: () => void;
+  /** When the participant came here from the review screen, Next says "Done". */
+  nextLabel?: string;
 }
 
 export function ItemScreen({
@@ -64,56 +79,55 @@ export function ItemScreen({
   onNext,
   error,
   onRetry,
+  nextLabel,
 }: ItemScreenProps) {
+  const [attempted, setAttempted] = useState(false);
   const temp = temperatureField(item);
   const showTemp = temp !== null && values.presence === 1;
   const tempParsed = parseTemperature(tempC, temp);
   const tempProblem = showTemp ? temperatureProblem(tempParsed, temp) : null;
   const recall = recallLine(item, recallWindow);
+  const complete = item.attributes.every((a) => values[a] !== undefined);
+  const titleId = `item-${item.id}-stem`;
+
+  function handleNext() {
+    if (!complete) {
+      setAttempted(true);
+      return;
+    }
+    if (!canNext) return;
+    onNext();
+  }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <p className="text-base font-medium uppercase tracking-wide text-slate-500">
-        Question {index + 1} of {screenTotal ?? total}
-      </p>
-      <h1
-        id={`item-${item.id}-stem`}
-        className="mt-1 text-3xl font-bold leading-snug text-slate-900 sm:text-4xl"
+    <div className="mx-auto flex w-full max-w-k-content flex-col gap-6">
+      <KioskProgress current={index + 1} total={screenTotal ?? total} />
+      <QuestionCard
+        title={item.label}
+        titleId={titleId}
+        description={recall ?? undefined}
+        focusKey={item.id}
       >
-        {item.label}
-      </h1>
-      {recall && <p className="mt-2 text-lg text-slate-600">{recall}</p>}
-
-      <div className="mt-8 space-y-8">
         {item.attributes.map((attribute) => {
-          const options = optionsFor(item, attribute);
           const groupId = `item-${item.id}-${attribute}`;
+          const missing = attempted && values[attribute] === undefined;
           return (
-            <fieldset key={attribute} aria-labelledby={`${groupId}-label`} className="min-w-0">
-              <legend id={`${groupId}-label`} className="text-xl font-semibold text-slate-800">
-                {promptFor(item, attribute)}
-              </legend>
-              <div
-                role="group"
-                aria-labelledby={`${groupId}-label`}
-                className="mt-3 grid gap-3 sm:grid-cols-2"
-                data-testid={`options-${item.id}-${attribute}`}
-              >
-                {options.map((opt) => (
-                  <Button
-                    key={opt.value}
-                    variant="option"
-                    size="lg"
-                    block
-                    selected={values[attribute] === opt.value}
-                    onClick={() => onSelect(attribute, opt.value)}
-                    data-value={opt.value}
-                  >
-                    {opt.label}
-                  </Button>
-                ))}
-              </div>
-            </fieldset>
+            <AnswerGroup<number>
+              key={attribute}
+              name={groupId}
+              id={groupId}
+              legend={
+                <span className="text-k-lead font-semibold">{promptFor(item, attribute)}</span>
+              }
+              options={optionsFor(item, attribute).map((o) => ({
+                value: o.value,
+                label: o.label,
+              }))}
+              value={values[attribute] ?? null}
+              onValueChange={(v) => onSelect(attribute, v)}
+              error={missing ? CHOOSE_ANSWER_TEXT : undefined}
+              data-testid={`options-${item.id}-${attribute}`}
+            />
           );
         })}
 
@@ -121,7 +135,7 @@ export function ItemScreen({
           <div>
             <label
               htmlFor={`item-${item.id}-temp`}
-              className="block text-xl font-semibold text-slate-800"
+              className="block text-k-lead font-semibold text-foreground"
             >
               {temp.label}
             </label>
@@ -137,15 +151,15 @@ export function ItemScreen({
                 onChange={(e) => onTempChange(e.target.value)}
                 aria-describedby={tempProblem ? `item-${item.id}-temp-problem` : undefined}
                 aria-invalid={tempProblem ? true : undefined}
-                className="tnum w-40 rounded-xl border border-slate-300 bg-white px-4 py-3 text-2xl text-slate-900"
+                className="tabular min-h-k-option w-44 rounded-control border-2 border-input bg-surface px-5 text-k-answer text-foreground"
                 placeholder="37.0"
               />
-              <span className="text-xl text-slate-700">{temp.unit}</span>
+              <span className="text-k-answer text-muted-foreground">{temp.unit}</span>
             </div>
             {tempProblem && (
               <p
                 id={`item-${item.id}-temp-problem`}
-                className="mt-2 text-base font-medium text-red-700"
+                className="mt-3 text-k-helper font-semibold text-destructive"
                 aria-live="polite"
               >
                 {tempProblem}
@@ -153,25 +167,21 @@ export function ItemScreen({
             )}
           </div>
         )}
-      </div>
+      </QuestionCard>
 
       {error ? (
-        <ErrorBanner
-          className="mt-6"
-          error={error}
-          message="Your answer was not saved. Please try again."
-          onRetry={onRetry}
-        />
+        <KioskError message="Your answer was not saved. Please try again." onRetry={onRetry} />
       ) : null}
 
-      <div className="mt-10 flex items-center justify-between gap-4">
-        <Button variant="ghost" size="lg" onClick={onBack} disabled={!canBack}>
-          Back
-        </Button>
-        <Button size="xl" onClick={onNext} disabled={!canNext} busy={nextBusy} className="min-w-48">
-          {index + 1 === total ? "Continue" : "Next"}
-        </Button>
-      </div>
+      <KioskBottom>
+        <KioskActionBar
+          showBack={canBack}
+          onBack={onBack}
+          onNext={handleNext}
+          nextLoading={nextBusy}
+          nextLabel={nextLabel ?? (index + 1 === total ? "Continue" : "Next")}
+        />
+      </KioskBottom>
     </div>
   );
 }

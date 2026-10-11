@@ -16,14 +16,11 @@
  */
 import { useMemo, useState } from "react";
 
-import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { Pagination } from "../../components/Pagination";
-import { useToast } from "../../components/Toast";
 import { ackEscalation, DEFAULT_PAGE_SIZE, describeError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { cx } from "../../lib/format";
 import { EscalationsTable } from "./escalations/EscalationsTable";
 import {
   clampOffset,
@@ -39,6 +36,9 @@ import type { AckFilter } from "./escalations/types";
 import { useEscalationsData } from "./escalations/useEscalationsData";
 import { useNow } from "./escalations/useNow";
 import type { EscalationRow } from "../../lib/types";
+import { Button } from "@/ui/button";
+import { SegmentedControl } from "@/ui/segmented-control";
+import { notify } from "@/ui/toast";
 
 const FILTERS: Array<{ id: AckFilter; label: string }> = [
   { id: "open", label: "Open" },
@@ -52,10 +52,9 @@ export function Escalations() {
   const { data, errors, allFailed, loading, reload, replaceEscalation, replaceClock } =
     useEscalationsData();
   const nowMs = useNow(1000);
-  const toast = useToast();
   const { hasRole, role } = useAuth();
-  // CLAUDE.md §3.1: the investigator is read-only except AESER/AEREL in v1.
-  const canAck = hasRole("coordinator", "admin");
+  // Admin is non-clinical: only the coordinator and the investigator acknowledge.
+  const canAck = hasRole("coordinator", "investigator");
 
   const [filter, setFilter] = useState<AckFilter>("open");
   const [escOffset, setEscOffset] = useState(0);
@@ -103,41 +102,35 @@ export function Escalations() {
       const updated = await ackEscalation(row.id);
       // Keep any API-only fields (source, created_at) the ack response may omit.
       replaceEscalation({ ...row, ...updated });
-      toast.push({
-        kind: "success",
-        title: `Escalation acknowledged for ${row.usubjid}`,
-        message: `Recorded in the audit log as escalation.acked by ${updated.acked_by ?? "you"}.`,
+      notify.success(`Escalation acknowledged for ${row.usubjid}`, {
+        description: `Recorded in the audit log as escalation.acked by ${updated.acked_by ?? "you"}.`,
       });
     } catch (e) {
       setAckError(e);
-      toast.push({
-        kind: "error",
-        title: "Could not acknowledge",
-        message: describeError(e),
-      });
+      notify.danger("Could not acknowledge", { description: describeError(e) });
     } finally {
       setAckingId(null);
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Escalations</h1>
-          <p className="mt-1 max-w-3xl text-sm text-slate-600">
+          <h1 className="text-page font-semibold text-foreground">Escalations</h1>
+          <p className="mt-1 max-w-3xl text-body text-muted-foreground">
             Every tier 2 (nurse call today) and tier 3 (urgent) event, the reasons the rules engine
             recorded for it, and who acknowledged it when. Acknowledging writes an audit event; it
             does not change any draft or grade.
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={reload} loading={loading}>
           Refresh
         </Button>
       </div>
 
       {loading && !data && (
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-muted-foreground">
           Loading escalations, SAE clocks and the pager log…
         </p>
       )}
@@ -159,35 +152,22 @@ export function Escalations() {
             title="Escalations"
             aside={
               escalations ? (
-                <div
-                  role="group"
-                  aria-label="Filter escalations"
-                  className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5"
-                >
-                  {FILTERS.map((f) => {
-                    const active = filter === f.id;
-                    const count =
+                <SegmentedControl
+                  label="Filter escalations"
+                  size="sm"
+                  value={filter}
+                  onValueChange={changeFilter}
+                  options={FILTERS.map((f) => ({
+                    value: f.id,
+                    label: `${f.label} (${
                       f.id === "open"
                         ? openCount
                         : f.id === "acked"
                           ? totalCount - openCount
-                          : totalCount;
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => changeFilter(f.id)}
-                        className={cx(
-                          "rounded-md px-3 py-1 text-sm font-medium focus-visible:ring-4",
-                          active ? "bg-brand-700 text-white" : "text-slate-700 hover:bg-slate-100",
-                        )}
-                      >
-                        {f.label} <span className="tnum opacity-80">({count})</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                          : totalCount
+                    })`,
+                  }))}
+                />
               ) : null
             }
           >
@@ -210,7 +190,7 @@ export function Escalations() {
                   />
                 ) : null}
                 {escPage.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-sm text-slate-600">
+                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                     {filter === "open"
                       ? "No open escalations. Tier 2 and 3 events appear here as soon as a check-in completes or a chart note is scanned."
                       : filter === "acked"
@@ -228,7 +208,7 @@ export function Escalations() {
                 )}
                 {filtered.length > DEFAULT_PAGE_SIZE && (
                   <Pagination
-                    className="border-t border-slate-200 px-4 py-3"
+                    className="border-t border-border px-4 py-3"
                     total={filtered.length}
                     limit={DEFAULT_PAGE_SIZE}
                     offset={safeEscOffset}
@@ -243,7 +223,7 @@ export function Escalations() {
             flush
             title="24-hour report clocks (SAE and possible AESI)"
             aside={
-              <span className="text-xs text-slate-600">
+              <span className="text-xs text-muted-foreground">
                 Site obligation: report to sponsor within 24 h of becoming aware (protocol §9.4.2,
                 §9.4.3)
               </span>
@@ -257,7 +237,7 @@ export function Escalations() {
                 onRetry={reload}
               />
             ) : clocks.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-slate-600">
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No SAE clock has been started. One starts when a participant answers yes to the
                 hospital / emergency-room question, a chart note or call records a hospitalisation,
                 or a possible special-interest event (grade 3 on a potentially immune-related
@@ -277,7 +257,7 @@ export function Escalations() {
             flush
             title="Mock pager log"
             aside={
-              <span className="text-xs text-slate-600">
+              <span className="text-xs text-muted-foreground">
                 Simulated: tier 3 writes an audit event and a dashboard toast
               </span>
             }
@@ -290,7 +270,7 @@ export function Escalations() {
                 onRetry={reload}
               />
             ) : pagerPage.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-slate-600">
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No pages sent. The pager fires only for tier 3 (urgent) check-ins.
               </p>
             ) : (
@@ -298,7 +278,7 @@ export function Escalations() {
             )}
             {pageCount > PAGER_PAGE_SIZE && (
               <Pagination
-                className="border-t border-slate-200 px-4 py-3"
+                className="border-t border-border px-4 py-3"
                 total={pageCount}
                 limit={PAGER_PAGE_SIZE}
                 offset={safePagerOffset}

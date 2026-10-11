@@ -15,8 +15,8 @@ export function Disclaimer({ large }: DisclaimerProps) {
     <footer
       className={
         large
-          ? "border-t border-slate-200 bg-white px-6 py-4 text-center text-base text-slate-600"
-          : "border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-600"
+          ? "border-t border-border bg-surface px-6 py-4 text-center text-k-disclaimer text-muted-foreground"
+          : "border-t border-border bg-surface px-4 py-2 text-center text-caption text-muted-foreground"
       }
     >
       <p>{DISCLAIMER_TEXT}</p>

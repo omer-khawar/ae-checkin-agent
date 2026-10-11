@@ -1,28 +1,23 @@
 /**
- * Dashboard header strip: "≈ N hours of coordinator time saved this week
- * (estimate)" (CLAUDE.md §00.5, CONTRACTS R3.2 `GET /metrics/time-saved`).
+ * Time-saved chip for the app header: "≈ 3.5 h saved · estimate" (CLAUDE.md §00.5, CONTRACTS
+ * R3.2 `GET /metrics/time-saved`). It replaces the old full-width strip.
  *
  * Honest by construction:
- * - The word "estimate" is always visible next to the number, and the number is
- *   prefixed with "≈".
- * - A "How is this estimated?" disclosure lists the server's `basis[]` lines
- *   (per-category arithmetic from `packages/rules/data/time_model.json`) and
- *   the counts behind them: fields pre-filled / edited by a person, packets
- *   signed, briefs generated, queries answered.
- * - If the endpoint is missing or fails, the strip renders nothing: a missing
- *   estimate is better than a wrong or broken one.
+ * - "estimate" is always visible beside the number, and the number is prefixed with "≈".
+ * - Clicking the chip opens a popover with the server's `basis[]` lines (per-category
+ *   arithmetic from `packages/rules/data/time_model.json`) and the counts behind them.
+ * - If the endpoint is missing or fails, nothing renders: no number beats a wrong one.
  *
- * "This week" starts Monday 00:00 in the viewer's local time and is sent as a
- * `YYYY-MM-DD` date. Re-fetched every 5 minutes so the number moves during a
- * demo without hammering the API.
- *
- * The request and its normalisation live in `src/lib/api.ts#getTimeSaved`.
+ * "This week" starts Monday 00:00 in the viewer's local time, sent as `YYYY-MM-DD`.
+ * Re-fetched every 5 minutes. Export name kept (`TimeSavedStrip`) for the shell and tests.
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { Clock } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { getTimeSaved } from "../lib/api";
-import { cx } from "../lib/format";
+import { cn } from "@/lib/cn";
 import type { TimeSavedMetrics } from "../lib/types";
+import { HeaderMenu } from "./shell/HeaderMenu";
 
 export const TIME_SAVED_REFRESH_MS = 5 * 60_000;
 
@@ -47,6 +42,13 @@ function formatSaved(minutes: number): string {
   return `≈ ${h} hour${h === 1 ? "" : "s"}`;
 }
 
+/** Short form for the chip: "≈ 3.5 h" / "≈ 25 min". */
+function formatSavedShort(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "≈ 0 min";
+  if (minutes < 60) return `≈ ${Math.max(1, Math.round(minutes))} min`;
+  return `≈ ${Math.round((minutes / 60) * 10) / 10} h`;
+}
+
 function count(n: number | undefined): string {
   return typeof n === "number" && Number.isFinite(n) ? String(n) : "not reported";
 }
@@ -61,9 +63,6 @@ export function TimeSavedStrip({
   className,
 }: TimeSavedStripProps) {
   const [data, setData] = useState<TimeSavedMetrics | null>(null);
-  const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const wrapRef = useRef<HTMLDivElement>(null);
   const since = startOfWeekDate();
 
   useEffect(() => {
@@ -87,114 +86,73 @@ export function TimeSavedStrip({
     };
   }, [since, refreshIntervalMs]);
 
-  // Close the disclosure on Escape or a click outside it.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDown);
-    };
-  }, [open]);
-
   if (!data) return null;
 
   const headline = `${formatSaved(data.minutes_saved)} of coordinator time saved this week`;
 
   return (
-    <div ref={wrapRef} className={cx("relative", className)} data-testid="time-saved-strip">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm text-brand-950">
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 20 20"
-          className="h-4 w-4 text-brand-700"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-        >
-          <circle cx="10" cy="11" r="6.5" />
-          <path d="M10 7.5V11l2.5 1.5M8 2.5h4" />
-        </svg>
-        <span className="font-semibold">{headline}</span>
-        <span className="rounded bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-300">
-          estimate
-        </span>
-        <button
-          type="button"
-          className="text-xs text-brand-800 underline underline-offset-2 hover:text-brand-950 focus-visible:outline-none focus-visible:ring-4"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => setOpen((o) => !o)}
-        >
-          How is this estimated?
-        </button>
-      </div>
-
-      {open && (
-        <div
-          id={panelId}
-          role="region"
-          aria-label="How the time-saved estimate is calculated"
-          className="absolute right-0 z-20 mt-1 w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-lg"
-        >
-          <p className="font-semibold text-slate-900">
-            An estimate, not a measurement (week starting {since})
-          </p>
-          <p className="mt-1 text-slate-600">
-            Each field Interim pre-filled from evidence and a person accepted unchanged counts as
-            the minutes it would take to type by hand. Fields a person edited count for nothing.
-          </p>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
-            <div>
-              <dt className="text-xs text-slate-500">Fields pre-filled</dt>
-              <dd className="tnum font-semibold">{count(data.fields_prefilled)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Fields edited by a person</dt>
-              <dd className="tnum font-semibold">{count(data.fields_edited)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Records confirmed</dt>
-              <dd className="tnum font-semibold">{count(data.records_confirmed)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Report packets signed</dt>
-              <dd className="tnum font-semibold">{count(data.packets_signed)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Visit briefs generated</dt>
-              <dd className="tnum font-semibold">{count(data.briefs_generated)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Sponsor queries answered</dt>
-              <dd className="tnum font-semibold">{count(data.queries_answered)}</dd>
-            </div>
-          </dl>
-          {data.basis.length > 0 && (
-            <>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Basis
-              </p>
-              <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-700">
-                {data.basis.map((line, i) => (
-                  <li key={i}>{line}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          <p className="mt-3 text-xs text-slate-500">
-            Per-field minutes and their sources:{" "}
-            <span className="font-mono">packages/rules/data/time_model.json</span>.
-          </p>
-        </div>
-      )}
+    <div className={cn(className)} data-testid="time-saved-strip">
+      <HeaderMenu
+        label="How is this estimated?"
+        panelLabel="How the time-saved estimate is calculated"
+        panelClassName="w-[min(34rem,calc(100vw-2rem))] p-4"
+        triggerClassName="border-border bg-surface/70 px-2.5"
+        trigger={
+          <>
+            <Clock aria-hidden="true" className="size-4 text-primary" />
+            <span className="tabular font-semibold">
+              {formatSavedShort(data.minutes_saved)} saved
+            </span>
+            <span className="rounded-control border border-border-strong px-1 text-caption text-muted-foreground">
+              estimate
+            </span>
+          </>
+        }
+      >
+        {() => (
+          <div className="text-body">
+            <p className="font-semibold text-foreground">{headline}</p>
+            <p className="mt-0.5 text-muted-foreground">
+              An estimate, not a measurement (week starting {since})
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              Each field Interim pre-filled from evidence and a person accepted unchanged counts as
+              the minutes it would take to type by hand. Fields a person edited count for nothing.
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+              {[
+                ["Fields pre-filled", data.fields_prefilled],
+                ["Fields edited by a person", data.fields_edited],
+                ["Records confirmed", data.records_confirmed],
+                ["Report packets signed", data.packets_signed],
+                ["Visit briefs generated", data.briefs_generated],
+                ["Sponsor queries answered", data.queries_answered],
+              ].map(([label, v]) => (
+                <div key={label as string}>
+                  <dt className="text-caption text-muted-foreground">{label as string}</dt>
+                  <dd className="tabular font-semibold">{count(v as number | undefined)}</dd>
+                </div>
+              ))}
+            </dl>
+            {data.basis.length > 0 && (
+              <>
+                <p className="mt-3 text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+                  Basis
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-caption text-foreground">
+                  {data.basis.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="mt-3 text-caption text-muted-foreground">
+              Per-field minutes and their sources:{" "}
+              <span className="font-mono">packages/rules/data/time_model.json</span>.
+            </p>
+          </div>
+        )}
+      </HeaderMenu>
     </div>
   );
 }

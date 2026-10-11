@@ -16,8 +16,8 @@
  */
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { Button } from "../../components/Button";
-import { Card } from "../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card, PageHead } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { Pagination } from "../../components/Pagination";
 import { DEFAULT_PAGE_SIZE, listAudit } from "../../lib/api";
@@ -111,19 +111,18 @@ export function Audit() {
   const refreshing = loading && data !== null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Audit trail</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Append-only log of every answer, vitals batch, rule firing, edit, confirmation, page and
-            export (ALCOA+). Edits never overwrite; they add a version and an event.
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-          Refresh events
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHead
+        title="Audit trail"
+        actions={
+          <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
+            Refresh events
+          </Button>
+        }
+      >
+        Append-only log of every answer, vitals batch, rule firing, edit, confirmation, page and
+        export (ALCOA+). Edits never overwrite; they add a version and an event.
+      </PageHead>
 
       <VerifyPanel onVerified={reload} />
 
@@ -132,11 +131,11 @@ export function Audit() {
       <Card
         title="Events"
         aside={
-          <span className="tnum flex items-center gap-2 text-sm text-slate-600">
+          <span className="tnum flex items-center gap-2 text-table text-muted-foreground">
             {refreshing && (
               <span
                 role="status"
-                className="text-xs text-slate-500"
+                className="text-caption text-muted-foreground"
                 data-testid="events-refreshing"
               >
                 Refreshing…
@@ -151,11 +150,11 @@ export function Audit() {
       >
         <form
           onSubmit={applyFilters}
-          className="flex flex-wrap items-end gap-3 border-b border-slate-200 px-4 py-3 text-sm"
+          className="flex flex-wrap items-end gap-3 border-b border-border px-4 py-3 text-table"
           aria-label="Filter events"
         >
           <div className="flex flex-col gap-1">
-            <label htmlFor="filter-entity-type" className="font-medium text-slate-800">
+            <label htmlFor="filter-entity-type" className="font-medium text-foreground">
               Entity type
             </label>
             <input
@@ -164,7 +163,7 @@ export function Audit() {
               value={draftType}
               onChange={(e) => setDraftType(e.target.value)}
               placeholder="e.g. session"
-              className="w-40 rounded-lg border border-slate-300 px-2 py-1 font-mono text-[13px]"
+              className="w-40 rounded-control border border-input h-8 bg-surface px-2 font-mono text-table"
             />
             <datalist id="audit-entity-types">
               {KNOWN_ENTITY_TYPES.map((t) => (
@@ -173,7 +172,7 @@ export function Audit() {
             </datalist>
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="filter-entity-id" className="font-medium text-slate-800">
+            <label htmlFor="filter-entity-id" className="font-medium text-foreground">
               Entity id
             </label>
             <input
@@ -181,12 +180,12 @@ export function Audit() {
               value={draftId}
               onChange={(e) => setDraftId(e.target.value)}
               placeholder="ULID or USUBJID"
-              className="w-64 rounded-lg border border-slate-300 px-2 py-1 font-mono text-[13px]"
+              className="w-64 rounded-control border border-input h-8 bg-surface px-2 font-mono text-table"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="filter-action" className="font-medium text-slate-800">
-              Action <span className="font-normal text-slate-500">(exact name)</span>
+            <label htmlFor="filter-action" className="font-medium text-foreground">
+              Action <span className="font-normal text-muted-foreground">(exact name)</span>
             </label>
             <input
               id="filter-action"
@@ -194,7 +193,7 @@ export function Audit() {
               value={draftAction}
               onChange={(e) => setDraftAction(e.target.value)}
               placeholder="e.g. draft.confirmed"
-              className="w-52 rounded-lg border border-slate-300 px-2 py-1 font-mono text-[13px]"
+              className="w-52 rounded-control border border-input h-8 bg-surface px-2 font-mono text-table"
             />
             <datalist id="audit-actions">
               {KNOWN_ACTIONS.map((a) => (
@@ -211,7 +210,7 @@ export function Audit() {
             </Button>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="page-size" className="text-slate-600">
+            <label htmlFor="page-size" className="text-muted-foreground">
               Per page
             </label>
             <select
@@ -220,7 +219,7 @@ export function Audit() {
               onChange={(e) =>
                 setQuery((q) => ({ ...q, limit: Number(e.target.value), offset: 0 }))
               }
-              className="rounded-lg border border-slate-300 bg-white px-2 py-1"
+              className="rounded-control border border-input bg-surface px-2 py-1"
             >
               {PAGE_SIZES.map((n) => (
                 <option key={n} value={n}>
@@ -241,13 +240,13 @@ export function Audit() {
         ) : null}
 
         {initialLoading && !error && (
-          <p className="px-4 py-8 text-center text-sm text-slate-600" role="status">
+          <p className="px-4 py-8 text-center text-table text-muted-foreground" role="status">
             Loading events…
           </p>
         )}
 
         {!initialLoading && !error && data && sorted.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-600">
+          <p className="px-4 py-8 text-center text-table text-muted-foreground">
             {serverFiltered
               ? "No events match these filters. The action filter is an exact match; pick one from the list."
               : "No audit events yet. The first event is written when the demo data is seeded."}
@@ -263,7 +262,7 @@ export function Audit() {
             limit={data.limit || query.limit}
             offset={data.offset ?? query.offset}
             onChange={({ limit, offset }) => setQuery((q) => ({ ...q, limit, offset }))}
-            className="border-t border-slate-200 px-4 py-3"
+            className="border-t border-border px-4 py-3"
           />
         )}
       </Card>

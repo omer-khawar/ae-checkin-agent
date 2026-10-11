@@ -1,8 +1,10 @@
+import { CircleX } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/cn";
+import { Button } from "@/ui/button";
+
 import { describeError, isApiError } from "../lib/api";
-import { cx } from "../lib/format";
-import { Button } from "./Button";
 
 export interface ErrorBannerProps {
   /** An Error / ApiError / string. Nothing renders when null. */
@@ -28,16 +30,19 @@ export function ErrorBanner({
   return (
     <div
       role="alert"
-      className={cx(
-        "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-red-800",
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 rounded-panel border border-danger-border bg-danger-bg px-3 py-2 text-danger-fg",
         className,
       )}
     >
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">{message ?? "Something went wrong"}</div>
-        <div className="mt-0.5 break-words text-sm opacity-90">
-          {status !== null && <span className="tnum mr-1 font-mono">HTTP {status}</span>}
-          {text}
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <CircleX aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        <div className="min-w-0">
+          <div className="font-semibold">{message ?? "Something went wrong"}</div>
+          <div className="mt-0.5 break-words text-table">
+            {status !== null && <span className="tabular mr-1 font-mono">HTTP {status}</span>}
+            {text}
+          </div>
         </div>
       </div>
       {onRetry && (

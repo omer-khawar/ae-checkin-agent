@@ -28,8 +28,8 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
+import { Button } from "@/ui/button";
+import { BriefPanel as Card } from "./BriefPanel";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { getBrief, getBriefPrintHtml, isApiError } from "../../../lib/api";
 import { Time } from "../../../lib/format";
@@ -192,7 +192,7 @@ export default function BriefPage() {
             }
             onRetry={notFound ? undefined : () => setReloadKey((k) => k + 1)}
           />
-          <Link to="/dashboard" className="text-sm text-brand-700 underline">
+          <Link to="/dashboard" className="text-table text-primary underline">
             Back to the queue
           </Link>
         </div>
@@ -200,10 +200,14 @@ export default function BriefPage() {
     }
     return (
       <Card>
-        <div role="status" aria-busy="true" className="flex items-center gap-3 text-slate-700">
+        <div
+          role="status"
+          aria-busy="true"
+          className="flex items-center gap-3 text-muted-foreground"
+        >
           <span
             aria-hidden="true"
-            className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-brand-700 border-t-transparent"
+            className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
           />
           Building the visit brief for <span className="font-mono">{usubjid}</span>…
         </div>
@@ -226,18 +230,18 @@ export default function BriefPage() {
       <header className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
               Visit brief
             </p>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-page font-semibold text-foreground">
               {brief.display_label}
               {brief.display_label !== brief.usubjid && (
-                <span className="ml-2 align-middle font-mono text-xs font-normal text-slate-500">
+                <span className="ml-2 align-middle font-mono text-caption font-normal text-muted-foreground">
                   {brief.usubjid}
                 </span>
               )}
             </h1>
-            <p className="mt-0.5 text-sm text-slate-700">
+            <p className="mt-0.5 text-table text-muted-foreground">
               Since <strong>{brief.since ? formatDay(brief.since) : "the last visit"}</strong>
               {brief.next_visit && (
                 <>
@@ -258,39 +262,41 @@ export default function BriefPage() {
             <Button variant="secondary" size="sm" onClick={() => window.print()}>
               Print
             </Button>
-            <Button variant="secondary" size="sm" busy={printBusy} onClick={openPrintable}>
+            <Button variant="secondary" size="sm" loading={printBusy} onClick={openPrintable}>
               Open printable version
             </Button>
             <Link
               to={`/dashboard/participants/${encodeURIComponent(usubjid)}`}
-              className="rounded px-2 py-1 text-sm text-brand-700 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="rounded px-2 py-1 text-table text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Participant timeline
             </Link>
           </div>
         </div>
 
-        <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-base text-slate-900 print:border-slate-300 print:bg-white">
+        <p className="rounded-panel border border-border-strong bg-accent px-4 py-3 text-base text-foreground print:border-border-strong print:bg-surface">
           {summaryLine(brief)}
         </p>
 
         {/* Print-only context lines (the dashboard header with this note is hidden in print). */}
-        <p className="hidden text-xs text-slate-600 print:block">
+        <p className="hidden text-caption text-muted-foreground print:block">
           All participants are synthetic. Grades are provisional; the investigator confirms.
         </p>
 
         <div
-          className="flex flex-wrap items-end gap-x-4 gap-y-2 text-sm text-slate-700"
+          className="flex flex-wrap items-end gap-x-4 gap-y-2 text-table text-muted-foreground"
           data-print-hide
         >
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-600">Show everything since</span>
+            <span className="text-caption font-medium text-muted-foreground">
+              Show everything since
+            </span>
             <input
               type="date"
               value={sinceValue}
               max={todayLocal()}
               onChange={onSinceChange}
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="rounded-control border border-border-strong px-2 py-1.5 text-table focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
           {since && (
@@ -298,17 +304,17 @@ export default function BriefPage() {
               Use the last visit date
             </Button>
           )}
-          <label className="flex items-center gap-2 text-xs text-slate-600">
+          <label className="flex items-center gap-2 text-caption text-muted-foreground">
             <input
               type="checkbox"
               checked={showTechnical}
               onChange={(e) => setShowTechnical(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-400"
+              className="h-4 w-4 rounded border-input"
             />
             Show technical ids
           </label>
           {state.status === "loading" && (
-            <span role="status" className="text-xs text-slate-500">
+            <span role="status" className="text-caption text-muted-foreground">
               Updating…
             </span>
           )}
@@ -325,13 +331,13 @@ export default function BriefPage() {
           <ErrorBanner error={printError} message="Could not open the printable version" />
         )}
         {blockedUrl && (
-          <p className="text-sm text-slate-700" data-print-hide>
+          <p className="text-table text-muted-foreground" data-print-hide>
             Your browser blocked the new tab.{" "}
             <a
               href={blockedUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-brand-700 underline"
+              className="text-primary underline"
             >
               Open the printable version
             </a>
@@ -342,25 +348,27 @@ export default function BriefPage() {
       {/* ---- evidence selection bar ---- */}
       {selected && (
         <div
-          className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-brand-300 bg-white px-4 py-2 text-sm shadow-card"
+          className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-panel border border-primary bg-surface px-4 py-2 text-table shadow-elev-2"
           data-print-hide
           aria-live="polite"
         >
           <span>
             Highlighting {selectedCount} {selectedCount === 1 ? "line" : "lines"} that cite{" "}
             <strong>{evidenceKindLabel(selected, selectedRef)}</strong>{" "}
-            <span className="font-mono text-xs">{selected}</span>
+            <span className="font-mono text-caption">{selected}</span>
             {selectedRef?.ts && (
               <>
                 {" "}
                 · <Time iso={selectedRef.ts} style="short" />
               </>
             )}
-            {selectedRef?.note && <span className="text-slate-600"> · “{selectedRef.note}”</span>}
+            {selectedRef?.note && (
+              <span className="text-muted-foreground"> · “{selectedRef.note}”</span>
+            )}
           </span>
           {selectedLink &&
             (selectedLink.kind === "internal" ? (
-              <Link to={selectedLink.to} className="text-brand-700 underline">
+              <Link to={selectedLink.to} className="text-primary underline">
                 Open the source record
               </Link>
             ) : (
@@ -368,7 +376,7 @@ export default function BriefPage() {
                 href={selectedLink.href}
                 target="_blank"
                 rel="noreferrer"
-                className="text-brand-700 underline"
+                className="text-primary underline"
               >
                 Open the source record
               </a>
@@ -380,7 +388,7 @@ export default function BriefPage() {
       )}
 
       {empty && (
-        <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+        <p className="rounded-panel border border-border bg-surface px-4 py-3 text-table text-muted-foreground">
           Nothing new was recorded{brief.since ? ` since ${formatDay(brief.since)}` : ""}. Pick an
           earlier date to see more.
         </p>

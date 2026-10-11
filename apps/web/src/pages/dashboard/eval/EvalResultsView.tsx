@@ -10,7 +10,7 @@
  */
 import { Link } from "react-router-dom";
 
-import { Card } from "../../../components/Card";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { TierChip } from "../../../components/TierChip";
 import { cx, Time } from "../../../lib/format";
 import type {
@@ -58,16 +58,18 @@ function Tile({
   return (
     <div
       className={cx(
-        "rounded-xl border px-4 py-3",
-        tone === "good" && "border-green-300 bg-green-50",
-        tone === "bad" && "border-red-300 bg-red-50",
-        tone === "neutral" && "border-slate-200 bg-white",
+        "rounded-panel border px-4 py-3",
+        tone === "good" && "border-success-border bg-success-bg",
+        tone === "bad" && "border-danger-border bg-danger-bg",
+        tone === "neutral" && "border-border bg-surface",
       )}
       title={hint}
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-600">{label}</div>
-      <div className="tnum mt-1 text-2xl font-semibold text-slate-900">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-slate-600">{hint}</div>}
+      <div className="text-caption font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="tnum mt-1 text-display font-semibold text-foreground">{value}</div>
+      {hint && <div className="mt-0.5 text-caption text-muted-foreground">{hint}</div>}
     </div>
   );
 }
@@ -88,10 +90,10 @@ function CorrectnessTile({ label, c }: { label: string; c?: { n: number; correct
 function TierMetricsTable({ metrics }: { metrics: EvalResults["tier_metrics"] | undefined }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-table">
         <caption className="sr-only">Precision, recall and F1 per escalation tier</caption>
         <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
+          <tr className="border-b border-border text-left text-caption uppercase tracking-wide text-muted-foreground">
             <th scope="col" className="py-2 pr-3">
               Tier
             </th>
@@ -113,7 +115,7 @@ function TierMetricsTable({ metrics }: { metrics: EvalResults["tier_metrics"] | 
           {TIER_KEYS.map((k) => {
             const m: TierMetrics | undefined = metrics?.[k];
             return (
-              <tr key={k} className="border-b border-slate-100">
+              <tr key={k} className="border-b border-border">
                 <td className="py-2 pr-3">
                   <TierChip tier={Number(k)} />
                 </td>
@@ -140,10 +142,10 @@ function PerPersonaTable({
   const byId = new Map(personas.map((p) => [p.id, p]));
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm" data-testid="per-persona-table">
+      <table className="w-full text-table" data-testid="per-persona-table">
         <caption className="sr-only">Result per persona</caption>
         <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
+          <tr className="border-b border-border text-left text-caption uppercase tracking-wide text-muted-foreground">
             <th scope="col" className="py-2 pr-3">
               Persona
             </th>
@@ -173,19 +175,19 @@ function PerPersonaTable({
             const expectedTier = tierOf(r.expected) ?? meta?.expected_tier ?? null;
             const actualTier = tierOf(r.actual);
             return (
-              <tr key={r.persona_id} className="border-b border-slate-100 align-top">
+              <tr key={r.persona_id} className="border-b border-border align-top">
                 <td className="py-2 pr-3">
-                  <div className="font-medium text-slate-900">{r.name}</div>
-                  <div className="font-mono text-xs text-slate-600">
+                  <div className="font-medium text-foreground">{r.name}</div>
+                  <div className="font-mono text-caption text-muted-foreground">
                     {r.persona_id}
                     {r.hidden && (
-                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-slate-700">
+                      <span className="ml-2 rounded bg-surface-subtle px-1.5 py-0.5 font-sans text-caption font-semibold text-foreground">
                         hidden judge persona
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="py-2 pr-3 text-slate-700">{meta?.category ?? "—"}</td>
+                <td className="py-2 pr-3 text-foreground">{meta?.category ?? "—"}</td>
                 <td className="py-2 pr-3">
                   {expectedTier === null ? "—" : <TierChip tier={expectedTier} short />}
                 </td>
@@ -195,38 +197,38 @@ function PerPersonaTable({
                 <td className="py-2 pr-3">
                   <span
                     className={cx(
-                      "rounded-md border px-2 py-0.5 text-xs font-bold uppercase",
+                      "rounded-control border px-2 py-0.5 text-caption font-bold uppercase",
                       r.pass
-                        ? "border-green-300 bg-green-100 text-green-800"
-                        : "border-red-300 bg-red-100 text-red-800",
+                        ? "border-success-border bg-success-bg text-success-fg"
+                        : "border-danger-border bg-danger-bg text-danger-fg",
                     )}
                   >
                     {r.pass ? "pass" : "fail"}
                   </span>
                 </td>
-                <td className="py-2 pr-3 text-slate-700">
+                <td className="py-2 pr-3 text-foreground">
                   {r.mismatches?.length ? (
                     <ul className="list-disc space-y-0.5 pl-4">
                       {r.mismatches.map((m, i) => (
-                        <li key={i} className="font-mono text-xs">
+                        <li key={i} className="font-mono text-caption">
                           {m}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <span className="text-slate-500">none</span>
+                    <span className="text-muted-foreground">none</span>
                   )}
                 </td>
                 <td className="py-2">
                   {r.session_id ? (
                     <Link
                       to={`/dashboard/checkins/${encodeURIComponent(r.session_id)}`}
-                      className="text-brand-700 underline"
+                      className="text-primary underline"
                     >
                       open check-in
                     </Link>
                   ) : (
-                    <span className="text-slate-500">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </td>
               </tr>
@@ -246,10 +248,10 @@ function PerPersonaTable({
 function CounterfactualTable({ rows }: { rows: EvalCounterfactual[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm" data-testid="counterfactual-table">
+      <table className="w-full text-table" data-testid="counterfactual-table">
         <caption className="sr-only">Counterfactual replays with settings toggled</caption>
         <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
+          <tr className="border-b border-border text-left text-caption uppercase tracking-wide text-muted-foreground">
             <th scope="col" className="py-2 pr-3">
               Persona
             </th>
@@ -272,12 +274,12 @@ function CounterfactualTable({ rows }: { rows: EvalCounterfactual[] }) {
         </thead>
         <tbody>
           {rows.map((c, i) => (
-            <tr key={`${c.persona_id}-${i}`} className="border-b border-slate-100 align-top">
-              <td className="py-2 pr-3 font-mono text-xs text-slate-700">{c.persona_id}</td>
-              <td className="py-2 pr-3 text-slate-900">
+            <tr key={`${c.persona_id}-${i}`} className="border-b border-border align-top">
+              <td className="py-2 pr-3 font-mono text-caption text-foreground">{c.persona_id}</td>
+              <td className="py-2 pr-3 text-foreground">
                 {c.label}
                 {c.settings && Object.keys(c.settings).length > 0 && (
-                  <div className="mt-0.5 font-mono text-[11px] text-slate-600">
+                  <div className="mt-0.5 font-mono text-caption text-muted-foreground">
                     {JSON.stringify(c.settings)}
                   </div>
                 )}
@@ -293,45 +295,45 @@ function CounterfactualTable({ rows }: { rows: EvalCounterfactual[] }) {
               <td className="py-2 pr-3">
                 <span
                   className={cx(
-                    "rounded-md border px-2 py-0.5 text-xs font-bold uppercase",
+                    "rounded-control border px-2 py-0.5 text-caption font-bold uppercase",
                     c.pass
-                      ? "border-green-300 bg-green-100 text-green-800"
-                      : "border-red-300 bg-red-100 text-red-800",
+                      ? "border-success-border bg-success-bg text-success-fg"
+                      : "border-danger-border bg-danger-bg text-danger-fg",
                   )}
                 >
                   {c.pass ? "pass" : "fail"}
                 </span>
               </td>
-              <td className="py-2 pr-3 text-slate-700">
+              <td className="py-2 pr-3 text-foreground">
                 {c.mismatches?.length ? (
                   <ul className="list-disc space-y-0.5 pl-4">
                     {c.mismatches.map((m, j) => (
-                      <li key={j} className="font-mono text-xs">
+                      <li key={j} className="font-mono text-caption">
                         {m}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <span className="text-slate-500">none</span>
+                  <span className="text-muted-foreground">none</span>
                 )}
               </td>
               <td className="py-2">
                 {c.session_id ? (
                   <Link
                     to={`/dashboard/checkins/${encodeURIComponent(c.session_id)}`}
-                    className="text-brand-700 underline"
+                    className="text-primary underline"
                   >
                     open check-in
                   </Link>
                 ) : (
-                  <span className="text-slate-500">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-slate-600">
+      <p className="mt-2 text-caption text-muted-foreground">
         Each replay also checks the invariant that a settings change never moves a provisional
         grade; a violation shows as a mismatch.
       </p>
@@ -348,7 +350,7 @@ export function EvalResultsView({ results, personas = [] }: EvalResultsViewProps
 
   return (
     <div className="space-y-4" data-testid="eval-results">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-table text-muted-foreground">
         <span>
           Run <span className="font-mono">{results.run_id}</span>
         </span>
@@ -392,7 +394,9 @@ export function EvalResultsView({ results, personas = [] }: EvalResultsViewProps
           {results.per_persona?.length ? (
             <PerPersonaTable rows={results.per_persona} personas={personas} />
           ) : (
-            <p className="text-sm text-slate-600">The server returned no per-persona rows.</p>
+            <p className="text-table text-muted-foreground">
+              The server returned no per-persona rows.
+            </p>
           )}
         </div>
       </Card>
@@ -404,11 +408,11 @@ export function EvalResultsView({ results, personas = [] }: EvalResultsViewProps
       )}
 
       {notices.length > 0 && (
-        <details className="rounded-2xl border border-slate-200 bg-white shadow-card">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">
+        <details className="rounded-panel border border-border bg-surface ">
+          <summary className="cursor-pointer px-4 py-3 text-table font-semibold text-foreground">
             Harness notices ({notices.length})
           </summary>
-          <ul className="list-disc space-y-0.5 border-t border-slate-200 px-4 py-3 pl-8 font-mono text-xs text-slate-700">
+          <ul className="list-disc space-y-0.5 border-t border-border px-4 py-3 pl-8 font-mono text-caption text-foreground">
             {notices.map((m, i) => (
               <li key={i}>{m}</li>
             ))}
@@ -417,11 +421,11 @@ export function EvalResultsView({ results, personas = [] }: EvalResultsViewProps
       )}
 
       {results.markdown && (
-        <details className="rounded-2xl border border-slate-200 bg-white shadow-card">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">
+        <details className="rounded-panel border border-border bg-surface ">
+          <summary className="cursor-pointer px-4 py-3 text-table font-semibold text-foreground">
             Full report (markdown, as written to docs/eval/results.md)
           </summary>
-          <pre className="overflow-x-auto whitespace-pre-wrap border-t border-slate-200 px-4 py-3 font-mono text-xs text-slate-800">
+          <pre className="overflow-x-auto whitespace-pre-wrap border-t border-border px-4 py-3 font-mono text-caption text-foreground">
             {results.markdown}
           </pre>
         </details>

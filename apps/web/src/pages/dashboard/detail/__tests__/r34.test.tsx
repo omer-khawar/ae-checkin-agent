@@ -146,7 +146,7 @@ describe("CheckInDetail · plain language and protocol (R3)", () => {
     expect(grade).toHaveTextContent("Grade 3 · severe");
     const code = () => grade.querySelector('[data-sdtm-code="AETOXGR"]') as HTMLElement;
     expect(code()).toHaveClass("sr-only");
-    await userEvent.setup().click(screen.getByRole("checkbox", { name: /Show EDC codes/ }));
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Codes" }));
     expect(code()).not.toHaveClass("sr-only");
     expect(code()).toHaveClass("font-mono");
     // A field the API did not label uses the local plain_language.json copy.
@@ -220,10 +220,8 @@ describe("CheckInDetail · plain language and protocol (R3)", () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole("heading", { name: /P-007/ });
-    const saeCard = screen
-      .getByRole("heading", { name: /Serious-event report clock/ })
-      .closest("section")!;
-    await user.click(within(saeCard).getByRole("button", { name: "Open report packet" }));
+    // The header carries the one "Open report packet" button; the clock box below keeps the rest.
+    await user.click(screen.getAllByRole("button", { name: "Open report packet" })[0]);
     expect(await screen.findByText("Packet page stub")).toBeInTheDocument();
     expect(mock.find("POST", "/api/v1/packets")[0].body).toEqual({ clock_id: CLOCK_ID });
   });

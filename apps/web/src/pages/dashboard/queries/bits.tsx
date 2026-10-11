@@ -3,6 +3,8 @@
  * meaning as a word, never colour alone.
  */
 import { cx } from "../../../lib/format";
+import { Badge } from "@/ui/badge";
+import { queryStatusBadgeKind, querySeverityBadgeKind } from "@/ui/badge-kinds";
 import {
   AGE_ALERT_HOURS,
   SEVERITY_HELP,
@@ -16,33 +18,19 @@ import type { QueryEvidence, QuerySeverity, QueryStatus } from "../../../lib/typ
 
 export function SeverityChip({ severity }: { severity: QuerySeverity }) {
   return (
-    <span
-      className={cx(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
-        severity === "safety"
-          ? "border-red-300 bg-red-50 text-red-800"
-          : "border-sky-300 bg-sky-50 text-sky-900",
-      )}
+    <Badge
+      kind={querySeverityBadgeKind(severity)}
+      size="sm"
+      label={SEVERITY_LABELS[severity] ?? severity}
       title={SEVERITY_HELP[severity]}
       data-severity={severity}
-    >
-      {SEVERITY_LABELS[severity] ?? severity}
-    </span>
+    />
   );
 }
 
 export function StatusChip({ status }: { status: QueryStatus }) {
   return (
-    <span
-      className={cx(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
-        status === "open" && "border-amber-300 bg-amber-50 text-amber-900",
-        status === "answered" && "border-brand-300 bg-brand-50 text-brand-900",
-        status === "closed" && "border-slate-300 bg-slate-100 text-slate-700",
-      )}
-    >
-      {STATUS_LABELS[status] ?? status}
-    </span>
+    <Badge kind={queryStatusBadgeKind(status)} size="sm" label={STATUS_LABELS[status] ?? status} />
   );
 }
 
@@ -51,8 +39,8 @@ export function AgeChip({ hours, alert }: { hours: number | null; alert: boolean
   return (
     <span
       className={cx(
-        "tnum whitespace-nowrap text-sm",
-        alert ? "font-semibold text-red-700" : "text-slate-700",
+        "tabular whitespace-nowrap text-sm",
+        alert ? "font-semibold text-danger-fg" : "text-muted-foreground",
       )}
       title={
         alert
@@ -71,7 +59,7 @@ export function AgeChip({ hours, alert }: { hours: number | null; alert: boolean
 export function CodeBadge({ children, title }: { children: string; title?: string }) {
   return (
     <span
-      className="inline-block rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600"
+      className="inline-block rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-caption text-muted-foreground"
       title={title}
     >
       {children}
@@ -102,10 +90,12 @@ export function EvidenceChip({ id, evidence, active, onSelect }: EvidenceChipPro
         known ? `${label}: ${evidence.note ?? id}` : `Evidence ${id} is not in this record's list`
       }
       className={cx(
-        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium focus-visible:ring-2",
-        !known && "border-amber-300 bg-amber-50 text-amber-900",
-        known && !active && "border-slate-300 bg-white text-slate-700 hover:bg-slate-100",
-        known && active && "border-brand-700 bg-brand-50 text-brand-900",
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-medium focus-visible:ring-2",
+        !known && "border-warning-border bg-warning-bg text-warning-fg",
+        known &&
+          !active &&
+          "border-border-strong bg-surface text-muted-foreground hover:bg-surface-subtle",
+        known && active && "border-primary bg-surface-selected text-primary",
       )}
       data-evidence-chip={id}
     >

@@ -125,7 +125,7 @@ describe("filters → query", () => {
   it("omits min_tier at 0 and always sends status/include_eval", () => {
     expect(
       buildQueueQuery(
-        { participant: "", minTier: 0, status: "open", includeEval: false, offset: 0 },
+        { view: "all", participant: "", minTier: 0, status: "open", includeEval: false, offset: 0 },
         PARTICIPANTS,
         25,
       ),
@@ -139,7 +139,14 @@ describe("filters → query", () => {
     });
     expect(
       buildQueueQuery(
-        { participant: "P-007", minTier: 2, status: "all", includeEval: true, offset: 50 },
+        {
+          view: "all",
+          participant: "P-007",
+          minTier: 2,
+          status: "all",
+          includeEval: true,
+          offset: 50,
+        },
         PARTICIPANTS,
         25,
       ),
@@ -160,6 +167,7 @@ describe("filter-state helpers", () => {
     minTier: 0,
     status: "open" as const,
     includeEval: false,
+    view: "all" as const,
     offset: 0,
   };
 

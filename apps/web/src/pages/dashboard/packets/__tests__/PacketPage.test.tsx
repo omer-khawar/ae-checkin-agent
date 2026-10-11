@@ -319,12 +319,23 @@ describe("PacketPage: signing", () => {
     expect(within(panel).getByText(/2 items are still listed as missing/)).toBeInTheDocument();
     const yes = within(panel).getByRole("button", { name: "Yes, sign the report" });
     expect(yes).toBeDisabled();
-    await user.click(within(panel).getByLabelText(/I have reviewed every field/));
+    await user.click(within(panel).getByLabelText(/I reviewed the narrative/));
+    // Reviewed alone is not enough: every open item must be marked "Not available".
+    expect(yes).toBeDisabled();
+    await user.click(within(panel).getByLabelText("Not available: Outcome of the event"));
+    expect(yes).toBeDisabled();
+    await user.click(within(panel).getByLabelText("Not available: Date of last study drug dose"));
+    expect(yes).toBeEnabled();
     await user.click(yes);
 
     await waitFor(() =>
       expect(mock.find("POST", `/api/v1/packets/${PACKET_ID}/sign`)).toHaveLength(1),
     );
+    const sent = mock.find("POST", `/api/v1/packets/${PACKET_ID}/sign`)[0] as {
+      body?: unknown;
+    };
+    expect(JSON.stringify(sent)).toContain("missing_info_not_available");
+    expect(JSON.stringify(sent)).toContain("Outcome of the event");
     expect(await screen.findByTestId("status-label")).toHaveTextContent("Signed");
     expect(screen.getByText("Reported (mock)")).toBeInTheDocument();
     expect(screen.getByText("EDC-ACK-7")).toBeInTheDocument();

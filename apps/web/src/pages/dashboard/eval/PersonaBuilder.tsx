@@ -11,8 +11,8 @@
  */
 import { useId, useMemo, useState } from "react";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { runCustomEval } from "../../../lib/api";
@@ -64,7 +64,7 @@ const ATTRIBUTE_TITLES: Record<Attribute, string> = {
 const DIRECTIONS: ConmedDirection[] = ["started", "stopped", "both"];
 
 const SELECT_CLASS =
-  "w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus-visible:ring-4";
+  "w-full rounded-control border border-input bg-surface px-2 py-1.5 text-table text-foreground focus-visible:ring-4";
 const INPUT_CLASS = SELECT_CLASS;
 
 function ItemRow({
@@ -79,17 +79,17 @@ function ItemRow({
   const attrs = item.attributes.length ? item.attributes : (["severity"] as Attribute[]);
   const name = item.short_label || item.label;
   return (
-    <div className="grid gap-2 border-b border-slate-100 py-2 sm:grid-cols-[minmax(10rem,1fr)_2fr]">
-      <div className="text-sm font-medium text-slate-900">
+    <div className="grid gap-2 border-b border-border py-2 sm:grid-cols-[minmax(10rem,1fr)_2fr]">
+      <div className="text-table font-medium text-foreground">
         {name}
-        <div className="text-xs font-normal text-slate-600">{item.ctcae_term}</div>
+        <div className="text-caption font-normal text-muted-foreground">{item.ctcae_term}</div>
       </div>
       <div className={cx("grid gap-2", attrs.length > 1 ? "sm:grid-cols-2" : "sm:grid-cols-1")}>
         {attrs.map((attr) => {
           const id = `pb-${item.id}-${attr}`;
           return (
             <div key={attr}>
-              <label htmlFor={id} className="block text-xs text-slate-600">
+              <label htmlFor={id} className="block text-caption text-muted-foreground">
                 <span className="sr-only">{name} </span>
                 {ATTRIBUTE_TITLES[attr]}
               </label>
@@ -153,8 +153,8 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
     const id = `${uid}-${key}`;
     return (
       <div>
-        <label htmlFor={id} className="block text-xs text-slate-600">
-          {label} <span className="text-slate-500">({unit})</span>
+        <label htmlFor={id} className="block text-caption text-muted-foreground">
+          {label} <span className="text-muted-foreground">({unit})</span>
         </label>
         <input
           id={id}
@@ -186,13 +186,13 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
         <Card
           title="Answers (labels from the PRO-CTCAE-style item table)"
           aside={
-            <span className="text-xs text-slate-600">
+            <span className="text-caption text-muted-foreground">
               pre-filled with <span className="font-mono">{DEMO_PERSONA_ID}</span>
             </span>
           }
         >
           {ordered.length === 0 ? (
-            <p className="text-sm text-slate-600">No items loaded.</p>
+            <p className="text-table text-muted-foreground">No items loaded.</p>
           ) : (
             ordered.map((item) => (
               <ItemRow
@@ -204,15 +204,15 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
             ))
           )}
 
-          <h3 className="mt-4 text-sm font-semibold text-slate-900">
+          <h3 className="mt-4 text-table font-semibold text-foreground">
             Gate questions{" "}
-            <span className="text-xs font-normal text-slate-600">
+            <span className="text-caption font-normal text-muted-foreground">
               (wording from the gate table)
             </span>
           </h3>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor={`${uid}-hosp`} className="block text-xs text-slate-600">
+              <label htmlFor={`${uid}-hosp`} className="block text-caption text-muted-foreground">
                 {gateLabel(gates, "hospitalization")}
               </label>
               <select
@@ -228,7 +228,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
               </select>
             </div>
             <div>
-              <label htmlFor={`${uid}-cm`} className="block text-xs text-slate-600">
+              <label htmlFor={`${uid}-cm`} className="block text-caption text-muted-foreground">
                 {gateLabel(gates, "conmed")}
               </label>
               <select
@@ -246,7 +246,10 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
             {state.conmedChanged && (
               <>
                 <div>
-                  <label htmlFor={`${uid}-cmtext`} className="block text-xs text-slate-600">
+                  <label
+                    htmlFor={`${uid}-cmtext`}
+                    className="block text-caption text-muted-foreground"
+                  >
                     {prompts.conmedText}
                   </label>
                   <input
@@ -257,12 +260,18 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                     aria-describedby={`${uid}-cmtext-note`}
                     onChange={(e) => setState((s) => ({ ...s, conmedText: e.target.value }))}
                   />
-                  <p id={`${uid}-cmtext-note`} className="mt-0.5 text-[11px] text-slate-500">
+                  <p
+                    id={`${uid}-cmtext-note`}
+                    className="mt-0.5 text-caption text-muted-foreground"
+                  >
                     Sent verbatim; the server's string matcher proposes a name.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor={`${uid}-cmdir`} className="block text-xs text-slate-600">
+                  <label
+                    htmlFor={`${uid}-cmdir`}
+                    className="block text-caption text-muted-foreground"
+                  >
                     {prompts.conmedDirection}
                   </label>
                   <select
@@ -286,7 +295,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
               </>
             )}
             <div className="sm:col-span-2">
-              <label htmlFor={`${uid}-other`} className="block text-xs text-slate-600">
+              <label htmlFor={`${uid}-other`} className="block text-caption text-muted-foreground">
                 {gateLabel(gates, "other")}
               </label>
               <input
@@ -297,13 +306,13 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                 aria-describedby={`${uid}-other-note`}
                 onChange={(e) => setState((s) => ({ ...s, otherText: e.target.value }))}
               />
-              <p id={`${uid}-other-note`} className="mt-0.5 text-[11px] text-slate-500">
+              <p id={`${uid}-other-note`} className="mt-0.5 text-caption text-muted-foreground">
                 {prompts.otherNote}
               </p>
             </div>
             {tempField && (
               <div>
-                <label htmlFor={`${uid}-temp`} className="block text-xs text-slate-600">
+                <label htmlFor={`${uid}-temp`} className="block text-caption text-muted-foreground">
                   Typed temperature, optional ({tempField.unit})
                 </label>
                 <input
@@ -326,7 +335,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
             title="Vitals (generated client-side)"
             aside={<MeasuredBadge isMeasured={false} source="mock" />}
           >
-            <label htmlFor={`${uid}-preset`} className="block text-xs text-slate-600">
+            <label htmlFor={`${uid}-preset`} className="block text-caption text-muted-foreground">
               Scenario preset
             </label>
             <select
@@ -341,7 +350,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-slate-600">{preset.description}</p>
+            <p className="mt-1 text-caption text-muted-foreground">{preset.description}</p>
 
             {state.preset !== "none" && (
               <>
@@ -351,10 +360,10 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                   {levelInput("confidence", "Confidence", 0.05, "0–1")}
                 </div>
                 <div className="mt-3 overflow-x-auto">
-                  <table className="w-full text-xs" data-testid="sample-preview">
+                  <table className="w-full text-caption" data-testid="sample-preview">
                     <caption className="sr-only">Generated simulated samples</caption>
                     <thead>
-                      <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
+                      <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
                         <th scope="col" className="py-1 pr-2">
                           t (s)
                         </th>
@@ -377,7 +386,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                     </thead>
                     <tbody>
                       {samples.map((s) => (
-                        <tr key={s.tsOffsetS} className="border-b border-slate-100">
+                        <tr key={s.tsOffsetS} className="border-b border-border">
                           <td className="tnum py-1 pr-2">{s.tsOffsetS}</td>
                           <td className="tnum py-1 pr-2">{s.pulseBpm ?? "—"}</td>
                           <td className="tnum py-1 pr-2">{s.breathingBpm ?? "—"}</td>
@@ -388,7 +397,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
                       ))}
                     </tbody>
                   </table>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-caption text-muted-foreground">
                     {samples.length} simulated samples, every one{" "}
                     <span className="font-mono">isMeasured: false</span>.
                   </p>
@@ -398,7 +407,7 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
           </Card>
 
           <Card title="Demo toggle">
-            <label className="flex items-start gap-2 text-sm text-slate-900">
+            <label className="flex items-start gap-2 text-table text-foreground">
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4"
@@ -409,10 +418,10 @@ export function PersonaBuilder({ items, gates = [] }: PersonaBuilderProps) {
             </label>
             <p
               className={cx(
-                "mt-2 rounded-lg border px-3 py-2 text-xs",
+                "mt-2 rounded-control border px-3 py-2 text-caption",
                 state.simulatedAsMeasured
-                  ? "border-amber-300 bg-amber-50 text-amber-900"
-                  : "border-slate-200 bg-slate-50 text-slate-700",
+                  ? "border-warning-border bg-warning-bg text-warning-fg"
+                  : "border-border bg-surface-subtle text-foreground",
               )}
               role={state.simulatedAsMeasured ? "alert" : undefined}
             >

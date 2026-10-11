@@ -98,7 +98,8 @@ function renderPage() {
   );
 }
 
-const row = (id: string) => document.querySelector(`[data-sae-clock-id="${id}"]`) as HTMLElement;
+const row = (id: string) =>
+  document.querySelector(`[data-testid="clocks-table"] tr[data-row-id="${id}"]`) as HTMLElement;
 
 describe("Escalations · report clocks (R3.2 / R4.3)", () => {
   it("names each clock's kind and opens the report packet", async () => {
@@ -115,11 +116,11 @@ describe("Escalations · report clocks (R3.2 / R4.3)", () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(row(AESI_ID)).not.toBeNull());
-    expect(row(AESI_ID)).toHaveAttribute("data-clock-kind", "aesi");
+    expect(row(AESI_ID).querySelector('[data-kind="aesi"]')).not.toBeNull();
     expect(row(AESI_ID)).toHaveTextContent(
-      "AESI possible special-interest event, investigator to confirm",
+      "possible special-interest event, investigator to confirm",
     );
-    expect(row(NOTE_CLOCK_ID)).toHaveTextContent("SAE possible serious event");
+    expect(row(NOTE_CLOCK_ID)).toHaveTextContent("possible serious event");
     // The coordinator never sees the investigator-only decision control.
     expect(screen.queryByRole("button", { name: "Record seriousness decision" })).toBeNull();
 
@@ -169,7 +170,7 @@ describe("Escalations · report clocks (R3.2 / R4.3)", () => {
       decision: "AESER = N",
     });
     // The row flips to stopped in place.
-    await waitFor(() => expect(row(NOTE_CLOCK_ID)).toHaveAttribute("data-active", "false"));
+    await waitFor(() => expect(row(NOTE_CLOCK_ID)).toHaveTextContent(/Stopped by/));
     expect(row(NOTE_CLOCK_ID)).toHaveTextContent("AESER = N");
   });
 

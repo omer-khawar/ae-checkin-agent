@@ -9,8 +9,6 @@
  */
 import { useState } from "react";
 
-import { Card } from "../../../components/Card";
-import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import {
   cx,
   formatConfidence,
@@ -20,7 +18,7 @@ import {
   vsMethod,
 } from "../../../lib/format";
 import type { Answer, CheckInDetail, Item, VitalsSampleRow } from "../../../lib/types";
-import { Chip, Disclosure } from "./bits";
+import { Chip, Disclosure, Panel, Prov } from "./bits";
 import {
   describeGate,
   highlightClass,
@@ -46,20 +44,20 @@ export function AnswersColumn({ detail, items, highlight, onFocusId }: AnswersCo
   const gates = ordered.filter(isGateAnswer);
 
   return (
-    <div className="space-y-4">
-      <Card
+    <div className="space-y-3">
+      <Panel
         title="Answers"
         aside={
-          <span className="text-xs text-slate-500">
+          <span className="text-caption text-subtle-foreground">
             {pro.length} item answer{pro.length === 1 ? "" : "s"} · in order received
           </span>
         }
         flush
       >
         {pro.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No item answers were recorded.</p>
+          <p className="p-3 text-table text-subtle-foreground">No item answers were recorded.</p>
         ) : (
-          <ol className="divide-y divide-slate-100" aria-label="Item answers">
+          <ol className="divide-y divide-border" aria-label="Item answers">
             {pro.map((a) => (
               <AnswerRow
                 key={a.id}
@@ -72,13 +70,13 @@ export function AnswersColumn({ detail, items, highlight, onFocusId }: AnswersCo
             ))}
           </ol>
         )}
-      </Card>
+      </Panel>
 
-      <Card title="Gate questions" flush>
+      <Panel title="Gate questions" flush>
         {gates.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No gate answers were recorded.</p>
+          <p className="p-3 text-table text-subtle-foreground">No gate answers were recorded.</p>
         ) : (
-          <ol className="divide-y divide-slate-100" aria-label="Gate answers">
+          <ol className="divide-y divide-border" aria-label="Gate answers">
             {gates.map((a) => (
               <GateRow
                 key={a.id}
@@ -90,7 +88,7 @@ export function AnswersColumn({ detail, items, highlight, onFocusId }: AnswersCo
             ))}
           </ol>
         )}
-      </Card>
+      </Panel>
 
       <VitalsBlock detail={detail} highlight={highlight} onFocusId={onFocusId} />
     </div>
@@ -116,27 +114,27 @@ function AnswerRow({
         type="button"
         onClick={onFocus}
         className={cx(
-          "flex w-full items-start gap-3 px-4 py-2 text-left hover:bg-slate-50",
+          "flex min-h-row w-full items-center gap-2 px-3 py-1 text-left text-table hover:bg-surface-subtle",
           highlightClass(active),
         )}
         aria-pressed={active}
         title={`Answer ${answer.id}`}
       >
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-slate-900">{label}</div>
-          <div className="text-xs text-slate-600">
+          <div className="truncate font-medium text-foreground">{label}</div>
+          <div className="text-caption text-muted-foreground">
             <span className="capitalize">{answer.attribute}</span>
             <span aria-hidden="true"> · </span>
-            <span className="font-medium text-slate-800">
+            <span className="font-medium text-foreground">
               {option ?? humanize(String(answer.value_int ?? "—"))}
             </span>
             {answer.value_int !== null && (
-              <span className="tnum text-slate-500"> ({answer.value_int})</span>
+              <span className="tabular text-subtle-foreground"> ({answer.value_int})</span>
             )}
-            {answer.value_text && <span className="text-slate-700"> · {answer.value_text}</span>}
+            {answer.value_text && <span className="text-foreground"> · {answer.value_text}</span>}
           </div>
         </div>
-        <div className="shrink-0 text-right text-[11px] text-slate-500">
+        <div className="tabular shrink-0 text-right text-caption text-subtle-foreground">
           <Time iso={answer.ts_server} style="time" />
         </div>
       </button>
@@ -162,28 +160,28 @@ function GateRow({
         type="button"
         onClick={onFocus}
         className={cx(
-          "flex w-full items-start gap-3 px-4 py-2 text-left hover:bg-slate-50",
+          "flex min-h-row w-full items-start gap-2 px-3 py-1.5 text-left text-table hover:bg-surface-subtle",
           highlightClass(active),
         )}
         aria-pressed={active}
         title={`Answer ${answer.id}`}
       >
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-slate-900">{label}</div>
+          <div className="font-medium text-foreground">{label}</div>
           <div
             className={cx(
-              "mt-0.5 text-sm",
+              "mt-0.5",
               g.verbatim
-                ? "whitespace-pre-wrap rounded bg-slate-50 px-2 py-1 font-mono text-slate-800"
-                : "text-slate-800",
-              g.empty && "text-slate-500",
+                ? "whitespace-pre-wrap rounded-control bg-surface-subtle px-2 py-1 font-mono text-foreground"
+                : "text-foreground",
+              g.empty && "text-subtle-foreground",
             )}
           >
             {g.text}
           </div>
           {g.verbatim && (
             <div className="mt-1 flex flex-wrap gap-1">
-              <Chip className="bg-slate-100 text-slate-700 border-slate-300">
+              <Chip className="border-neutral-border bg-neutral-bg text-neutral-fg">
                 {g.matchedOnly
                   ? "verbatim · compared by string distance only, never parsed"
                   : "verbatim, never parsed"}
@@ -191,7 +189,7 @@ function GateRow({
             </div>
           )}
         </div>
-        <div className="shrink-0 text-right text-[11px] text-slate-500">
+        <div className="tabular shrink-0 text-right text-caption text-subtle-foreground">
           <Time iso={answer.ts_server} style="time" />
         </div>
       </button>
@@ -225,31 +223,33 @@ function VitalsBlock({
   const [open, setOpen] = useState(false);
 
   return (
-    <Card
+    <Panel
       title="Vitals"
       aside={
         <span className="flex items-center gap-2">
           <Chip
-            className="bg-slate-100 text-slate-800 border-slate-300"
+            className="border-neutral-border bg-neutral-bg text-neutral-fg"
             title="Vitals status from the rules engine"
           >
             {vitalsStatusLabel(status)}
           </Chip>
-          {samples.length > 0 && <MeasuredBadge isMeasured={isMeasured} source={source} />}
+          {samples.length > 0 && <Prov isMeasured={isMeasured} source={source} />}
         </span>
       }
     >
       {!detail.session?.consent_camera && (
-        <p className="mb-2 text-sm text-slate-600">
+        <p className="mb-2 text-table text-muted-foreground">
           Camera was turned off; the check-in ran without vitals.
         </p>
       )}
       {samples.length === 0 ? (
-        <p className="text-sm text-slate-500">No vitals samples were captured for this session.</p>
+        <p className="text-table text-subtle-foreground">
+          No vitals samples were captured for this session.
+        </p>
       ) : (
         <>
           {summary ? (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+            <dl className="divide-y divide-border text-table">
               <Stat
                 label="Pulse median"
                 value={formatVital(summary.pulse_median)}
@@ -280,19 +280,19 @@ function VitalsBlock({
                 unit="ms"
                 isMeasured={isMeasured}
               />
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Samples</dt>
-                <dd className="tnum text-slate-900">
+              <div className="flex min-h-row items-center gap-2 py-1">
+                <dt className="w-32 shrink-0 text-muted-foreground">Samples</dt>
+                <dd className="tabular text-foreground">
                   {summary.n_eligible} usable of {summary.n_samples}
                 </dd>
               </div>
             </dl>
           ) : (
-            <p className="text-sm text-slate-500">
+            <p className="text-table text-subtle-foreground">
               No summary: no sample was usable for the rules.
             </p>
           )}
-          <p className="mt-2 text-xs text-slate-600">
+          <p className="mt-2 text-caption text-muted-foreground">
             Method: <span className="font-medium">{vsMethod(isMeasured)}</span>
             {source && (
               <>
@@ -309,7 +309,7 @@ function VitalsBlock({
             )}
           </p>
           {ignored.size > 0 && (
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-caption text-muted-foreground">
               {ignored.size} sample{ignored.size === 1 ? "" : "s"} ignored for rules (reasons in the
               table).
             </p>
@@ -322,8 +322,8 @@ function VitalsBlock({
             summary={<span>Raw samples ({samples.length}) — never averaged away</span>}
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-xs" aria-label="Raw vitals samples">
-                <thead className="text-left text-slate-500">
+              <table className="w-full text-caption" aria-label="Raw vitals samples">
+                <thead className="text-left text-subtle-foreground">
                   <tr>
                     <th className="py-1 pr-2 font-medium">Time</th>
                     <th className="py-1 pr-2 font-medium">Pulse / conf</th>
@@ -351,7 +351,7 @@ function VitalsBlock({
           </Disclosure>
         </>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -367,12 +367,12 @@ function Stat({
   isMeasured: boolean;
 }) {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="flex flex-wrap items-center gap-1.5">
-        <span className="tnum text-lg font-semibold text-slate-900">{value}</span>
-        <span className="text-xs text-slate-500">{unit}</span>
-        {value !== "—" && <MeasuredBadge isMeasured={isMeasured} />}
+    <div className="flex min-h-row items-center gap-2 py-1">
+      <dt className="w-32 shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <span className="tabular font-semibold text-foreground">{value}</span>
+        <span className="text-caption text-subtle-foreground">{unit}</span>
+        {value !== "—" && <Prov isMeasured={isMeasured} />}
       </dd>
     </div>
   );
@@ -396,51 +396,56 @@ function SampleRow({
       data-sample-id={sample.id}
       data-highlighted={active ? "true" : "false"}
       className={cx(
-        "border-t border-slate-100 align-top",
+        "border-t border-border align-top",
         highlightClass(active),
-        ignoredReason && "text-slate-500",
+        ignoredReason && "text-subtle-foreground",
       )}
     >
       <td className="py-1 pr-2">
         <button
           type="button"
           onClick={onFocus}
-          className="tnum rounded px-1 text-left hover:bg-slate-100"
+          className="tabular rounded px-1 text-left hover:bg-surface-subtle"
           title={`Sample ${sample.id}`}
           aria-pressed={active}
         >
           <Time iso={sample.ts_utc} style="time" />
         </button>
       </td>
-      <td className="tnum py-1 pr-2">
+      <td className="tabular py-1 pr-2">
         {formatVital(sample.pulse_bpm)}{" "}
-        <span className="text-slate-500">/ {formatConfidence(sample.pulse_conf)}</span>
+        <span className="text-subtle-foreground">/ {formatConfidence(sample.pulse_conf)}</span>
       </td>
-      <td className="tnum py-1 pr-2">
+      <td className="tabular py-1 pr-2">
         {formatVital(sample.breathing_bpm)}{" "}
-        <span className="text-slate-500">/ {formatConfidence(sample.breathing_conf)}</span>
+        <span className="text-subtle-foreground">/ {formatConfidence(sample.breathing_conf)}</span>
       </td>
-      <td className="tnum py-1 pr-2">
+      <td className="tabular py-1 pr-2">
         {formatVital(sample.hrv_rmssd_ms)}{" "}
-        <span className="text-slate-500">/ {formatConfidence(sample.hrv_conf)}</span>
+        <span className="text-subtle-foreground">/ {formatConfidence(sample.hrv_conf)}</span>
       </td>
-      <td className="tnum py-1 pr-2">{sample.window_s}s</td>
+      <td className="tabular py-1 pr-2">{sample.window_s}s</td>
       <td className="py-1 pr-2">
-        <MeasuredBadge isMeasured={sample.is_measured} source={sample.source} />
+        <Prov isMeasured={sample.is_measured} source={sample.source} />
       </td>
       <td className="py-1 pr-2">
         <div className="flex flex-wrap gap-1">
           {(sample.quality_flags ?? []).map((f) => (
-            <Chip key={f} className="bg-slate-100 text-slate-700 border-slate-300">
+            <Chip key={f} className="border-neutral-border bg-neutral-bg text-neutral-fg">
               {f}
             </Chip>
           ))}
           {ignoredReason ? (
-            <Chip className="bg-red-50 text-red-800 border-red-300" title={ignoredReason}>
+            <Chip
+              className="border-danger-border bg-danger-bg text-danger-fg"
+              title={ignoredReason}
+            >
               ignored: {ignoredReason}
             </Chip>
           ) : eligible ? (
-            <Chip className="bg-green-100 text-green-800 border-green-300">used by rules</Chip>
+            <Chip className="border-success-border bg-success-bg text-success-fg">
+              used by rules
+            </Chip>
           ) : null}
         </div>
       </td>

@@ -93,18 +93,20 @@ function SymptomTooltip({
   const row = active ? payload?.[0]?.payload : undefined;
   if (!row) return null;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-card">
-      <div className="text-sm font-semibold text-slate-900">
+    <div className="rounded-control border border-border bg-surface px-3 py-2 text-caption shadow-elev-2">
+      <div className="text-table font-semibold text-foreground">
         Grade {row.grade}{" "}
-        <span className="font-normal text-slate-600">(provisional, investigator to confirm)</span>
+        <span className="font-normal text-muted-foreground">
+          (provisional, investigator to confirm)
+        </span>
       </div>
-      <div className="mt-0.5 text-slate-700">
+      <div className="mt-0.5 text-muted-foreground">
         Composite {row.composite} from the participant&apos;s answers
       </div>
-      <div className="mt-0.5 text-slate-600">
+      <div className="mt-0.5 text-muted-foreground">
         <Time iso={row.ts} style="short" />
       </div>
-      <div className="mt-1 text-slate-500">Click to open the check-in</div>
+      <div className="mt-1 text-muted-foreground">Click to open the check-in</div>
     </div>
   );
 }
@@ -141,28 +143,28 @@ export function SymptomSparkline({ series, onPointClick }: SymptomSparklineProps
 
   return (
     <div
-      className="rounded-xl border border-slate-200 bg-white p-3"
+      className="rounded-panel border border-border bg-surface p-3"
       data-testid={`sparkline-${series.itemId}`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="truncate text-sm font-semibold text-slate-900" title={series.label}>
+        <h3 className="truncate text-table font-semibold text-foreground" title={series.label}>
           {series.label}
         </h3>
         {series.latest ? (
-          <span className="tnum shrink-0 text-xs text-slate-600">
+          <span className="tabular shrink-0 text-caption text-muted-foreground">
             latest{" "}
-            <span className="font-semibold text-slate-900" data-testid="latest-grade">
+            <span className="font-semibold text-foreground" data-testid="latest-grade">
               G{series.latest.grade}
             </span>
             {series.maxGrade > series.latest.grade && <> · max G{series.maxGrade}</>}
           </span>
         ) : (
-          <span className="shrink-0 text-xs text-slate-500">no reports</span>
+          <span className="shrink-0 text-caption text-muted-foreground">no reports</span>
         )}
       </div>
       {series.ctcaeTerm && (
         <div
-          className="truncate text-[11px] text-slate-500"
+          className="truncate text-caption text-muted-foreground"
           title={`CTCAE term: ${series.ctcaeTerm}`}
         >
           {series.ctcaeTerm}
@@ -171,7 +173,7 @@ export function SymptomSparkline({ series, onPointClick }: SymptomSparklineProps
 
       {rows.length === 0 ? (
         <div
-          className="mt-2 flex h-[110px] items-center justify-center rounded bg-slate-50 text-xs text-slate-500"
+          className="mt-2 flex h-[110px] items-center justify-center rounded bg-surface-subtle text-caption text-muted-foreground"
           role="img"
           aria-label={`${series.label}: no reports yet`}
         >
@@ -237,11 +239,13 @@ export function SymptomSparkline({ series, onPointClick }: SymptomSparklineProps
 
       {rows.length > 0 && (
         <details className="mt-1">
-          <summary className="cursor-pointer text-xs text-brand-700 underline">Table view</summary>
-          <table id={tableId} className="mt-1 w-full text-xs">
+          <summary className="cursor-pointer text-caption text-primary underline">
+            Table view
+          </summary>
+          <table id={tableId} className="mt-1 w-full text-caption">
             <caption className="sr-only">{series.label}: grade per check-in</caption>
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-muted-foreground">
                 <th scope="col" className="py-0.5 pr-2 font-medium">
                   Check-in
                 </th>
@@ -258,14 +262,14 @@ export function SymptomSparkline({ series, onPointClick }: SymptomSparklineProps
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.session_id} className="border-t border-slate-100">
+                <tr key={r.session_id} className="border-t border-border">
                   <td className="py-0.5 pr-2">
                     <Time iso={r.ts} style="short" />
                   </td>
-                  <td className="tnum py-0.5 pr-2">{r.composite}</td>
-                  <td className="tnum py-0.5 pr-2">G{r.grade}</td>
+                  <td className="tabular py-0.5 pr-2">{r.composite}</td>
+                  <td className="tabular py-0.5 pr-2">G{r.grade}</td>
                   <td className="py-0.5">
-                    <Link to={checkinPath(r.session_id)} className="text-brand-700 underline">
+                    <Link to={checkinPath(r.session_id)} className="text-primary underline">
                       Open
                     </Link>
                   </td>
@@ -292,7 +296,7 @@ export interface VitalsChartsProps {
 export function MeasuredLegend() {
   return (
     <ul
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-700"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted-foreground"
       aria-label="Legend"
     >
       <li className="flex items-center gap-1.5">
@@ -329,18 +333,20 @@ function VitalsTooltip({ active, payload, metric, unit }: VitalsTooltipProps) {
   if (!row) return null;
   const value = row[metric];
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-card">
+    <div className="rounded-control border border-border bg-surface px-3 py-2 text-caption shadow-elev-2">
       <div className="flex items-center gap-2">
-        <span className="tnum text-sm font-semibold text-slate-900">
-          {formatVital(value)} <span className="font-normal text-slate-600">{unit}</span>
+        <span className="tabular text-table font-semibold text-foreground">
+          {formatVital(value)} <span className="font-normal text-muted-foreground">{unit}</span>
         </span>
         <MeasuredBadge isMeasured={row.is_measured} source={row.source} />
       </div>
-      <div className="mt-0.5 text-slate-700">Median of eligible samples in this check-in</div>
-      <div className="mt-0.5 text-slate-600">
+      <div className="mt-0.5 text-muted-foreground">
+        Median of eligible samples in this check-in
+      </div>
+      <div className="mt-0.5 text-muted-foreground">
         <Time iso={row.ts} style="short" />
       </div>
-      <div className="mt-1 text-slate-500">Click to open the check-in</div>
+      <div className="mt-1 text-muted-foreground">Click to open the check-in</div>
     </div>
   );
 }
@@ -402,12 +408,13 @@ function OneVitalsChart({ rows, metric, title, unit, domain, onPointClick }: One
 
   return (
     <div data-testid={`vitals-chart-${metric}`}>
-      <h3 className="text-sm font-semibold text-slate-900">
-        {title} <span className="font-normal text-slate-600">({unit}, median per check-in)</span>
+      <h3 className="text-table font-semibold text-foreground">
+        {title}{" "}
+        <span className="font-normal text-muted-foreground">({unit}, median per check-in)</span>
       </h3>
       {!present ? (
         <div
-          className="mt-2 flex h-[140px] items-center justify-center rounded bg-slate-50 text-xs text-slate-500"
+          className="mt-2 flex h-[140px] items-center justify-center rounded bg-surface-subtle text-caption text-muted-foreground"
           role="img"
           aria-label={`${title}: no values recorded`}
         >
@@ -497,12 +504,12 @@ export function VitalsCharts({ rows, onPointClick }: VitalsChartsProps) {
         onPointClick={onPointClick}
       />
       <details open={mixed} data-testid="vitals-table-details">
-        <summary className="cursor-pointer text-xs text-brand-700 underline">Table view</summary>
+        <summary className="cursor-pointer text-caption text-primary underline">Table view</summary>
         <div className="mt-1 overflow-x-auto">
-          <table className="w-full text-xs" data-testid="vitals-table">
+          <table className="w-full text-caption" data-testid="vitals-table">
             <caption className="sr-only">Vitals medians per check-in</caption>
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-muted-foreground">
                 <th scope="col" className="py-1 pr-3 font-medium">
                   Check-in
                 </th>
@@ -525,18 +532,18 @@ export function VitalsCharts({ rows, onPointClick }: VitalsChartsProps) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.session_id} className="border-t border-slate-100">
+                <tr key={r.session_id} className="border-t border-border">
                   <td className="py-1 pr-3">
                     <Time iso={r.ts} style="short" />
                   </td>
-                  <td className="tnum py-1 pr-3">{formatVital(r.pulse_median)}</td>
-                  <td className="tnum py-1 pr-3">{formatVital(r.breathing_median)}</td>
+                  <td className="tabular py-1 pr-3">{formatVital(r.pulse_median)}</td>
+                  <td className="tabular py-1 pr-3">{formatVital(r.breathing_median)}</td>
                   <td className="py-1 pr-3">
                     <MeasuredBadge isMeasured={r.is_measured} />
                   </td>
                   <td className="py-1 pr-3 font-mono">{r.source ?? "—"}</td>
                   <td className="py-1">
-                    <Link to={checkinPath(r.session_id)} className="text-brand-700 underline">
+                    <Link to={checkinPath(r.session_id)} className="text-primary underline">
                       Open
                     </Link>
                   </td>

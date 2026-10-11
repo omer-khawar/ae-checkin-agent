@@ -26,11 +26,19 @@ describe("TierChip", () => {
     expect(screen.getByText("Review within 1 business day")).toBeInTheDocument();
     expect(screen.getByText("Nurse call today")).toBeInTheDocument();
     expect(screen.getByText("Urgent")).toBeInTheDocument();
-    expect(screen.getByText("Urgent").closest("span[data-tier]")).toHaveClass("bg-red-600");
-    expect(screen.getByText("Nurse call today").closest("span[data-tier]")).toHaveClass(
-      "bg-orange-200",
+    // Design-system badge: the kind (tone) is data, the word is text.
+    expect(screen.getByText("Urgent").closest("span[data-tier]")).toHaveAttribute(
+      "data-kind",
+      "tier-3",
     );
-    expect(screen.getByText("Log").closest("span[data-tier]")).toHaveClass("bg-slate-200");
+    expect(screen.getByText("Nurse call today").closest("span[data-tier]")).toHaveAttribute(
+      "data-kind",
+      "tier-2",
+    );
+    expect(screen.getByText("Log").closest("span[data-tier]")).toHaveAttribute(
+      "data-kind",
+      "tier-0",
+    );
     expect(TIERS[1].color).toBe("amber");
   });
 
@@ -44,12 +52,16 @@ describe("MeasuredBadge", () => {
   it("always renders the word", () => {
     const { rerender } = render(<MeasuredBadge isMeasured={false} source="mock" />);
     expect(screen.getByText("SIMULATED")).toBeInTheDocument();
-    expect(screen.getByText("SIMULATED").closest("span[data-measured]")).toHaveClass(
-      "bg-violet-100",
+    expect(screen.getByText("SIMULATED").closest("span[data-measured]")).toHaveAttribute(
+      "data-kind",
+      "simulated",
     );
     rerender(<MeasuredBadge isMeasured />);
     expect(screen.getByText("MEASURED")).toBeInTheDocument();
-    expect(screen.getByText("MEASURED").closest("span[data-measured]")).toHaveClass("bg-green-100");
+    expect(screen.getByText("MEASURED").closest("span[data-measured]")).toHaveAttribute(
+      "data-kind",
+      "measured",
+    );
   });
 });
 

@@ -82,7 +82,7 @@ export function QuestionCard({
           id={headingId}
           tabIndex={-1}
           className={cn(
-            "m-0 max-w-k-question text-foreground",
+            "m-0 max-w-k-question text-foreground outline-none focus:outline-none",
             titleSize === "screen" ? "text-k-title" : "text-k-question",
           )}
         >

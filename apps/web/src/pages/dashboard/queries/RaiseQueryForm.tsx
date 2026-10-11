@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { Button } from "../../../components/Button";
+import { Button } from "@/ui/button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
@@ -205,15 +205,16 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
     }
   }
 
-  const selectClass = "mt-0.5 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm";
+  const selectClass =
+    "mt-0.5 w-full rounded-control border border-border-strong bg-surface p-2 text-sm";
 
   return (
     <Card title="Raise a query (acting as the sponsor's monitor)" data-testid="raise-query">
       <form onSubmit={submit} className="space-y-3">
         <ErrorBanner error={participantsError} message="Could not load participants" />
         <div className="grid gap-3 md:grid-cols-3">
-          <label className="text-sm text-slate-700">
-            <span className="block text-xs font-medium text-slate-500">Participant</span>
+          <label className="text-sm text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">Participant</span>
             <select
               className={selectClass}
               aria-label="Participant"
@@ -231,8 +232,10 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
               ))}
             </select>
           </label>
-          <label className="text-sm text-slate-700">
-            <span className="block text-xs font-medium text-slate-500">Check-in or note</span>
+          <label className="text-sm text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">
+              Check-in or note
+            </span>
             <select
               className={selectClass}
               aria-label="Check-in or note"
@@ -253,8 +256,8 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
               ))}
             </select>
           </label>
-          <label className="text-sm text-slate-700">
-            <span className="block text-xs font-medium text-slate-500">Record</span>
+          <label className="text-sm text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">Record</span>
             <select
               className={selectClass}
               aria-label="Record"
@@ -276,10 +279,12 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
-          <label className="min-w-0 flex-1 text-sm text-slate-700">
-            <span className="block text-xs font-medium text-slate-500">Or paste a record id</span>
+          <label className="min-w-0 flex-1 text-sm text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">
+              Or paste a record id
+            </span>
             <input
-              className="mt-0.5 w-full rounded-lg border border-slate-300 p-2 font-mono text-sm"
+              className="mt-0.5 w-full rounded-control border border-border-strong p-2 font-mono text-sm"
               value={pastedId}
               onChange={(e) => setPastedId(e.target.value)}
               placeholder="01J…"
@@ -290,22 +295,22 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
           </Button>
         </div>
         {lookupBusy && (
-          <p className="text-xs text-slate-500" role="status">
+          <p className="text-xs text-muted-foreground" role="status">
             Loading…
           </p>
         )}
         <ErrorBanner error={lookupError} message="Lookup failed" />
 
         {selectedDraft && (
-          <div className="rounded-lg bg-slate-50 p-2 text-sm text-slate-700">
+          <div className="rounded-control bg-surface-subtle p-2 text-sm text-muted-foreground">
             Selected: {draftLabel(selectedDraft)}{" "}
-            <span className="font-mono text-xs text-slate-500">{selectedDraft.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">{selectedDraft.id}</span>
           </div>
         )}
 
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm text-slate-700">
-            <span className="block text-xs font-medium text-slate-500">Field</span>
+          <label className="text-sm text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">Field</span>
             <select
               className={selectClass}
               aria-label="Field"
@@ -321,8 +326,8 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
               ))}
             </select>
           </label>
-          <fieldset className="text-sm text-slate-700">
-            <legend className="text-xs font-medium text-slate-500">Kind</legend>
+          <fieldset className="text-sm text-muted-foreground">
+            <legend className="text-xs font-medium text-muted-foreground">Kind</legend>
             <div className="mt-1 flex gap-4">
               {(["data", "safety"] as QuerySeverity[]).map((s) => (
                 <label key={s} className="flex items-center gap-1.5" title={SEVERITY_HELP[s]}>
@@ -340,10 +345,12 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
           </fieldset>
         </div>
 
-        <label className="block text-sm text-slate-700">
-          <span className="block text-xs font-medium text-slate-500">Question for the site</span>
+        <label className="block text-sm text-muted-foreground">
+          <span className="block text-xs font-medium text-muted-foreground">
+            Question for the site
+          </span>
           <textarea
-            className="mt-0.5 w-full rounded-lg border border-slate-300 p-2 text-sm"
+            className="mt-0.5 w-full rounded-control border border-border-strong p-2 text-sm"
             rows={3}
             aria-label="Question for the site"
             value={text}
@@ -353,7 +360,7 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
         </label>
 
         {formError && (
-          <p className="text-sm text-red-700" role="alert">
+          <p className="text-sm text-danger-fg" role="alert">
             {formError}
           </p>
         )}
@@ -362,7 +369,7 @@ export function RaiseQueryForm({ onRaised, onCancel }: RaiseQueryFormProps) {
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" busy={busy}>
+          <Button type="submit" loading={busy}>
             Raise query
           </Button>
         </div>

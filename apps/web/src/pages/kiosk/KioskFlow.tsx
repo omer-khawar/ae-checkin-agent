@@ -1,7 +1,7 @@
 /**
  * The kiosk state machine (CLAUDE.md §3.8 as amended by §00, CONTRACTS.md §4 + R3.3):
  *
- *   welcome ─▶ items (×N) ─▶ gates (×3) ─▶ submitting ─▶ thankyou
+ *   welcome ─▶ items (×N) ─▶ gates (×3) ─▶ review ─▶ submitting ─▶ thankyou
  *                                                     └─▶ stop (Tier 3)
  *
  * There is no per-session camera consent screen any more (D-026): camera use
@@ -19,13 +19,19 @@
  *   POST /sessions/{id}/answers        on every option tap (idempotent per item+attribute);
  *                                      failures are tracked per (item, attribute) and
  *                                      "Try again" resends every one of them
- *   POST /sessions/{id}/gates          once, after the third gate screen (verbatim text)
+ *   POST /sessions/{id}/gates          once, when "Send my answers" is pressed on the
+ *                                      review screen (verbatim text)
  *   POST /sessions/{id}/answers        again for any answer the API never acknowledged
  *   POST /sessions/{id}/complete       after the bridge's post-flush idle (≤ 2.5 s)
  *
  * Bridge: `start` right after the session exists (camera left on; re-sent by the
  * client on reconnect), `stop` before `/complete`. The participant never sees a
  * tier, a grade, or any rule output.
+ *
+ * UI phase 2: the numbers card shows only with `?presenter=1`; patients see a quiet
+ * "Camera on · simulated" line. After 60 s of no input an "Are you still there?"
+ * prompt appears for 30 s, then the unsent check-in is discarded and the kiosk
+ * returns to Welcome (the API session simply stays incomplete).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -57,12 +63,15 @@ import type {
 import { GateScreen } from "./GateScreen";
 import { ItemScreen } from "./ItemScreen";
 import { KioskShell } from "./KioskShell";
+import { IdlePrompt } from "./IdlePrompt";
+import { ReviewScreen } from "./ReviewScreen";
 import { Stop } from "./Stop";
 import { Submitting } from "./Submitting";
 import { ThankYou } from "./ThankYou";
+import { useIdleTimeout } from "./useIdleTimeout";
 import { Welcome } from "./Welcome";
 
-type Step = "welcome" | "items" | "gates" | "submitting" | "thankyou" | "stop";
+type Step = "welcome" | "items" | "gates" | "review" | "submitting" | "thankyou" | "stop";
 
 /** How long we give the bridge to flush its buffer after `stop` (CONTRACTS.md §4). */
 export const BRIDGE_FLUSH_TIMEOUT_MS = 2500;
@@ -86,6 +95,8 @@ export function KioskFlow() {
   const [searchParams] = useSearchParams();
   /** CLAUDE.md §7.2: `?scenario=` overrides the mock scenario for this kiosk. */
   const scenarioOverride = searchParams.get("scenario") ?? undefined;
+  /** `?presenter=1` shows the numbers card; patients only get the quiet status line. */
+  const presenter = searchParams.get("presenter") === "1";
 
   // ---- reference data ------------------------------------------------------
   const [catalog, setCatalog] = useState<ItemsResponse | null>(null);
@@ -145,6 +156,8 @@ export function KioskFlow() {
   const sendSeqRef = useRef(new Map<string, number>());
   const sendChainRef = useRef(new Map<string, Promise<unknown>>());
 
+  /** True while a screen was opened from "Edit" on the review screen: Next returns there. */
+  const [editing, setEditing] = useState(false);
   const [gateIndex, setGateIndex] = useState(0);
   const [gates, setGates] = useState<GateState>(INITIAL_GATE_STATE);
   const [gatesBusy, setGatesBusy] = useState(false);
@@ -182,6 +195,7 @@ export function KioskFlow() {
     setAnswerError(null);
     sendSeqRef.current = new Map();
     sendChainRef.current = new Map();
+    setEditing(false);
     setGateIndex(0);
     setGates(INITIAL_GATE_STATE);
     setGatesBusy(false);
@@ -313,7 +327,10 @@ export function KioskFlow() {
   const canNext = itemAnswered && pendingKeys.size === 0 && failedCount === 0 && !tempBlocksNext;
 
   function nextItem() {
-    if (itemIndex + 1 < items.length) setItemIndex(itemIndex + 1);
+    if (editing) {
+      setEditing(false);
+      setStep("review");
+    } else if (itemIndex + 1 < items.length) setItemIndex(itemIndex + 1);
     else {
       setGateIndex(0);
       setStep("gates");
@@ -321,6 +338,7 @@ export function KioskFlow() {
   }
 
   function backItem() {
+    setEditing(false);
     if (itemIndex > 0) setItemIndex(itemIndex - 1);
   }
 
@@ -340,17 +358,39 @@ export function KioskFlow() {
   }, [session, gates, tempValue]);
 
   function nextGate() {
-    if (gateIndex + 1 < GATE_ORDER.length) setGateIndex(gateIndex + 1);
-    else void submitGates();
+    if (editing || gateIndex + 1 >= GATE_ORDER.length) {
+      setEditing(false);
+      setStep("review");
+    } else setGateIndex(gateIndex + 1);
   }
 
   function backGate() {
+    setEditing(false);
     if (gateIndex > 0) setGateIndex(gateIndex - 1);
     else {
       setItemIndex(Math.max(0, items.length - 1));
       setStep("items");
     }
   }
+
+  // ---- review --------------------------------------------------------------
+  function editItem(i: number) {
+    setItemIndex(i);
+    setEditing(true);
+    setStep("items");
+  }
+
+  function editGate(i: number) {
+    setGateIndex(i);
+    setEditing(true);
+    setStep("gates");
+  }
+
+  // ---- idle ----------------------------------------------------------------
+  const idle = useIdleTimeout({
+    enabled: step === "items" || step === "gates" || step === "review",
+    onTimeout: reset,
+  });
 
   // ---- submitting ----------------------------------------------------------
   const runComplete = useCallback(async () => {
@@ -389,23 +429,23 @@ export function KioskFlow() {
 
   // ---- render --------------------------------------------------------------
   const totalScreens = items.length + GATE_ORDER.length;
-  const progress =
-    step === "items"
-      ? { value: itemIndex, max: totalScreens }
-      : step === "gates"
-        ? { value: items.length + gateIndex, max: totalScreens }
-        : step === "submitting" || step === "thankyou" || step === "stop"
-          ? { value: totalScreens, max: totalScreens }
-          : null;
+  const measured = bridge.sample?.isMeasured ?? bridge.hello?.isMeasured ?? false;
+  const statusLine = session
+    ? cameraOn
+      ? `Camera on · ${measured ? "measured" : "simulated"}`
+      : "Camera off"
+    : undefined;
 
-  const side = showVitals ? <VitalsPanel bridge={bridge} /> : undefined;
-  const subtitle = study?.title ? study.title : undefined;
+  const side = presenter && showVitals ? <VitalsPanel bridge={bridge} /> : undefined;
 
   return (
-    <KioskShell subtitle={subtitle} progress={progress} side={side}>
+    <KioskShell
+      statusLine={statusLine}
+      side={side}
+      hasActionBar={step === "items" || step === "gates" || step === "review"}
+    >
       {step === "welcome" && (
         <Welcome
-          study={study}
           loading={loading}
           loadError={loadError}
           onRetryLoad={load}
@@ -429,6 +469,7 @@ export function KioskFlow() {
           onSelect={(attr, value) => onSelect(currentItem.id, attr, value)}
           tempC={tempC}
           onTempChange={setTempC}
+          nextLabel={editing ? "Back to my answers" : undefined}
           canBack={itemIndex > 0}
           onBack={backItem}
           canNext={canNext}
@@ -440,7 +481,7 @@ export function KioskFlow() {
       )}
 
       {step === "items" && !currentItem && (
-        <div className="text-xl text-slate-700">
+        <div className="glass mx-auto max-w-k-content rounded-sheet p-8 text-k-body">
           No questions are configured. Please ask the study team.
         </div>
       )}
@@ -455,9 +496,26 @@ export function KioskFlow() {
           onChange={(patch) => setGates((g) => ({ ...g, ...patch }))}
           onBack={backGate}
           onNext={nextGate}
+          nextLabel={editing ? "Back to my answers" : undefined}
+        />
+      )}
+
+      {step === "review" && (
+        <ReviewScreen
+          items={items}
+          answers={answers}
+          gateQuestions={gateQuestions}
+          gates={gates}
+          tempC={tempValue !== null ? tempC : ""}
+          onEditItem={editItem}
+          onEditGate={editGate}
+          onBack={() => {
+            setGateIndex(GATE_ORDER.length - 1);
+            setStep("gates");
+          }}
+          onSend={() => void submitGates()}
           busy={gatesBusy}
           error={gatesError}
-          onRetry={() => void submitGates()}
         />
       )}
 
@@ -474,6 +532,8 @@ export function KioskFlow() {
       {step === "thankyou" && <ThankYou onDone={reset} />}
 
       {step === "stop" && <Stop text={complete?.stop_screen_text} onDone={reset} />}
+
+      {idle.warning && <IdlePrompt secondsLeft={idle.secondsLeft} onStay={idle.dismiss} />}
     </KioskShell>
   );
 }

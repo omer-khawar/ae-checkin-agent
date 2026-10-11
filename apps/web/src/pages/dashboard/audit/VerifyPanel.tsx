@@ -10,8 +10,8 @@
  */
 import { useState } from "react";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
 import { verifyAudit } from "../../../lib/api";
@@ -73,9 +73,9 @@ export function VerifyPanel({ onVerified }: VerifyPanelProps) {
         </Button>
       }
     >
-      <p className="text-sm text-slate-700">
+      <p className="text-table text-foreground">
         Every event stores{" "}
-        <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+        <code className="rounded bg-surface-subtle px-1 font-mono text-caption">
           hash = sha256(prev_hash + canonical_json(event))
         </code>
         , so each event commits to the one before it and changing or deleting any past event breaks
@@ -95,14 +95,14 @@ export function VerifyPanel({ onVerified }: VerifyPanelProps) {
           role="status"
           data-testid="verify-result"
           className={cx(
-            "mt-4 flex flex-wrap items-center gap-4 rounded-xl border px-4 py-3",
-            result.ok ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50",
+            "mt-4 flex flex-wrap items-center gap-4 rounded-panel border px-4 py-3",
+            result.ok ? "border-success-border bg-success-bg" : "border-danger-border bg-danger-bg",
           )}
         >
           <span
             className={cx(
-              "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xl font-extrabold tracking-wide",
-              result.ok ? "bg-green-600 text-white" : "bg-red-600 text-white",
+              "inline-flex items-center gap-2 rounded-control px-3 py-1.5 text-page font-extrabold tracking-wide",
+              result.ok ? "bg-success-fg text-white" : "bg-destructive text-destructive-foreground",
             )}
             data-verify={result.ok ? "ok" : "broken"}
           >
@@ -110,23 +110,23 @@ export function VerifyPanel({ onVerified }: VerifyPanelProps) {
             {result.ok ? "VERIFIED" : "BROKEN"}
           </span>
 
-          <dl className="grid flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-slate-600">Events checked</dt>
-            <dd className="tnum font-semibold text-slate-900">{result.checked}</dd>
-            <dt className="text-slate-600">Head hash</dt>
+          <dl className="grid flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-table">
+            <dt className="text-muted-foreground">Events checked</dt>
+            <dd className="tnum font-semibold text-foreground">{result.checked}</dd>
+            <dt className="text-muted-foreground">Head hash</dt>
             <dd className="flex items-center gap-2">
-              <code className="font-mono text-slate-900" title={result.head_hash}>
+              <code className="font-mono text-foreground" title={result.head_hash}>
                 {truncateHash(result.head_hash, 16)}
               </code>
               <button
                 type="button"
                 onClick={() => void copyHead()}
-                className="rounded px-1.5 py-0.5 text-xs font-medium text-brand-800 underline hover:bg-brand-50"
+                className="rounded px-1.5 py-0.5 text-caption font-medium text-primary underline hover:bg-accent"
               >
                 Copy full hash
               </button>
             </dd>
-            <dt className="text-slate-600">Verified at</dt>
+            <dt className="text-muted-foreground">Verified at</dt>
             <dd>
               <Time iso={result.verified_at} />
             </dd>
@@ -136,7 +136,7 @@ export function VerifyPanel({ onVerified }: VerifyPanelProps) {
             <BrokenDetail broken={result.first_broken as VerifyBroken} />
           )}
           {!result.ok && !result.first_broken && (
-            <p className="basis-full text-sm text-red-800">
+            <p className="basis-full text-table text-danger-fg">
               The server reported a broken chain but did not identify the first broken link.
             </p>
           )}
@@ -149,12 +149,14 @@ export function VerifyPanel({ onVerified }: VerifyPanelProps) {
 function BrokenDetail({ broken }: { broken: VerifyBroken }) {
   return (
     <div
-      className="basis-full rounded-lg border border-red-200 bg-white p-3 text-sm"
+      className="basis-full rounded-control border border-danger-border bg-surface p-3 text-table"
       data-testid="verify-broken"
     >
       {/* The reason is the sentence that explains WHY; the hashes are the proof. */}
-      {broken.reason && <p className="font-semibold text-red-800">{broken.reason}</p>}
-      <div className={cx("text-slate-800", broken.reason ? "mt-1" : "font-semibold text-red-800")}>
+      {broken.reason && <p className="font-semibold text-danger-fg">{broken.reason}</p>}
+      <div
+        className={cx("text-foreground", broken.reason ? "mt-1" : "font-semibold text-danger-fg")}
+      >
         First broken link at index <span className="tnum font-mono">{broken.index}</span>
         {typeof broken.seq === "number" && (
           <>
@@ -165,16 +167,16 @@ function BrokenDetail({ broken }: { broken: VerifyBroken }) {
         , event <code className="font-mono">{broken.id}</code>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        <dt className="text-slate-600">Expected</dt>
+        <dt className="text-muted-foreground">Expected</dt>
         <dd>
-          <code className="break-all font-mono text-slate-900">{broken.expected_hash}</code>
+          <code className="break-all font-mono text-foreground">{broken.expected_hash}</code>
         </dd>
-        <dt className="text-slate-600">Actual</dt>
+        <dt className="text-muted-foreground">Actual</dt>
         <dd>
-          <code className="break-all font-mono text-red-800">{broken.actual_hash}</code>
+          <code className="break-all font-mono text-danger-fg">{broken.actual_hash}</code>
         </dd>
       </dl>
-      <p className="mt-2 text-slate-700">
+      <p className="mt-2 text-foreground">
         Every event from this one onward is untrusted until the discrepancy is explained.
       </p>
     </div>

@@ -202,9 +202,10 @@ function routes(data: unknown, status = 200, itemsStatus = 200): MockRoute[] {
   ];
 }
 
-function renderPage(usubjid = USUBJID) {
+function renderPage(tab = "overview", usubjid = USUBJID) {
+  const qs = tab === "overview" ? "" : `?tab=${tab}`;
   return render(
-    <MemoryRouter initialEntries={[`/dashboard/participants/${usubjid}`]}>
+    <MemoryRouter initialEntries={[`/dashboard/participants/${usubjid}${qs}`]}>
       <Routes>
         <Route path="/dashboard/participants/:usubjid" element={<ParticipantTimeline />} />
         <Route path="/dashboard/checkins/:sessionId" element={<h1>Detail page</h1>} />
@@ -227,7 +228,7 @@ describe("ParticipantTimeline", () => {
 
   it("labels sparklines from the items table and lists grades in the table view", async () => {
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("symptoms");
     const sob = await screen.findByTestId("sparkline-shortness_of_breath");
     // Label and CTCAE term from GET /items, not the raw id.
     expect(within(sob).getByRole("heading", { name: "Shortness of breath" })).toBeInTheDocument();
@@ -245,7 +246,7 @@ describe("ParticipantTimeline", () => {
 
   it("falls back to humanised item ids when GET /items fails", async () => {
     installMockFetch(routes(timeline(), 200, 500));
-    renderPage();
+    renderPage("symptoms");
     const sob = await screen.findByTestId("sparkline-shortness_of_breath");
     expect(within(sob).getByRole("heading", { name: "Shortness of breath" })).toBeInTheDocument();
     expect(screen.queryByTestId("sparkline-rash")).not.toBeInTheDocument();
@@ -253,7 +254,7 @@ describe("ParticipantTimeline", () => {
 
   it("shows vitals with MEASURED / SIMULATED words, source and a legend", async () => {
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("symptoms");
     await screen.findByTestId("vitals-chart-pulse_median");
     expect(screen.getByTestId("vitals-chart-breathing_median")).toBeInTheDocument();
     const legend = screen.getByRole("list", { name: "Legend" });
@@ -271,6 +272,7 @@ describe("ParticipantTimeline", () => {
   });
 
   it("lists open AEs, con-med changes, chart notes and sessions with tier chips", async () => {
+    const user = userEvent.setup();
     installMockFetch(routes(timeline()));
     renderPage();
     const aes = await screen.findByTestId("open-aes");
@@ -285,6 +287,7 @@ describe("ParticipantTimeline", () => {
       `/dashboard/checkins/${S2}`,
     );
 
+    await user.click(screen.getByRole("radio", { name: /^Medicines/ }));
     const cm = screen.getByTestId("conmeds");
     expect(within(cm).getByText('"loratadine"')).toBeInTheDocument();
     expect(within(cm).getByText("Started")).toBeInTheDocument();
@@ -292,11 +295,13 @@ describe("ParticipantTimeline", () => {
     expect(within(cm).getByText("Unmatched, verbatim kept")).toBeInTheDocument();
     expect(within(cm).getByText("Not stated")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("radio", { name: /^Notes & calls/ }));
     const notes = screen.getByTestId("chart-notes");
     expect(within(notes).getByText("Dr. Example")).toBeInTheDocument();
     expect(within(notes).getByText("progress")).toBeInTheDocument();
     expect(within(notes).getByText("Patient reports mild cough. No dyspnea.")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("radio", { name: /^Reports/ }));
     const sessions = screen.getByTestId("sessions");
     const rows = within(sessions).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(3);
@@ -316,7 +321,7 @@ describe("ParticipantTimeline", () => {
   it("navigates to the check-in detail from a table-view link", async () => {
     const user = userEvent.setup();
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("reports");
     const sessions = await screen.findByTestId("sessions");
     await user.click(within(sessions).getAllByRole("link", { name: "Open" })[1]);
     expect(await screen.findByRole("heading", { name: "Detail page" })).toBeInTheDocument();
@@ -333,17 +338,49 @@ describe("ParticipantTimeline", () => {
       // notes[] intentionally absent (pre-R2.4 API)
     };
     installMockFetch(routes(bare, 200, 500));
+    const user = userEvent.setup();
     renderPage();
-    expect(
-      await screen.findByText("No symptom reports yet for this participant."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("No AE records.")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /^Symptoms/ }));
+    expect(screen.getByText("No symptom reports yet for this participant.")).toBeInTheDocument();
     expect(screen.getByText(/No vitals recorded/)).toBeInTheDocument();
-    expect(screen.getByText("No AE records.")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /^Medicines/ }));
     expect(screen.getByText("No medication changes reported.")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /^Notes & calls/ }));
     expect(
       screen.getByText("No chart notes or phone calls yet for this participant."),
     ).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /^Reports/ }));
     expect(screen.getByText("No check-ins yet.")).toBeInTheDocument();
+  });
+
+  it("switches sections with the number keys, ignores them while typing, and B opens the brief", async () => {
+    const user = userEvent.setup();
+    installMockFetch(routes(timeline()));
+    render(
+      <MemoryRouter initialEntries={[`/dashboard/participants/${USUBJID}`]}>
+        <Routes>
+          <Route path="/dashboard/participants/:usubjid" element={<ParticipantTimeline />} />
+          <Route path="/dashboard/participants/:usubjid/brief" element={<h1>Brief page</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("open-aes");
+    await user.keyboard("3");
+    expect(await screen.findByTestId("conmeds")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Medicines/ })).toBeChecked();
+    await user.keyboard("5");
+    expect(await screen.findByTestId("sessions")).toBeInTheDocument();
+    await user.keyboard("1");
+    expect(await screen.findByTestId("open-aes")).toBeInTheDocument();
+    // Typing in the call form must not switch sections.
+    await user.click(screen.getByRole("button", { name: "Log a call" }));
+    await user.click(screen.getByRole("textbox", { name: "Call summary" }));
+    await user.keyboard("2");
+    expect(screen.getByTestId("open-aes")).toBeInTheDocument();
+    (document.activeElement as HTMLElement).blur();
+    await user.keyboard("b");
+    expect(await screen.findByRole("heading", { name: "Brief page" })).toBeInTheDocument();
   });
 
   it("shows the problem+json error with a retry that reloads", async () => {
@@ -377,7 +414,7 @@ describe("ParticipantTimeline", () => {
 
   it("renders a date-only note_date as the same calendar date in every timezone", async () => {
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("notes");
     const notes = await screen.findByTestId("chart-notes");
     // "2026-10-02" is a calendar date, not UTC midnight: it must never show as
     // Oct 01 (what a local-time formatter prints anywhere west of Greenwich).
@@ -401,7 +438,7 @@ describe("ParticipantTimeline", () => {
         }),
       ),
     );
-    renderPage();
+    renderPage("notes");
     const notes = await screen.findByTestId("chart-notes");
     expect(within(notes).getByTitle("2026-10-02T15:30:00.000Z (UTC)")).toBeInTheDocument();
     expect(within(notes).getByText("Undated")).toBeInTheDocument();
@@ -448,7 +485,7 @@ describe("ParticipantTimeline", () => {
 
   it("labels every vitals point with the word MEASURED or SIMULATED and opens the table for a mixed series", async () => {
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("symptoms");
     const pulse = await screen.findByTestId("vitals-plot-pulse_median");
     const labels = within(pulse)
       .getAllByTestId("point-label")
@@ -465,7 +502,7 @@ describe("ParticipantTimeline", () => {
       source: "mock",
     }));
     installMockFetch(routes(timeline({ vitals_series: simulatedOnly })));
-    renderPage();
+    renderPage("symptoms");
     await screen.findByTestId("vitals-plot-pulse_median");
     expect(screen.getByTestId("vitals-table-details")).not.toHaveAttribute("open");
   });
@@ -473,7 +510,7 @@ describe("ParticipantTimeline", () => {
   it("navigates only from a plotted dot, not from a click on the plot background", async () => {
     const user = userEvent.setup();
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("symptoms");
     const plot = await screen.findByTestId("sparkline-plot-shortness_of_breath");
     // The wrapper is described by its table twin (the keyboard route to the same links).
     expect(plot).toHaveAttribute("aria-describedby", "symptom-table-shortness_of_breath");
@@ -491,7 +528,7 @@ describe("ParticipantTimeline", () => {
   it("navigates from a vitals dot to that check-in", async () => {
     const user = userEvent.setup();
     installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("symptoms");
     const plot = await screen.findByTestId("vitals-plot-breathing_median");
     const dot = plot.querySelector(`g[data-session-id="${S1}"] circle`);
     expect(dot).not.toBeNull();
@@ -510,7 +547,7 @@ describe("ParticipantTimeline", () => {
       }),
     );
     const mock = installMockFetch(routes(timeline()));
-    renderPage();
+    renderPage("reports");
     await screen.findByTestId("sessions");
     const call = mock.find("GET", new RegExp(`^/api/v1/participants/${USUBJID}/timeline$`))[0];
     expect(call.headers.authorization).toBe("Bearer tok.coordinator.9999999999.sig");
@@ -601,7 +638,7 @@ describe("ParticipantTimeline · visit brief and phone calls (R3.3 / R4.1)", () 
         }),
       ),
     );
-    renderPage();
+    renderPage("notes");
     const notes = await screen.findByTestId("chart-notes");
     expect(within(notes).getByTestId("phone-call-label")).toHaveTextContent("Phone call");
     expect(within(notes).getByText("Caregiver · they called the site")).toBeInTheDocument();

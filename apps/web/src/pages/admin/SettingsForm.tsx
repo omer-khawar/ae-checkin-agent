@@ -8,8 +8,8 @@
  */
 import { useEffect, useId, useState } from "react";
 
-import { Button } from "../../components/Button";
-import { Card } from "../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { useToast } from "../../components/Toast";
@@ -89,11 +89,11 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
       title="Vitals settings"
       aside={
         dirty ? (
-          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+          <span className="rounded bg-warning-bg px-2 py-0.5 text-caption font-medium text-warning-fg">
             Unsaved changes
           </span>
         ) : (
-          <span className="text-xs text-slate-500">Saved</span>
+          <span className="text-caption text-muted-foreground">Saved</span>
         )
       }
     >
@@ -107,10 +107,10 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
       >
         {/* ---- Vitals source --------------------------------------------- */}
         <fieldset>
-          <legend id={ids.source} className="text-sm font-semibold text-slate-900">
+          <legend id={ids.source} className="text-table font-semibold text-foreground">
             Vitals source
           </legend>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="mt-1 text-caption text-muted-foreground">
             Saved: <code className="font-mono">{String(saved.vitals_source)}</code>
           </p>
           <div className="mt-2 space-y-2" role="radiogroup" aria-labelledby={ids.source}>
@@ -120,8 +120,8 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
                 <label
                   key={s.id}
                   className={cx(
-                    "flex cursor-pointer gap-3 rounded-xl border p-3",
-                    checked ? "border-brand-700 bg-brand-50" : "border-slate-200 bg-white",
+                    "flex cursor-pointer gap-3 rounded-panel border p-3",
+                    checked ? "border-primary bg-accent" : "border-border bg-surface",
                   )}
                 >
                   <input
@@ -134,15 +134,15 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-slate-900">{s.label}</span>
+                      <span className="font-medium text-foreground">{s.label}</span>
                       <MeasuredBadge isMeasured={s.isMeasured} source={s.id} />
-                      <span className="text-xs text-slate-500">
+                      <span className="text-caption text-muted-foreground">
                         {SOURCE_STATUS_LABELS[s.status]}
                       </span>
                     </span>
-                    <span className="mt-0.5 block text-sm text-slate-700">{s.description}</span>
+                    <span className="mt-0.5 block text-table text-foreground">{s.description}</span>
                     {s.requirements && (
-                      <span className="mt-0.5 block text-xs text-slate-600">
+                      <span className="mt-0.5 block text-caption text-muted-foreground">
                         Needs: {s.requirements}
                       </span>
                     )}
@@ -151,7 +151,7 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-slate-600">
+          <p className="mt-2 text-caption text-muted-foreground">
             {SOURCE_RESTART_NOTE} Adapter contract and setup notes:{" "}
             <code className="font-mono">{VITALS_SOURCES_DOC}</code>.
           </p>
@@ -159,10 +159,10 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
 
         {/* ---- Mock scenario --------------------------------------------- */}
         <fieldset>
-          <legend id={ids.scenario} className="text-sm font-semibold text-slate-900">
+          <legend id={ids.scenario} className="text-table font-semibold text-foreground">
             Mock scenario
           </legend>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="mt-1 text-caption text-muted-foreground">
             Saved: <code className="font-mono">{String(saved.mock_scenario)}</code>. Used only by
             the mock source; every sample it produces is <MeasuredBadge isMeasured={false} />.
             Table: {SCENARIO_TABLE_SOURCE}.
@@ -179,8 +179,8 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
                 <div
                   key={sc.id}
                   className={cx(
-                    "rounded-xl border p-3",
-                    checked ? "border-brand-700 bg-brand-50" : "border-slate-200 bg-white",
+                    "rounded-panel border p-3",
+                    checked ? "border-primary bg-accent" : "border-border bg-surface",
                   )}
                 >
                   <label className="flex cursor-pointer gap-3" title={sc.rationale}>
@@ -194,13 +194,17 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-slate-900">{sc.label}</span>
-                        <code className="font-mono text-xs text-slate-500">{sc.id}</code>
+                        <span className="font-medium text-foreground">{sc.label}</span>
+                        <code className="font-mono text-caption text-muted-foreground">
+                          {sc.id}
+                        </code>
                       </span>
-                      <span className="mt-0.5 block text-sm text-slate-700">{sc.physiology}</span>
+                      <span className="mt-0.5 block text-table text-foreground">
+                        {sc.physiology}
+                      </span>
                     </span>
                   </label>
-                  <details className="ml-7 mt-0.5 text-xs text-slate-600">
+                  <details className="ml-7 mt-0.5 text-caption text-muted-foreground">
                     <summary className="cursor-pointer select-none">
                       Why these numbers ({sc.label})
                     </summary>
@@ -214,15 +218,15 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
         </fieldset>
 
         {/* ---- Simulated as measured ------------------------------------- */}
-        <div className="rounded-xl border border-slate-200 p-3">
+        <div className="rounded-panel border border-border p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div id={ids.toggle} className="text-sm font-semibold text-slate-900">
+              <div id={ids.toggle} className="text-table font-semibold text-foreground">
                 Treat simulated vitals as measured
               </div>
-              <div className="mt-0.5 text-xs text-slate-600">
+              <div className="mt-0.5 text-caption text-muted-foreground">
                 Saved:{" "}
-                <strong className={savedToggle ? "text-amber-900" : "text-slate-800"}>
+                <strong className={savedToggle ? "text-warning-fg" : "text-foreground"}>
                   {savedToggle ? "ON" : "OFF"}
                 </strong>{" "}
                 (default OFF). Grades are never affected; this only lets simulated samples pass the
@@ -242,13 +246,13 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
                 "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:ring-4",
                 draft.simulated_as_measured
                   ? "border-amber-600 bg-amber-500"
-                  : "border-slate-300 bg-slate-200",
+                  : "border-input bg-slate-200",
               )}
             >
               <span
                 aria-hidden="true"
                 className={cx(
-                  "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200",
+                  "inline-block h-5 w-5 rounded-full bg-surface shadow transition-transform duration-200",
                   draft.simulated_as_measured ? "translate-x-6" : "translate-x-1",
                 )}
               />
@@ -259,7 +263,7 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
             <p
               id={ids.warn}
               role="alert"
-              className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
+              className="mt-3 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-table font-medium text-warning-fg"
             >
               {SIMULATED_AS_MEASURED_WARNING}
             </p>
@@ -280,7 +284,7 @@ export function SettingsForm({ saved, onSaved, notifyBridgeScenario }: SettingsF
           >
             Discard changes
           </Button>
-          <span className="text-xs text-slate-500">
+          <span className="text-caption text-muted-foreground">
             PUT /api/v1/admin/settings · admin only · audited
           </span>
         </div>

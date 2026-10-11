@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import { AppRoutes } from "../App";
+import { KioskFlow } from "../pages/kiosk/KioskFlow";
 import { DISCLAIMER_TEXT } from "../components/Disclaimer";
 import { SHELL_MAX_W, SIDE_COLUMN_REM } from "../pages/kiosk/KioskShell";
 import { CAMERA_OPT_OUT_LABEL, NO_VIDEO_TEXT } from "../pages/kiosk/Welcome";
@@ -98,16 +98,22 @@ function routes(opts: RouteOptions = {}): Route[] {
   ];
 }
 
-function renderKiosk() {
+function renderKiosk(path = "/kiosk") {
   return render(
-    <MemoryRouter initialEntries={["/kiosk"]}>
-      <AppRoutes />
+    <MemoryRouter initialEntries={[path]}>
+      <KioskFlow />
     </MemoryRouter>,
   );
 }
 
 async function clickOption(user: ReturnType<typeof userEvent.setup>, label: string | RegExp) {
-  await user.click(screen.getByRole("button", { name: label }));
+  await user.click(screen.getByRole("radio", { name: label }));
+}
+
+/** Last gate -> review screen -> send. */
+async function finish(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: "Review my answers" }));
+  await user.click(await screen.findByRole("button", { name: "Send my answers" }));
 }
 
 /** Welcome (ID + optional camera opt-out) → Start; returns once the first item heading is on screen. */
@@ -137,21 +143,18 @@ async function answerAllNone(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Next" }));
   await clickOption(user, "No");
   await user.click(screen.getByRole("button", { name: "Next" }));
-  await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+  await finish(user);
 }
 
 describe("kiosk flow", () => {
   it("runs end-to-end: welcome → session → answers → gates → stop bridge → complete → thank-you", async () => {
     const user = userEvent.setup();
     const mock = installMockFetch(routes());
-    renderKiosk();
+    renderKiosk("/kiosk?presenter=1");
 
-    // Welcome shows the study and the disclaimer footer.
+    // Welcome shows the disclaimer footer, and no study title or clinical word.
     expect(await screen.findByRole("heading", { name: "Welcome" })).toBeInTheDocument();
-    // Title shows in the kiosk header and in the Welcome body.
-    expect(
-      (await screen.findAllByText(new RegExp(STUDY.title.slice(0, 20)))).length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(new RegExp(STUDY.title.slice(0, 20)))).not.toBeInTheDocument();
     expect(screen.getByText(DISCLAIMER_TEXT)).toBeInTheDocument();
     // The "no video is stored" line and the opt-out toggle, camera on by default.
     expect(screen.getByText(NO_VIDEO_TEXT)).toBeInTheDocument();
@@ -219,8 +222,13 @@ describe("kiosk flow", () => {
     expect(screen.getByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
     // Fixture items carry no prompts, so the recall helper line is shown (grammatical form).
     expect(screen.getByText("Think about the last 7 days.")).toBeInTheDocument();
-    const next1 = screen.getByRole("button", { name: "Next" });
-    expect(next1).toBeDisabled();
+    // Quiet camera line for patients; one counter over all screens (items + 3 gates).
+    expect(screen.getByTestId("kiosk-camera-status")).toHaveTextContent("Camera on · simulated");
+    expect(screen.getByText(`Question 1 of ${ITEMS.items.length + 3}`)).toBeInTheDocument();
+    // Next is always enabled: pressing it with nothing chosen prompts instead of advancing.
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect((await screen.findAllByText("Please choose an answer")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
     await clickOption(user, "Moderate");
     await clickOption(user, "Somewhat");
     await waitFor(() => expect(mock.find("POST", /\/answers$/)).toHaveLength(2));
@@ -241,10 +249,7 @@ describe("kiosk flow", () => {
     await clickOption(user, "Not at all");
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(await screen.findByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Moderate" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("radio", { name: "Moderate" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("heading", { name: ITEMS.items[1].label })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -261,9 +266,12 @@ describe("kiosk flow", () => {
 
     // Gate 2: con-med → Yes, "  loratadine " (typed with spaces), Started.
     expect(await screen.findByRole("heading", { name: ITEMS.gates[1].label })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Please choose an answer")).toBeInTheDocument();
     await clickOption(user, "Yes");
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Please type the name of the medication")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: ITEMS.gates[1].label })).toBeInTheDocument();
     await user.type(screen.getByLabelText("What is the name of the medication?"), "  loratadine ");
     await clickOption(user, "Started");
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -271,7 +279,14 @@ describe("kiosk flow", () => {
     // Gate 3: free text, then Finish → gates POSTed once with everything, verbatim.
     expect(await screen.findByRole("heading", { name: ITEMS.gates[2].label })).toBeInTheDocument();
     await user.type(screen.getByRole("textbox"), "feeling ok ");
-    await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+    await user.click(screen.getByRole("button", { name: "Review my answers" }));
+
+    // Review: plain list of answers, nothing sent until "Send my answers".
+    const review = await screen.findByTestId("review-screen");
+    expect(within(review).getByText("Moderate · Somewhat")).toBeInTheDocument();
+    expect(within(review).getByText(/^Yes:\s+loratadine \(started\)$/)).toBeInTheDocument();
+    expect(mock.find("POST", /\/gates$/)).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Send my answers" }));
 
     await waitFor(() => expect(mock.find("POST", /\/gates$/)).toHaveLength(1));
     const gates = mock.find("POST", /\/gates$/)[0].body as GatesRequest;
@@ -402,7 +417,7 @@ describe("kiosk flow", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     await clickOption(user, "No"); // con-med
     await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+    await finish(user);
 
     const stop = await screen.findByTestId("stop-screen");
     expect(within(stop).getByText(STOP_TEXT)).toBeInTheDocument();
@@ -425,7 +440,8 @@ describe("kiosk flow", () => {
       /couldn't start a check-in with that study ID/,
     );
     expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(/Unknown participant/);
+    // Plain language only: no cause, status code or field name.
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/Unknown participant|404|usubjid/i);
     // The typed ID stays in the box so the participant can correct it.
     expect(screen.getByLabelText("Your study ID")).toHaveValue("P-999");
     expect(FakeWebSocket.last?.sentMessages.some((m) => m.type === "start")).toBeFalsy();
@@ -630,7 +646,7 @@ describe("kiosk flow", () => {
   it("keeps the vitals card in the side column when the camera is on (docs/ISSUES #21)", async () => {
     const user = userEvent.setup();
     installMockFetch(routes());
-    renderKiosk();
+    renderKiosk("/kiosk?presenter=1");
     await startCheckIn(user, "P-007", true, ITEMS.items[0].label);
     const side = await screen.findByTestId("kiosk-side");
     expect(within(side).getByTestId("vitals-panel")).toBeInTheDocument();
@@ -652,7 +668,7 @@ describe("kiosk flow", () => {
   it("keeps the header and main the same width on every step, so nothing jumps (docs/ISSUES #21)", async () => {
     const user = userEvent.setup();
     installMockFetch(routes());
-    renderKiosk();
+    renderKiosk("/kiosk?presenter=1");
 
     await screen.findByLabelText("Your study ID");
     expect(screen.getByTestId("kiosk-header-row").className).toContain(SHELL_MAX_W);
@@ -684,12 +700,16 @@ describe("kiosk flow", () => {
     await clickOption(user, "Mild");
     await clickOption(user, "Not at all");
     expect(await screen.findByRole("alert")).toHaveTextContent(/Your answer was not saved/);
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/500|HTTP|Server Error/);
+    // Next does not move on while an answer is unsaved.
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
 
     fail = false;
     await user.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("heading", { name: ITEMS.items[1].label })).toBeInTheDocument();
     expect(mock.find("POST", /\/answers$/).length).toBeGreaterThanOrEqual(3);
   });
 
@@ -714,18 +734,22 @@ describe("kiosk flow", () => {
     await clickOption(user, "Somewhat");
     await waitFor(() => expect(mock.find("POST", /\/answers$/)).toHaveLength(2));
     expect(await screen.findByRole("alert")).toHaveTextContent(/Your answer was not saved/);
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
 
-    // Still failing: one retry resends both, Next stays disabled.
+    // Still failing: one retry resends both, Next still does not move on.
     await user.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(mock.find("POST", /\/answers$/)).toHaveLength(4));
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
 
-    // API recovers: the retry resends both again and Next unlocks only then.
+    // API recovers: the retry resends both again and Next moves on only then.
     fail = false;
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("heading", { name: ITEMS.items[1].label })).toBeInTheDocument();
     const resent = mock
       .find("POST", /\/answers$/)
       .slice(4)
@@ -818,7 +842,7 @@ describe("kiosk flow", () => {
       await user.click(screen.getByRole("button", { name: "Next" }));
       await clickOption(user, "No"); // con-med
       await user.click(screen.getByRole("button", { name: "Next" }));
-      await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+      await finish(user);
 
       await waitFor(() => expect(mock.find("POST", /\/gates$/)).toHaveLength(1));
       const gates = mock.find("POST", /\/gates$/)[0].body as GatesRequest;
@@ -841,27 +865,27 @@ describe("kiosk flow", () => {
 
       await screen.findByRole("heading", { name: "Fever or chills" });
       await clickOption(user, "Yes");
-      await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
       const box = screen.getByRole("spinbutton");
       await user.type(box, "3850");
       expect(
         screen.getByText("Please enter a temperature between 34 and 43 °C, or leave this empty."),
       ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+      // Continue stays put while the reading is out of range.
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      expect(screen.getByRole("heading", { name: "Fever or chills" })).toBeInTheDocument();
       expect(box).toHaveAttribute("min", "34");
       expect(box).toHaveAttribute("max", "43");
 
       await user.clear(box);
       await user.type(box, "38.5");
       expect(screen.queryByText(/Please enter a temperature/)).not.toBeInTheDocument();
-      await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
       await user.click(screen.getByRole("button", { name: "Continue" }));
 
       await clickOption(user, "No");
       await user.click(screen.getByRole("button", { name: "Next" }));
       await clickOption(user, "No");
       await user.click(screen.getByRole("button", { name: "Next" }));
-      await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+      await finish(user);
 
       await waitFor(() => expect(mock.find("POST", /\/gates$/)).toHaveLength(1));
       const gates = mock.find("POST", /\/gates$/)[0].body as GatesRequest;

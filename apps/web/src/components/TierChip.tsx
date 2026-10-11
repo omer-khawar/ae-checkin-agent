@@ -1,7 +1,12 @@
 /**
- * Escalation tier chip. Dashboard only: the kiosk never renders a tier.
+ * Escalation tier chip: wrapper over `@/ui/badge`. Dashboard only; the kiosk never renders
+ * a tier. The explicit tier name is the word (Log / Review within 1 business day / Nurse
+ * call today / Urgent); `data-tier` stays for tests and styling hooks.
  */
-import { cx, tierStyle } from "../lib/format";
+import { Badge } from "@/ui/badge";
+import { tierBadgeKind } from "@/ui/badge-kinds";
+
+import { tierStyle } from "../lib/format";
 
 export interface TierChipProps {
   tier: number | null | undefined;
@@ -12,20 +17,14 @@ export interface TierChipProps {
 
 export function TierChip({ tier, short, className }: TierChipProps) {
   const t = tierStyle(tier);
-  const label = short ? t.short : t.name;
+  const kind = tierBadgeKind(tier) ?? "neutral";
   return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-        t.chipClass,
-        className,
-      )}
+    <Badge
+      kind={kind}
+      label={short ? t.short : t.name}
       title={`Tier ${t.tier}: ${t.name}`}
       data-tier={t.tier}
-    >
-      <span className="tnum">T{t.tier}</span>
-      <span aria-hidden="true">·</span>
-      <span>{label}</span>
-    </span>
+      className={className}
+    />
   );
 }

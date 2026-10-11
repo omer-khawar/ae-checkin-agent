@@ -19,8 +19,6 @@ import { Link, useParams } from "react-router-dom";
 
 import { Card } from "../../components/Card";
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { TierChip } from "../../components/TierChip";
-import { useToast } from "../../components/Toast";
 import { confirmDraft, describeError, getNote, rejectDraft } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Time } from "../../lib/format";
@@ -34,14 +32,17 @@ import { callSummary, isPhoneCall } from "./notes/phoneCallLabels";
 import { ScanTables } from "./notes/ScanTables";
 import { WhyPanel } from "./notes/WhyPanel";
 import type { NoteDetailResponse, NoteDraft } from "../../lib/types";
+import { Badge } from "@/ui/badge";
+import { tierBadgeKind } from "@/ui/badge-kinds";
+import { notify } from "@/ui/toast";
 
 type Range = { start: number; end: number };
 
 export function NoteDetail() {
   const { noteId = "" } = useParams<{ noteId: string }>();
-  const toast = useToast();
   const { hasRole, role } = useAuth();
-  const canReview = hasRole("coordinator", "investigator", "admin");
+  // Admin is non-clinical: only the coordinator and the investigator review drafts.
+  const canReview = hasRole("coordinator", "investigator");
 
   const [data, setData] = useState<NoteDetailResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -88,9 +89,9 @@ export function NoteDetail() {
     try {
       const res = await confirmDraft(draft.id);
       replaceDraft({ ...draft, ...normalizeDraft(res) });
-      toast.push({ kind: "success", title: `${draft.domain} draft confirmed` });
+      notify.success(`${draft.domain} draft confirmed`);
     } catch (e) {
-      toast.push({ kind: "error", title: "Confirm failed", message: describeError(e) });
+      notify.danger("Confirm failed", { description: describeError(e) });
     } finally {
       setBusyDraftId(null);
     }
@@ -101,16 +102,16 @@ export function NoteDetail() {
     try {
       const res = await rejectDraft(draft.id, reason);
       replaceDraft({ ...draft, ...normalizeDraft(res) });
-      toast.push({ kind: "info", title: `${draft.domain} draft rejected` });
+      notify.info(`${draft.domain} draft rejected`);
     } catch (e) {
-      toast.push({ kind: "error", title: "Reject failed", message: describeError(e) });
+      notify.danger("Reject failed", { description: describeError(e) });
     } finally {
       setBusyDraftId(null);
     }
   };
 
   const backLink = (
-    <Link to="/dashboard/notes" className="text-sm text-brand-700 underline">
+    <Link to="/dashboard/notes" className="text-sm text-primary underline">
       ← All chart notes
     </Link>
   );
@@ -119,7 +120,7 @@ export function NoteDetail() {
     return (
       <div className="space-y-4">
         {backLink}
-        <p className="text-sm text-slate-500">Loading note…</p>
+        <p className="text-sm text-muted-foreground">Loading note…</p>
       </div>
     );
   }
@@ -155,60 +156,64 @@ export function NoteDetail() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           {backLink}
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+          <h1 className="mt-1 text-page font-semibold text-foreground">
             {phone ? "Phone call" : "Chart note"}{" "}
-            <span className="font-normal text-slate-600">{phone ? "about" : "for"}</span>{" "}
+            <span className="font-normal text-muted-foreground">{phone ? "about" : "for"}</span>{" "}
             <Link
               to={`/dashboard/participants/${encodeURIComponent(note.usubjid)}`}
-              className="text-brand-700 underline"
+              className="text-primary underline"
               title={note.usubjid}
             >
               {label}
             </Link>
           </h1>
-          <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-700">
+          <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
             <div>
-              <dt className="inline text-slate-500">{phone ? "Call date " : "Note date "}</dt>
-              <dd className="tnum inline">{note.note_date || "—"}</dd>
+              <dt className="inline text-muted-foreground">
+                {phone ? "Call date " : "Note date "}
+              </dt>
+              <dd className="tabular inline">{note.note_date || "—"}</dd>
             </div>
             <div>
-              <dt className="inline text-slate-500">Author </dt>
+              <dt className="inline text-muted-foreground">Author </dt>
               <dd className="inline">{note.author || "—"}</dd>
             </div>
             <div>
-              <dt className="inline text-slate-500">Type </dt>
+              <dt className="inline text-muted-foreground">Type </dt>
               <dd className="inline">
                 {note.note_type ? <NoteTypeLabel noteType={note.note_type} /> : "—"}
               </dd>
             </div>
             {caller && (
               <div>
-                <dt className="inline text-slate-500">Call </dt>
+                <dt className="inline text-muted-foreground">Call </dt>
                 <dd className="inline">{caller}</dd>
               </div>
             )}
             <div>
-              <dt className="inline text-slate-500">Ingested </dt>
+              <dt className="inline text-muted-foreground">Ingested </dt>
               <dd className="inline">
                 <Time iso={note.ingested_at} />
                 {note.ingested_by ? ` by ${note.ingested_by}` : ""}
               </dd>
             </div>
             <div>
-              <dt className="inline text-slate-500">Id </dt>
+              <dt className="inline text-muted-foreground">Id </dt>
               <dd className="inline font-mono text-xs">{note.id}</dd>
             </div>
           </dl>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full border border-violet-300 bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800">
-            {phone ? "Synthetic call" : "Synthetic note"}
-          </span>
-          {escalation ? (
-            <TierChip tier={escalation.tier} />
-          ) : typeof note.tier === "number" ? (
-            <TierChip tier={note.tier} />
-          ) : null}
+          <Badge
+            kind="synthetic-env"
+            size="sm"
+            label={phone ? "Synthetic call" : "Synthetic note"}
+          />
+          {(() => {
+            const tier = escalation ? escalation.tier : note.tier;
+            const kind = typeof tier === "number" ? tierBadgeKind(tier) : null;
+            return kind ? <Badge kind={kind} /> : null;
+          })()}
         </div>
       </div>
 
@@ -270,7 +275,7 @@ export function NoteDetail() {
         <Card
           title="Drafts"
           aside={
-            <span className="tnum text-xs text-slate-600">
+            <span className="tabular text-xs text-muted-foreground">
               {drafts.length} record{drafts.length === 1 ? "" : "s"}
             </span>
           }

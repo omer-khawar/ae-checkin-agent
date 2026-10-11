@@ -28,8 +28,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
+import { Button } from "@/ui/button";
+import { Panel as Card } from "./Panel";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
 import { useAuth } from "../../../lib/auth";
@@ -45,6 +45,7 @@ import {
 import { NarrativePanel } from "./NarrativePanel";
 import {
   ChangesCard,
+  DeadlineChip,
   HistoryCard,
   MissingInfoCard,
   PacketHeader,
@@ -250,7 +251,7 @@ export default function PacketPage() {
     }
   }
 
-  async function sign() {
+  async function sign(notAvailable: string[]) {
     // The signature covers exactly what the server holds. Unsaved edits would
     // be signed away silently, so refuse (the page also freezes editing while
     // the confirmation is open, and the confirm button is disabled when dirty).
@@ -258,7 +259,7 @@ export default function PacketPage() {
     setBusy("sign");
     setActionError(null);
     try {
-      const signed = await signPacket(packet.id);
+      const signed = await signPacket(packet.id, { missingNotAvailable: notAvailable });
       setPacket(signed);
       setConfirmOpen(false);
       setStaged({});
@@ -363,11 +364,11 @@ export default function PacketPage() {
   if (loading && !packet) {
     return (
       <div className="space-y-4" aria-busy="true">
-        <h1 className="text-2xl font-bold text-slate-900">Report</h1>
-        <p className="text-slate-600" role="status">
+        <h1 className="text-page font-semibold text-foreground">Report</h1>
+        <p className="text-muted-foreground" role="status">
           Loading the report…
         </p>
-        <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />
+        <div className="h-40 animate-pulse rounded-panel bg-surface-subtle motion-reduce:animate-none" />
       </div>
     );
   }
@@ -380,7 +381,7 @@ export default function PacketPage() {
       (loadError as { status: number }).status === 404;
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">Report</h1>
+        <h1 className="text-page font-semibold text-foreground">Report</h1>
         <ErrorBanner
           error={loadError ?? new Error("The report could not be loaded.")}
           message={notFound ? "This report does not exist." : "The report could not be loaded."}
@@ -409,15 +410,16 @@ export default function PacketPage() {
 
       {/* Action bar */}
       <div
-        className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-card"
+        className="glass-strong sticky top-14 z-20 flex flex-wrap items-center gap-2 rounded-sheet px-3 py-2"
         role="toolbar"
         aria-label="Report actions"
       >
         {isDraft && (
           <Button
+            variant={dirty ? "primary" : "secondary"}
             onClick={() => void save()}
             disabled={!dirty || busy !== null}
-            busy={busy === "save"}
+            loading={busy === "save"}
           >
             Save
           </Button>
@@ -425,7 +427,7 @@ export default function PacketPage() {
         {/* Investigator-only control: other roles see the plain note instead. */}
         {canSign && (
           <Button
-            variant="secondary"
+            variant={dirty ? "secondary" : "primary"}
             onClick={() => setConfirmOpen(true)}
             disabled={dirty || busy !== null || confirmOpen}
             title={dirty ? "Save your changes before signing" : undefined}
@@ -445,7 +447,7 @@ export default function PacketPage() {
           <Button
             onClick={() => void followUp()}
             disabled={busy !== null}
-            busy={busy === "followup"}
+            loading={busy === "followup"}
           >
             Start follow-up report
           </Button>
@@ -454,7 +456,7 @@ export default function PacketPage() {
           variant="ghost"
           onClick={() => void print()}
           disabled={busy !== null}
-          busy={busy === "print"}
+          loading={busy === "print"}
         >
           Print
         </Button>
@@ -462,28 +464,30 @@ export default function PacketPage() {
           variant="ghost"
           onClick={() => void exportJson()}
           disabled={busy !== null}
-          busy={busy === "export"}
+          loading={busy === "export"}
         >
           Export JSON
         </Button>
-        <span className="ml-auto text-sm text-slate-600" aria-live="polite">
-          {dirty
-            ? `Unsaved changes: ${stagedCount} field${stagedCount === 1 ? "" : "s"}${
-                narrativeDirty ? " and the narrative" : ""
-              }`
-            : isDraft && !isInvestigator
-              ? "Only the investigator can sign this report."
-              : null}
+        <span className="ml-auto flex flex-wrap items-center gap-2 text-body text-muted-foreground">
+          <DeadlineChip packet={packet} deadline={deadline} nowMs={nowMs} />
+          <span aria-live="polite">
+            {dirty
+              ? `Unsaved changes: ${stagedCount} field${stagedCount === 1 ? "" : "s"}${
+                  narrativeDirty ? " and the narrative" : ""
+                }`
+              : isDraft && !isInvestigator
+                ? "Only the investigator can sign this report."
+                : null}
+          </span>
         </span>
       </div>
 
       {confirmOpen && canSign && (
         <SignConfirm
           packet={packet}
-          missingCount={packet.missing_information.length}
           dirty={dirty}
           busy={busy === "sign"}
-          onConfirm={() => void sign()}
+          onConfirm={(items) => void sign(items)}
           onCancel={() => setConfirmOpen(false)}
         />
       )}
@@ -524,14 +528,14 @@ export default function PacketPage() {
           />
         </div>
         <aside className="space-y-4" aria-label="Report side panel">
-          <MissingInfoCard items={packet.missing_information} />
-          <div ref={inspectorRef} className="lg:sticky lg:top-4">
+          <MissingInfoCard items={packet.missing_information} signed={packet.status === "signed"} />
+          <div ref={inspectorRef} className="lg:sticky lg:top-[120px]">
             <EvidenceInspector selection={selection} onClear={() => setSelection(null)} />
           </div>
           <HistoryCard packet={packet} />
           {!isDraft && packet.sequence === 0 && !packet.followup_packet_ids?.length && (
             <Card title="New information later?">
-              <p className="text-sm text-slate-600">
+              <p className="text-body text-muted-foreground">
                 The protocol asks for follow-up reports when missing information arrives. “Start
                 follow-up report” pre-fills one from the current evidence and lists what changed.
               </p>

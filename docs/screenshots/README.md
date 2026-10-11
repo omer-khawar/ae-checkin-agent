@@ -1,6 +1,8 @@
 # Interim screenshots
 
-## Current: `v2/` (2026-10-11, from the running stack)
+> **Current set: [`v3/`](v3/README.md)** (liquid-glass UI revamp, 2026-10-11). `v2/` below is superseded.
+
+## Superseded: `v2/` (2026-10-11, from the running stack)
 
 Captured from the live API and web app during the browser walkthrough, 1440 px wide, full page. Every participant is synthetic; a few P-007 check-ins in the queue were added by the walkthrough itself. The kiosk no longer has a per-session consent screen (D-026).
 

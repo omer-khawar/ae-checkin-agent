@@ -20,7 +20,7 @@ export interface WhyPanelProps {
 export function WhyPanel({ why, rulesFired, labels, isPhoneCall = false }: WhyPanelProps) {
   if (why.length === 0 && rulesFired.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         {isPhoneCall
           ? "No rules fired for this phone call (nothing non-excluded was found in the summary)."
           : "No rules fired for this note (nothing non-excluded was found)."}
@@ -30,7 +30,10 @@ export function WhyPanel({ why, rulesFired, labels, isPhoneCall = false }: WhyPa
   return (
     <div className="space-y-4">
       {why.length > 0 && (
-        <ol className="list-decimal space-y-1.5 pl-5 text-sm text-slate-800" data-testid="why-list">
+        <ol
+          className="list-decimal space-y-1.5 pl-5 text-sm text-foreground"
+          data-testid="why-list"
+        >
           {why.map((line, i) => (
             <li key={i}>{line}</li>
           ))}
@@ -38,34 +41,34 @@ export function WhyPanel({ why, rulesFired, labels, isPhoneCall = false }: WhyPa
       )}
       {rulesFired.length > 0 && (
         <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Rules that applied ({rulesFired.length})
           </h3>
           <ul
-            className="divide-y divide-slate-100 rounded-lg border border-slate-200"
+            className="divide-y divide-border rounded-control border border-border"
             aria-label="Rules fired"
           >
             {rulesFired.map((r, i) => (
               <li key={`${r.rule_id}-${i}`} data-rule-id={r.rule_id}>
                 <details className="group">
-                  <summary className="cursor-pointer px-3 py-2 text-sm text-slate-900 hover:bg-slate-50">
+                  <summary className="cursor-pointer px-3 py-2 text-sm text-foreground hover:bg-surface-subtle">
                     {ruleSentence(r, { labels })}
                   </summary>
-                  <div className="space-y-1 px-3 pb-3 text-xs text-slate-700">
+                  <div className="space-y-1 px-3 pb-3 text-xs text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[11px] text-brand-800">
+                      <span className="rounded border border-border bg-surface-subtle px-1 font-mono text-caption text-primary">
                         {r.rule_id}
                       </span>
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-700">
+                      <span className="rounded bg-surface-subtle px-1.5 py-0.5 text-caption text-muted-foreground">
                         {r.category}
                       </span>
-                      {r.effect && <span className="text-slate-600">→ {r.effect}</span>}
+                      {r.effect && <span className="text-muted-foreground">→ {r.effect}</span>}
                     </div>
                     {r.description && (
-                      <p className="text-slate-800">Engine description: {r.description}</p>
+                      <p className="text-foreground">Engine description: {r.description}</p>
                     )}
                     {Object.keys(r.inputs).length > 0 && (
-                      <pre className="overflow-x-auto rounded bg-slate-50 p-2 font-mono text-[11px]">
+                      <pre className="overflow-x-auto rounded bg-surface-subtle p-2 font-mono text-caption">
                         {JSON.stringify(r.inputs, null, 1)}
                       </pre>
                     )}

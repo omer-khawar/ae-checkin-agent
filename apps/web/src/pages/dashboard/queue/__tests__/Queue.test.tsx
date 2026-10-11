@@ -243,7 +243,7 @@ describe("Queue page", () => {
     renderQueue();
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading queue…");
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("grid");
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
 
@@ -255,13 +255,13 @@ describe("Queue page", () => {
     );
     expect(r1.getByText("Check-in")).toBeInTheDocument();
     expect(r1.getByText("Review within 1 business day")).toBeInTheDocument();
-    expect(r1.getByText(/Grade 2/)).toBeInTheDocument();
-    expect(r1.getByText("provisional")).toBeInTheDocument();
+    // The most severe provisional grade moved into the tier badge's hover text.
+    expect(r1.getByTitle(/provisional grade 2, investigator to confirm/)).toBeInTheDocument();
     expect(r1.getByText("Simulated (ignored for rules)")).toBeInTheDocument();
     expect(r1.getByText("SIMULATED")).toBeInTheDocument();
     // Plain words first, SDTM domain codes one step deeper.
     expect(r1.getByText("2 side effects · 2 vital signs · 1 medication")).toBeInTheDocument();
-    expect(r1.getByText("AE 2 · VS 2 · CM 1")).toBeInTheDocument();
+    expect(r1.getByTitle(/AE 2 · VS 2 · CM 1/)).toBeInTheDocument();
     expect(r1.getByRole("link", { name: "Visit brief for P-007" })).toHaveAttribute(
       "href",
       `/dashboard/participants/${encodeURIComponent(USUBJID_007)}/brief`,
@@ -304,9 +304,9 @@ describe("Queue page", () => {
   it("shows a live SAE countdown and MEASURED badge for a Tier 3 row", async () => {
     installMockFetch(routes({ pages: [page([tier3()])] }));
     renderQueue();
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("grid");
     const row = within(table).getAllByRole("row")[1];
-    expect(row).toHaveAttribute("data-tier", "3");
+    expect(row).toHaveAttribute("data-row-id");
     expect(within(row).getByText("Urgent")).toBeInTheDocument();
     expect(within(row).getByText("MEASURED")).toBeInTheDocument();
     const chip = within(row)
@@ -320,7 +320,7 @@ describe("Queue page", () => {
     const mock = installMockFetch(routes());
     const user = userEvent.setup();
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
 
     await user.selectOptions(screen.getByLabelText("Minimum tier"), "2");
     await waitFor(() => expect(lastQueueQuery(mock).get("min_tier")).toBe("2"));
@@ -347,7 +347,7 @@ describe("Queue page", () => {
   it("reads initial filters from the URL", async () => {
     const mock = installMockFetch(routes());
     renderQueue("/dashboard?min_tier=3&status=all&include_eval=true&offset=25");
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const q = lastQueueQuery(mock);
     expect(q.get("min_tier")).toBe("3");
     expect(q.get("status")).toBe("all");
@@ -361,7 +361,7 @@ describe("Queue page", () => {
     renderQueue();
     expect(await screen.findByText("No items match these filters.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Switch Status to All");
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("grid")).toBeNull();
   });
 
   it("empty-state copy names the filter as the cause, not an empty queue", async () => {
@@ -380,23 +380,19 @@ describe("Queue page", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Nothing has been recorded yet");
   });
 
-  it("explains a missing max grade differently for check-ins and chart notes", async () => {
+  it("leaves the grade out of the tier hover when there is none", async () => {
     installMockFetch(routes({ pages: [page([{ ...TIER1, max_grade: null }, NOTE])] }));
     renderQueue();
-    const table = await screen.findByRole("table");
-    const [r1, r2] = within(table).getAllByRole("row").slice(1);
-    expect(
-      within(r1).getByTitle("No provisional grade reported for this check-in"),
-    ).toBeInTheDocument();
-    expect(
-      within(r2).getByTitle("No provisional grade (chart-note findings carry a grade hint only)"),
-    ).toBeInTheDocument();
+    const table = await screen.findByRole("grid");
+    const [r1] = within(table).getAllByRole("row").slice(1);
+    expect(within(r1).queryByTitle(/provisional grade/)).toBeNull();
+    expect(within(r1).getByTitle(/^Tier 1: /)).toBeInTheDocument();
   });
 
   it("does not announce the auto-refresh timestamp with aria-live", async () => {
     installMockFetch(routes());
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const stamp = screen.getByText(/^updated \d/);
     expect(stamp).not.toHaveAttribute("aria-live");
     expect(stamp.closest("[aria-live]")).toBeNull();
@@ -408,7 +404,7 @@ describe("Queue page", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading queue…");
     // Before the participants list settles, nothing has gone to GET /queue.
     expect(queueQueries(mock)).toHaveLength(0);
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const sent = queueQueries(mock).map((q) => q.get("usubjid"));
     expect(sent[0]).toBe(USUBJID_007);
     expect(sent).not.toContain("P-007");
@@ -417,12 +413,12 @@ describe("Queue page", () => {
   it("keeps the last result on screen when an auto-refresh fails", async () => {
     installMockFetch(routes({ pages: [page([TIER1]), { status: 503 }] }));
     renderQueue("/dashboard", 50);
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Could not refresh the queue; showing the last result");
     expect(alert).toHaveTextContent("HTTP 503");
     // Rows are still there; the stale-but-visible rule holds.
-    const table = screen.getByRole("table");
+    const table = screen.getByRole("grid");
     expect(within(table).getByRole("link", { name: "P-007" })).toBeInTheDocument();
     expect(screen.queryByText("Loading queue…")).toBeNull();
   });
@@ -441,7 +437,7 @@ describe("Queue page", () => {
     );
     const user = userEvent.setup();
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     expect(screen.getByText("Page 1 / 2")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -458,7 +454,7 @@ describe("Queue page", () => {
     const mock = installMockFetch(routes());
     const user = userEvent.setup();
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const before = queueQueries(mock).length;
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(queueQueries(mock).length).toBe(before + 1));
@@ -467,7 +463,7 @@ describe("Queue page", () => {
   it("pauses auto-refresh while the tab is hidden and catches up on return", async () => {
     const mock = installMockFetch(routes());
     renderQueue("/dashboard", 30);
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
 
     setDocumentHidden(true);
     const before = queueQueries(mock).length;
@@ -502,14 +498,14 @@ describe("Queue page", () => {
     expect(alert).toHaveTextContent("Could not load the queue");
     expect(alert).toHaveTextContent("HTTP 503");
     await user.click(within(alert).getByRole("button", { name: "Try again" }));
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("toasts when a new Tier 3 item appears on auto-refresh (mock pager)", async () => {
     installMockFetch(routes({ pages: [page([TIER1]), page([tier3(), TIER1])] }));
     renderQueue("/dashboard", 50);
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     // No toast for what was already there on first load.
     expect(screen.queryByText("Page: new urgent check-in (Tier 3)")).toBeNull();
 
@@ -518,9 +514,9 @@ describe("Queue page", () => {
     expect(toast.parentElement).toHaveTextContent("P-003");
 
     // The row itself is rendered too, and only one toast fires across later refreshes.
-    const table = screen.getByRole("table");
+    const table = screen.getByRole("grid");
     await waitFor(() =>
-      expect(within(table).getAllByRole("row")[1]).toHaveAttribute("data-tier", "3"),
+      expect(within(within(table).getAllByRole("row")[1]).getByText("Urgent")).toBeInTheDocument(),
     );
     await new Promise((r) => setTimeout(r, 150));
     expect(screen.getAllByText("Page: new urgent check-in (Tier 3)")).toHaveLength(1);
@@ -624,7 +620,7 @@ describe("Queue page: since you were last here", () => {
   it("records the last-seen time when the page unloads after a real visit", async () => {
     installMockFetch(routes());
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     expect(localStorage.getItem(LAST_SEEN_STORAGE_KEY)).toBeNull();
     // Pretend the coordinator read the queue for longer than MIN_VISIT_MS.
     const realNow = Date.now();
@@ -704,7 +700,7 @@ describe("Queue page: since you were last here", () => {
     const mock = installMockFetch(routes({ summary: [] }));
     const user = userEvent.setup();
     renderQueue();
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const summaryCalls = () => queueSummaryCalls(mock).length;
     await waitFor(() => expect(summaryCalls()).toBe(1));
     await user.click(screen.getByRole("button", { name: "Refresh" }));
@@ -736,7 +732,7 @@ describe("Queue page: report clocks, phone calls", () => {
     };
     installMockFetch(routes({ pages: [page([aesi, call])] }));
     renderQueue();
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("grid");
     const [r1, r2] = within(table).getAllByRole("row").slice(1);
 
     const chip = within(r1)
@@ -749,9 +745,8 @@ describe("Queue page: report clocks, phone calls", () => {
       "href",
       "/dashboard/packets/01JPACKET0000000000000001",
     );
-    expect(within(r1).getByText(/Grade 3/)).toBeInTheDocument();
+    expect(within(r1).getByTitle(/provisional grade 3/)).toBeInTheDocument();
 
-    expect(r2).toHaveAttribute("data-source", "phone_call");
     expect(within(r2).getByTestId("source-chip")).toHaveTextContent("Phone call");
     expect(within(r2).getByRole("link", { name: "Open phone call for P-003" })).toHaveAttribute(
       "href",
@@ -785,7 +780,7 @@ describe("Queue page: report clocks, phone calls", () => {
     };
     installMockFetch(routes({ pages: [page([withClockId, er])] }));
     renderQueue();
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("grid");
     const [r1, r2] = within(table).getAllByRole("row").slice(1);
 
     // No packet yet: one click still opens a pre-filled one for this clock.
@@ -815,7 +810,7 @@ describe("Queue page: report clocks, phone calls", () => {
     };
     installMockFetch(routes({ pages: [page([TIER1]), page([urgentNote, TIER1])] }));
     renderQueue("/dashboard", 50);
-    await screen.findByRole("table");
+    await screen.findByRole("grid");
     const toast = await screen.findByText("Page: new urgent chart note (Tier 3)");
     expect(toast.parentElement).toHaveTextContent("P-003 · chart note completed");
     expect(screen.queryByText(/urgent check-in/)).toBeNull();

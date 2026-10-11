@@ -15,7 +15,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
+import { Button } from "@/ui/button";
 import { TierChip } from "../../../components/TierChip";
 import { useToast } from "../../../components/Toast";
 import { useAuth } from "../../../lib/auth";
@@ -85,9 +85,9 @@ function todayLocalIso(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-const LABEL = "block text-xs font-semibold uppercase tracking-wide text-slate-600";
+const LABEL = "block text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 const INPUT =
-  "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:ring-4";
+  "mt-1 w-full rounded-control border border-border-strong bg-surface px-3 py-2 text-sm text-foreground focus-visible:ring-4";
 
 export interface LogCallFormProps {
   /** Participant picker options. Ignored when `usubjid` is fixed. */
@@ -163,7 +163,7 @@ export function LogCallForm({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Log a call">
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-muted-foreground">
         Type what was said in a sentence or two. The same pattern scanner that reads chart notes (no
         language model) proposes side-effect and medication drafts with the exact words quoted.
       </p>
@@ -173,7 +173,7 @@ export function LogCallForm({
             Call is about
           </label>
           {fixedUsubjid ? (
-            <p id={id("participant")} className="mt-1 text-sm font-medium text-slate-900">
+            <p id={id("participant")} className="mt-1 text-sm font-medium text-foreground">
               {displayLabel ?? fixedUsubjid}
             </p>
           ) : participants ? (
@@ -234,7 +234,7 @@ export function LogCallForm({
         </div>
         <fieldset>
           <legend className={LABEL}>Direction</legend>
-          <div className="mt-2 flex flex-col gap-1 text-sm text-slate-800">
+          <div className="mt-2 flex flex-col gap-1 text-sm text-foreground">
             {(Object.keys(DIRECTION_LABELS) as CallDirection[]).map((k) => (
               <label key={k} className="inline-flex items-center gap-2">
                 <input
@@ -263,7 +263,7 @@ export function LogCallForm({
           placeholder="e.g. Daughter called: mother has had watery diarrhea 6 times a day since Tuesday, started loperamide."
           required
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           Stored word for word; only findings are drafted.
         </p>
       </div>
@@ -271,11 +271,11 @@ export function LogCallForm({
       <NoteErrorBanner error={error} message="The call was not logged" />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" busy={busy} disabled={!ready}>
+        <Button type="submit" loading={busy} disabled={!ready}>
           Log call
         </Button>
         {!canLog && (
-          <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+          <span className="rounded-full border border-border-strong bg-surface-subtle px-2 py-0.5 text-xs text-muted-foreground">
             coordinator or admin only · read-only for your role
           </span>
         )}
@@ -283,7 +283,7 @@ export function LogCallForm({
 
       {result && (
         <div
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
+          className="flex flex-wrap items-center gap-2 rounded-control border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
           role="status"
           data-testid="call-logged"
         >
@@ -296,7 +296,7 @@ export function LogCallForm({
           {result.note.id && (
             <Link
               to={`/dashboard/notes/${encodeURIComponent(result.note.id)}`}
-              className="font-medium text-brand-700 underline"
+              className="font-medium text-primary underline"
             >
               Open call record
             </Link>

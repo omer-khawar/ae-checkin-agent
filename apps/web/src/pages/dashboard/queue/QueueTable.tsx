@@ -1,87 +1,70 @@
 /**
- * The queue table. Rows arrive in server order (tier desc, completed_at desc);
- * this component never re-sorts. Plain language leads (CLAUDE.md §00: most
- * judges are not clinicians); the SDTM domain codes and tier numbers stay one
- * step deeper, in small monospace badges and hover text. Every derived value
- * carries a `title` that says where it came from, and the detail page holds
- * the full evidence.
+ * The worklist table: ui/data-table (opaque, 36px rows, 13px cells, sticky header).
+ *
+ * Eight columns: participant, source, received, tier, deadline, vitals, drafts, status.
+ * Rows arrive in server order (tier desc, completed_at desc); with no sort chosen they
+ * are never re-ranked. Clicking a header sorts the rows on this page only (the caption
+ * says so). The whole row opens the item (click or Enter); j/k move, x or Space selects,
+ * c confirms the selected rows' drafts. Plain language leads; SDTM codes and tier
+ * numbers stay in hover text.
  */
-import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Check, FileText, Monitor, Phone } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { MeasuredBadge } from "../../../components/MeasuredBadge";
-import { TierChip } from "../../../components/TierChip";
-import { cx, Time, vitalsStatusLabel } from "../../../lib/format";
-import { callSummary, noteTypeWords } from "../notes/phoneCallLabels";
-import { hasVitalsSamples, isNoteSource } from "./normalize";
-import { SaeCountdownChip } from "./SaeCountdownChip";
-import { countLabel } from "./summary";
-import type { QueueRow } from "./types";
+import { cn } from "@/lib/cn";
+import { Badge } from "@/ui/badge";
+import { DataTable, type DataTableBulkContext, type DataTableColumnMeta } from "@/ui/data-table";
+
+import { Time, formatUtc, vitalsStatusLabel } from "../../../lib/format";
 import type { QueueSource } from "../../../lib/types";
+import { callSummary, noteTypeWords } from "../notes/phoneCallLabels";
+import { bulkLockReason, canBulkSelect, draftTotal } from "./bulk";
+import { compactRemaining, plainRemaining, saeState } from "./countdown";
+import { hasVitalsSamples, isNoteSource, packetHref } from "./normalize";
+import { countLabel } from "./summary";
+import type { QueueClock, QueueRow } from "./types";
 
 export interface QueueTableProps {
   rows: QueueRow[];
   now: number;
   /** Dim the table while a refresh is in flight (data stays visible). */
   refreshing?: boolean;
+  selection: Record<string, boolean>;
+  onSelectionChange: (selection: Record<string, boolean>) => void;
+  bulkActions?: (ctx: DataTableBulkContext<QueueRow>) => React.ReactNode;
+  emptyState?: React.ReactNode;
 }
 
-const TH = "px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600";
-const TD = "px-2 py-2.5 align-middle text-sm text-slate-900";
-
-/** Inline SVG icons (no icon library, no third-party scripts). */
-function SourceIcon({ source }: { source: QueueSource }) {
-  const common = {
-    "aria-hidden": true,
-    viewBox: "0 0 20 20",
-    className: "h-4 w-4 text-slate-500",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.6,
-  } as const;
-  if (source === "phone_call") {
-    return (
-      <svg {...common}>
-        <path d="M4.5 3h3l1.5 4-2 1.2a9 9 0 0 0 4.8 4.8L13 11l4 1.5v3A1.5 1.5 0 0 1 15.5 17 12.5 12.5 0 0 1 3 4.5 1.5 1.5 0 0 1 4.5 3z" />
-      </svg>
-    );
-  }
-  if (source === "chart_note") {
-    return (
-      <svg {...common}>
-        <path d="M5 2.5h7l3 3v12H5z" />
-        <path d="M12 2.5v3h3M7.5 9h5M7.5 12h5M7.5 15h3" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <rect x="2.5" y="3.5" width="15" height="10" rx="1.5" />
-      <path d="M7 17h6M10 13.5V17" />
-    </svg>
-  );
-}
-
-const SOURCE_LABEL: Record<QueueSource, { word: string; title: string }> = {
+const SOURCE_LABEL: Record<QueueSource, { word: string; title: string; Icon: typeof Monitor }> = {
   check_in: {
     word: "Check-in",
     title: "Participant kiosk check-in (symptom questions modeled on PRO-CTCAE, optional vitals)",
+    Icon: Monitor,
   },
   chart_note: {
     word: "Chart note",
     title: "A clinic, urgent-care or ER note the site read; scanned by fixed rules (no LLM)",
+    Icon: FileText,
   },
   phone_call: {
     word: "Phone call",
     title:
       "The coordinator's summary of a phone call, scanned by the same fixed rules as a chart note (no LLM)",
+    Icon: Phone,
   },
 };
 
+const CLOCK_PLAIN = {
+  sae: { plain: "Serious event", abbr: "SAE" },
+  aesi: { plain: "Special-interest event", abbr: "AESI" },
+  unknown: { plain: "24-hour report", abbr: null },
+} as const;
+
 /**
- * One small line under "came in as": what kind of note it was ("Outside record",
- * "Emergency department note") or who was on the call ("Caregiver · they called
- * the site"), plus a "Follow-up" chip when the item updates an AE that is already
- * open instead of opening a new one.
+ * One small line after the source word: what kind of note it was ("Outside record") or who
+ * was on the call, plus a "Follow-up" chip when the item updates an AE that is already open.
  */
 export function SourceDetail({ row }: { row: QueueRow }) {
   const detail =
@@ -92,297 +75,377 @@ export function SourceDetail({ row }: { row: QueueRow }) {
         : null;
   if (!detail && row.followup_count === 0) return null;
   return (
-    <div className="mt-0.5 flex flex-col items-start gap-1">
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       {detail && (
-        <span className="text-xs text-slate-600" data-testid="source-detail">
+        <span
+          className="max-w-[8rem] truncate text-caption text-muted-foreground"
+          data-testid="source-detail"
+        >
           {detail}
         </span>
       )}
       {row.followup_count > 0 && (
         <span
-          className="whitespace-nowrap rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-900"
+          className="whitespace-nowrap rounded-control border border-info-border bg-info-bg px-1.5 text-caption font-medium text-info-fg"
           title="Matches a side effect that is already open for this participant (same term within the dedup window), so it is drafted as a follow-up, not a new AE"
           data-testid="followup-chip"
         >
-          Follow-up · {row.followup_count} open AE{row.followup_count === 1 ? "" : "s"}
+          Follow-up
+          <span className="sr-only">
+            {" "}
+            · {row.followup_count} open AE{row.followup_count === 1 ? "" : "s"}
+          </span>
         </span>
       )}
-    </div>
+    </span>
   );
 }
 
-function EscalationCell({ acked }: { acked: boolean | null }) {
-  if (acked === null) {
+/** Earliest running due time, for sorting the deadline column (no clock sorts last). */
+function nextDue(row: QueueRow): number {
+  let best = Number.MAX_SAFE_INTEGER;
+  for (const c of row.clocks) {
+    if (c.stopped || !c.due_at) continue;
+    const t = Date.parse(c.due_at);
+    if (Number.isFinite(t) && t < best) best = t;
+  }
+  return best;
+}
+
+function ClockBadge({ clock, now }: { clock: QueueClock; now: number }) {
+  const k = CLOCK_PLAIN[clock.kind];
+  const state = saeState(clock.due_at, clock.stopped, now);
+  const href = packetHref(clock.packet_id, clock.clock_id);
+  const intro =
+    clock.kind === "unknown"
+      ? "A 24-hour sponsor report clock is running; open the item to see which kind."
+      : `${k.abbr}: report to the sponsor within 24 hours of site awareness (protocol ${clock.kind === "sae" ? "§9.4.2, p. 91" : "§9.4.3, p. 92"}).`;
+
+  let badge: React.ReactElement;
+  if (state.kind === "stopped") {
+    badge = (
+      <span data-sae="stopped" data-clock-kind={clock.kind}>
+        <Badge
+          kind="clock-stopped"
+          size="sm"
+          title={`${intro} Stopped by an investigator's decision${clock.stopped_at ? ` at ${formatUtc(clock.stopped_at)} (UTC)` : ""}.`}
+        />
+        <span className="sr-only">{`${k.plain} — clock stopped`}</span>
+      </span>
+    );
+  } else if (state.kind === "unknown") {
+    badge = (
+      <span data-sae="unknown" data-clock-kind={clock.kind}>
+        <Badge
+          kind="info"
+          size="sm"
+          label="24-hour report"
+          detail="running"
+          title={`${intro} A clock is running but the API did not send its due time.`}
+        />
+        <span className="sr-only">{`${k.plain} — report clock running`}</span>
+      </span>
+    );
+  } else {
+    const spoken = plainRemaining(state.remainingMs);
+    const phrase = clock.kind === "unknown" ? "due in" : "report due in";
+    const phraseOver = clock.kind === "unknown" ? "overdue by" : "report overdue by";
+    badge = (
+      <span
+        data-sae={state.overdue ? "overdue" : state.urgent ? "urgent" : "running"}
+        data-clock-kind={clock.kind}
+      >
+        <Badge
+          kind={clock.kind === "aesi" ? "aesi" : clock.kind === "sae" ? "sae-clock" : "info"}
+          size="sm"
+          short={clock.kind !== "unknown"}
+          label={clock.kind === "unknown" ? "24-hour report" : undefined}
+          title={`${intro} Window closes ${formatUtc(clock.due_at)} (UTC). Stops when an investigator records a decision.`}
+          detail={compactRemaining(state.remainingMs)}
+          className={cn(state.urgent && "ring-1 ring-tier-3-border")}
+        />
+        <span className="sr-only">{`${k.plain}: ${state.overdue ? phraseOver : phrase} ${spoken.spoken}`}</span>
+      </span>
+    );
+  }
+  if (!href) return badge;
+  return (
+    <Link
+      to={href}
+      className="focus-ring rounded-control"
+      title={`Open the ${k.plain.toLowerCase()} report packet`}
+    >
+      {badge}
+    </Link>
+  );
+}
+
+function DeadlineCell({ row, now }: { row: QueueRow; now: number }) {
+  if (row.clocks.length === 0) {
     return (
-      <span className="text-slate-400" title="No alert was raised for this item">
+      <span className="text-subtle-foreground" title="No 24-hour report is due for this item">
         —
       </span>
     );
   }
-  return acked ? (
-    <span
-      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-green-300 bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800"
-      title="Alert acknowledged by the study team"
-    >
-      <span aria-hidden="true">✓</span> Acknowledged
-    </span>
-  ) : (
-    <span
-      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
-      title="Alert not yet acknowledged; open the item to acknowledge it"
-    >
-      <span aria-hidden="true">!</span> Not acknowledged
-    </span>
-  );
-}
-
-function DraftsCell({ row }: { row: QueueRow }) {
-  const c = row.draft_counts;
-  const total = c.AE + c.VS + c.CM;
-  const plain = [
-    c.AE ? countLabel(c.AE, "side effect") : null,
-    c.VS ? countLabel(c.VS, "vital sign") : null,
-    c.CM ? countLabel(c.CM, "medication") : null,
-  ].filter(Boolean);
+  const [first, ...rest] = [...row.clocks].sort((a, b) => Number(a.stopped) - Number(b.stopped));
   return (
-    <div className="flex flex-col gap-0.5">
-      {total > 0 && <span className="text-sm text-slate-900">{plain.join(" · ")}</span>}
-      <span
-        className="tnum w-fit rounded bg-slate-100 px-1 font-mono text-[11px] text-slate-600"
-        title="Drafted SDTM records: AE adverse events · VS vital signs · CM concomitant medications"
-      >
-        AE {c.AE} · VS {c.VS} · CM {c.CM}
-      </span>
-      {row.draft_status_summary ? (
-        <span className="text-xs text-slate-600">{row.draft_status_summary}</span>
-      ) : total === 0 ? (
-        <span className="text-xs text-slate-500">no drafts</span>
-      ) : null}
-    </div>
+    <span className="inline-flex items-center gap-1">
+      <ClockBadge clock={first} now={now} />
+      {rest.length > 0 && (
+        <span
+          className="text-caption text-muted-foreground"
+          title="More clocks on this item; open it to see them"
+        >
+          +{rest.length}
+        </span>
+      )}
+    </span>
   );
 }
 
 function VitalsCell({ row }: { row: QueueRow }) {
   if (isNoteSource(row.source)) {
     return (
-      <span className="text-slate-400" title="Notes and calls carry no camera vitals">
+      <span className="text-subtle-foreground" title="Notes and calls carry no camera vitals">
         —
       </span>
     );
   }
   const label = vitalsStatusLabel(row.vitals_status);
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span title="Vitals status from the rules engine (vitals never change a grade)">{label}</span>
-      {hasVitalsSamples(row) && <MeasuredBadge isMeasured={row.is_measured} />}
-    </div>
-  );
-}
-
-function GradeCell({ row }: { row: QueueRow }) {
-  if (row.max_grade === null) {
-    // The explanation depends on where the row came from: a note finding only
-    // ever carries a grade hint, while a check-in simply reported nothing gradeable.
+  if (!hasVitalsSamples(row)) {
     return (
       <span
-        className="text-slate-400"
-        title={
-          isNoteSource(row.source)
-            ? "No provisional grade (chart-note findings carry a grade hint only)"
-            : "No provisional grade reported for this check-in"
-        }
+        className="text-muted-foreground"
+        title="Vitals status from the rules engine (vitals never change a grade)"
       >
-        —
+        {label}
       </span>
     );
   }
   return (
-    <span title="Provisional CTCAE grade from the participant's answers; investigator to confirm">
-      Grade {row.max_grade} <span className="text-xs text-slate-500">provisional</span>
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        kind={row.is_measured ? "measured" : "simulated"}
+        label={row.is_measured ? "MEASURED" : "SIMULATED"}
+        size="sm"
+        className="uppercase"
+        title={`${label}. Vitals never change a grade.`}
+      />
+      <span className="sr-only">{label}</span>
     </span>
   );
 }
 
-function ClocksCell({ row, now }: { row: QueueRow; now: number }) {
-  if (row.clocks.length === 0) {
-    return (
-      <span className="text-slate-400" title="No 24-hour report is due for this item">
-        —
-      </span>
-    );
+function DraftsCell({ row }: { row: QueueRow }) {
+  const c = row.draft_counts;
+  if (draftTotal(row) === 0) {
+    return <span className="text-subtle-foreground">no drafts</span>;
   }
+  const plain = [
+    c.AE ? countLabel(c.AE, "side effect") : null,
+    c.VS ? countLabel(c.VS, "vital sign") : null,
+    c.CM ? countLabel(c.CM, "medication") : null,
+  ].filter(Boolean);
   return (
-    <div className="flex max-w-[14rem] flex-col items-start gap-1">
-      {row.clocks.map((c) => (
-        <SaeCountdownChip
-          key={c.key}
-          // `!`: the chip base class sets whitespace-nowrap, which would otherwise win.
-          className="!whitespace-normal text-left"
-          kind={c.kind}
-          dueAt={c.due_at}
-          stopped={c.stopped}
-          stoppedAt={c.stopped_at}
-          packetId={c.packet_id}
-          clockId={c.clock_id}
-          now={now}
-        />
-      ))}
-    </div>
+    <span
+      className="block max-w-[13rem] truncate"
+      title={`AE ${c.AE} · VS ${c.VS} · CM ${c.CM} (drafted SDTM records: adverse events, vital signs, concomitant medications)`}
+    >
+      {plain.join(" · ")}
+    </span>
   );
 }
 
-export function QueueTable({ rows, now, refreshing }: QueueTableProps) {
-  return (
-    // `relative`: the sr-only spans inside the table are absolutely positioned; without
-    // a positioned scroll container they escape it and widen the whole page (the body
-    // scrolled sideways at 1440 px in the intake walkthrough).
-    <div className="relative overflow-x-auto">
-      <table
-        className={cx("w-full min-w-[1040px] border-collapse", refreshing && "opacity-70")}
-        aria-busy={refreshing || undefined}
+function StatusCell({ row }: { row: QueueRow }) {
+  if (row.escalation_acked === false) {
+    return (
+      <span
+        className="font-medium text-warning-fg"
+        title="Alert not yet acknowledged; open the item to acknowledge it"
       >
-        <caption className="sr-only">
-          Check-ins, chart notes and phone calls awaiting review, most urgent first, then most
-          recent
-        </caption>
-        <thead className="border-b border-slate-200 bg-slate-50">
-          <tr>
-            <th scope="col" className={TH}>
-              Participant
-            </th>
-            <th scope="col" className={TH}>
-              Came in as
-            </th>
-            <th scope="col" className={TH}>
-              When
-            </th>
-            <th scope="col" className={TH}>
-              <abbr
-                title="Escalation tier from the rules engine (T0 Log … T3 Urgent)"
-                className="no-underline"
+        Not acknowledged
+      </span>
+    );
+  }
+  const acked =
+    row.escalation_acked === true ? (
+      <span
+        className="inline-flex items-center text-success-fg"
+        title="Alert acknowledged by the study team"
+      >
+        <Check aria-hidden="true" className="size-3.5" />
+        <span className="sr-only">Acknowledged</span>
+      </span>
+    ) : null;
+  if (row.draft_status_summary) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="block max-w-[8rem] truncate" title={row.draft_status_summary}>
+          {row.draft_status_summary}
+        </span>
+        {acked}
+      </span>
+    );
+  }
+  return acked ?? <span className="text-subtle-foreground">—</span>;
+}
+
+export function QueueTable({
+  rows,
+  now,
+  refreshing,
+  selection,
+  onSelectionChange,
+  bulkActions,
+  emptyState,
+}: QueueTableProps) {
+  const navigate = useNavigate();
+
+  const columns = useMemo<ColumnDef<QueueRow, unknown>[]>(
+    () => [
+      {
+        id: "participant",
+        header: "Participant",
+        accessorFn: (r) => r.display_label,
+        sortingFn: "alphanumeric",
+        meta: { rowHeader: true, width: "9rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <Link
+                to={`/dashboard/participants/${encodeURIComponent(r.usubjid)}`}
+                className="focus-ring rounded-control font-semibold text-link hover:underline"
+                title={`${r.usubjid} · open participant timeline`}
               >
-                Priority
-              </abbr>
-            </th>
-            <th scope="col" className={TH}>
-              <abbr
-                title="Highest provisional CTCAE grade across symptoms, from the participant's answers only"
-                className="no-underline"
+                {r.display_label}
+              </Link>
+              {r.usubjid && (
+                <Link
+                  to={`/dashboard/participants/${encodeURIComponent(r.usubjid)}/brief`}
+                  className="focus-ring rounded-control text-caption text-link hover:underline"
+                  aria-label={`Visit brief for ${r.display_label}`}
+                  title="Everything since the last visit, on one printable page"
+                >
+                  Brief
+                </Link>
+              )}
+            </span>
+          );
+        },
+      },
+      {
+        id: "source",
+        header: "Source",
+        accessorFn: (r) => r.source,
+        meta: { width: "10rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => {
+          const r = row.original;
+          const src = SOURCE_LABEL[r.source];
+          return (
+            <span className="inline-flex max-w-[12rem] items-center gap-2">
+              <span
+                className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                title={src.title}
+                data-testid="source-chip"
               >
-                Most severe
-              </abbr>
-            </th>
-            <th scope="col" className={TH}>
-              Vitals
-            </th>
-            <th scope="col" className={TH}>
-              <abbr
-                title="24-hour sponsor report clocks: serious adverse events (SAE, protocol §9.4.2) and adverse events of special interest (AESI, §9.4.3)"
-                className="no-underline"
-              >
-                Report due
-              </abbr>
-            </th>
-            <th scope="col" className={TH}>
-              Alert
-            </th>
-            <th scope="col" className={TH}>
-              Drafted records
-            </th>
-            <th scope="col" className={cx(TH, "text-right")}>
-              <span className="sr-only">Open</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const src = SOURCE_LABEL[row.source];
-            return (
-              <tr
-                key={row.key}
-                className={cx(
-                  "border-b border-slate-100 hover:bg-slate-50",
-                  row.tier === 3 && "bg-red-50/60",
-                )}
-                data-tier={row.tier}
-                data-source={row.source}
-              >
-                <td className={TD}>
-                  <div className="flex flex-col items-start gap-0.5">
-                    <Link
-                      to={`/dashboard/participants/${encodeURIComponent(row.usubjid)}`}
-                      className="font-semibold text-brand-800 underline-offset-2 hover:underline"
-                      title={`${row.usubjid} · open participant timeline`}
-                    >
-                      {row.display_label}
-                    </Link>
-                    {row.usubjid && (
-                      <Link
-                        to={`/dashboard/participants/${encodeURIComponent(row.usubjid)}/brief`}
-                        className="text-xs text-brand-700 underline underline-offset-2 hover:text-brand-900"
-                        aria-label={`Visit brief for ${row.display_label}`}
-                        title="Everything since the last visit, on one printable page"
-                      >
-                        Brief
-                      </Link>
-                    )}
-                  </div>
-                </td>
-                <td className={TD}>
-                  <span
-                    className="inline-flex items-center gap-1.5 whitespace-nowrap"
-                    title={src.title}
-                    data-testid="source-chip"
+                <src.Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                {r.href ? (
+                  <Link
+                    to={r.href}
+                    className="focus-ring rounded-control hover:underline"
+                    aria-label={`Open ${src.word.toLowerCase()} for ${r.display_label}`}
                   >
-                    <SourceIcon source={row.source} />
-                    <span>{src.word}</span>
-                  </span>
-                  <SourceDetail row={row} />
-                </td>
-                <td className={cx(TD, "whitespace-nowrap")}>
-                  <Time iso={row.completed_at} style="short" />
-                </td>
-                <td className={TD}>
-                  <TierChip tier={row.tier} />
-                </td>
-                <td className={cx(TD, "tnum whitespace-nowrap")}>
-                  <GradeCell row={row} />
-                </td>
-                <td className={TD}>
-                  <VitalsCell row={row} />
-                </td>
-                <td className={TD}>
-                  <ClocksCell row={row} now={now} />
-                </td>
-                <td className={TD}>
-                  <EscalationCell acked={row.escalation_acked} />
-                </td>
-                <td className={TD}>
-                  <DraftsCell row={row} />
-                </td>
-                <td className={cx(TD, "text-right")}>
-                  {row.href ? (
-                    <Link
-                      to={row.href}
-                      className="inline-flex min-h-9 items-center justify-center rounded-xl border border-brand-800 bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800 focus-visible:ring-4"
-                      aria-label={`Open ${src.word.toLowerCase()} for ${row.display_label}`}
-                    >
-                      Open
-                    </Link>
-                  ) : (
-                    <span
-                      className="text-xs text-slate-400"
-                      title="The API sent neither a session id nor a note id"
-                    >
-                      no detail
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    {src.word}
+                  </Link>
+                ) : (
+                  <span>{src.word}</span>
+                )}
+              </span>
+              <SourceDetail row={r} />
+            </span>
+          );
+        },
+      },
+      {
+        id: "received",
+        header: "Received",
+        accessorFn: (r) => r.completed_at ?? "",
+        meta: { tabular: true, width: "9rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap">
+            <Time iso={row.original.completed_at} style="short" />
+          </span>
+        ),
+      },
+      {
+        id: "tier",
+        header: "Tier",
+        accessorFn: (r) => r.tier,
+        meta: { width: "8rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => (
+          <Badge
+            kind={`tier-${Math.max(0, Math.min(3, row.original.tier))}` as "tier-0"}
+            size="sm"
+            label={row.original.tier_name}
+            title={`Tier ${row.original.tier}: ${row.original.tier_name}. Decided by the rules engine.${row.original.max_grade === null ? "" : ` Most severe symptom: provisional grade ${row.original.max_grade}, investigator to confirm.`}`}
+          />
+        ),
+      },
+      {
+        id: "deadline",
+        header: "Deadline",
+        accessorFn: (r) => nextDue(r),
+        meta: { tabular: true, width: "9rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => <DeadlineCell row={row.original} now={now} />,
+      },
+      {
+        id: "vitals",
+        header: "Vitals",
+        accessorFn: (r) => (isNoteSource(r.source) ? "" : String(r.vitals_status ?? "")),
+        meta: { width: "9rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => <VitalsCell row={row.original} />,
+      },
+      {
+        id: "drafts",
+        header: "Drafts",
+        accessorFn: (r) => draftTotal(r),
+        cell: ({ row }) => <DraftsCell row={row.original} />,
+      },
+      {
+        id: "status",
+        header: "Status",
+        accessorFn: (r) => (r.escalation_acked === false ? 0 : r.needs_action ? 1 : 2),
+        meta: { width: "9rem" } satisfies DataTableColumnMeta,
+        cell: ({ row }) => <StatusCell row={row.original} />,
+      },
+    ],
+    [now],
+  );
+
+  return (
+    <div className={cn(refreshing && "opacity-80 transition-opacity")}>
+      <DataTable<QueueRow>
+        data={rows}
+        columns={columns}
+        getRowId={(r) => r.key}
+        getRowLabel={(r) => `${r.display_label} ${SOURCE_LABEL[r.source].word.toLowerCase()}`}
+        caption="Check-ins, chart notes and phone calls awaiting review, most urgent first, then most recent. Sorting a column reorders this page only."
+        selectable
+        rowSelection={selection}
+        onRowSelectionChange={onSelectionChange}
+        canSelectRow={canBulkSelect}
+        selectDisabledReason={(r) => bulkLockReason(r)}
+        bulkActions={bulkActions}
+        onRowActivate={(r) => {
+          if (r.href) navigate(r.href);
+        }}
+        getRowHref={(r) => r.href}
+        getRowClassName={(r) => (r.tier === 3 ? "bg-danger-bg" : undefined)}
+        emptyState={emptyState}
+        stickyTop="var(--appbar-h, 0px)"
+      />
     </div>
   );
 }

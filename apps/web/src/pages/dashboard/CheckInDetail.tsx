@@ -1,75 +1,108 @@
 /**
- * /dashboard/checkins/:sessionId — the "explains itself" page (CLAUDE.md §3.7.2).
+ * /dashboard/checkins/:sessionId — the "explains itself" page (CLAUDE.md §3.7.2), laid out as a
+ * master-detail workbench for a trained coordinator (UI_AUDIT "Check-in detail").
  *
- * Three columns (stacked on narrow screens):
- *   LEFT    answers in order + gate answers + vitals (summary and raw samples)
- *   MIDDLE  AE / VS / CM drafts; every field is clickable → its Evidence[]
- *   RIGHT   "Why": every rule fired, escalation box, SAE clock
+ *   HEADER  participant, received, tier, 24-hour clocks with countdown + "Open report packet",
+ *           "Confirm remaining (N)", Plain/Codes label mode
+ *   LEFT    answers + gate answers + vitals as compact rows (raw samples behind a disclosure)
+ *   MAIN    AE / VS / CM drafts as dense tables; one-click Confirm moves to the next draft
+ *   RIGHT   Why: a compact rule table (plain-English toggle), protocol, escalation, clocks
  *
- * One piece of state ties the columns together: `selection` (a draft field or
- * a rule). Its evidence ids become `highlight`, and every answer row, vitals
- * sample row and rule row lights up when its id is in that set. Clicking an
- * answer or a sample does the reverse: it highlights the rules that cite it.
+ * Clicking any draft field opens a side sheet listing its Evidence (answer, vitals sample, rule,
+ * chart-note quote) and highlights the source row in the other columns. The sheet is not modal,
+ * so the highlighted rows stay visible and clickable.
  *
- * Plain language first (CLAUDE.md §00, CONTRACTS.md R3.2/R3.3): field labels
- * come from the API's `labels` map (local fallback table in detail/plain.ts),
- * SDTM names sit in small monospace badges, and the Why panel leads with one
- * plain sentence per rule. Protocol flags (possible AESI, prohibited /
- * discouraged medications, missing medication-form fields), the report packet
- * entry point and the investigator's immune-related choice (R4.3) are here too.
+ * Keyboard (ignored while typing): c confirm · e edit · r reject · a acknowledge ·
+ * ] / [ next / previous draft · j next queue item.
  *
- * This file owns the API mutations (confirm / reject / patch / attribution /
- * ack) and the toasts; the columns under ./detail/ only render.
+ * This file owns the API mutations (confirm / reject / patch / attribution / ack) and the toasts;
+ * the columns under ./detail/ only render.
  */
-import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { Button } from "../../components/Button";
+import { Badge } from "@/ui/badge";
+import { tierBadgeKind } from "@/ui/badge-kinds";
+import { Button } from "@/ui/button";
+import { isTypingTarget } from "@/ui/keyboard";
+import { Kbd } from "@/ui/kbd";
+import { SegmentedControl } from "@/ui/segmented-control";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/ui/sheet";
+
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { MeasuredBadge } from "../../components/MeasuredBadge";
-import { TierChip } from "../../components/TierChip";
 import { useToast } from "../../components/Toast";
 import {
   ackEscalation,
   confirmDraft,
+  fetchWholeQueue,
   isApiError,
   patchAttribution,
   patchDraft,
   rejectDraft,
 } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { Time, vitalsStatusLabel } from "../../lib/format";
+import { formatCountdown, Time, vitalsStatusLabel } from "../../lib/format";
+import { briefPath } from "../../lib/routes";
 import type {
   AttributionRequest,
   CheckInDetail as CheckInDetailT,
   CheckInDetailR3,
+  ClockRow,
   Draft,
   Escalation,
   Evidence,
 } from "../../lib/types";
 import { AnswersColumn } from "./detail/AnswersColumn";
-import { DraftsColumn, type DraftActions } from "./detail/DraftsColumn";
+import { EvidenceList, Prov } from "./detail/bits";
+import { ClockActions } from "./detail/ClockActions";
+import { DraftsColumn, type DraftActions, type DraftModeRequest } from "./detail/DraftsColumn";
 import {
   allRules,
   highlightSet,
+  secondsUntil,
   selectionEvidence,
   vitalsProvenance,
   type Selection,
 } from "./detail/model";
-import { attributionClockEffects, clocksForDraft, clocksOf, tierName } from "./detail/plain";
+import { actionableDrafts, neighbourDraftId, nextQueueSession } from "./detail/nav";
+import {
+  attributionClockEffects,
+  clockChip,
+  clockKind,
+  clockName,
+  clocksForDraft,
+  clocksOf,
+  fieldLabel,
+  tierName,
+} from "./detail/plain";
 import { useCheckIn } from "./detail/useCheckIn";
+import { useLabelMode } from "./detail/useLabelMode";
 import { WhyPanel } from "./detail/WhyPanel";
-import { briefPath } from "../../lib/routes";
 
 export function CheckInDetail() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { role } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const { detail, items, ctcae, loading, error, reload, setDetail } = useCheckIn(sessionId);
+  const [labelMode, setLabelMode] = useLabelMode();
 
   const [selection, setSelection] = useState<Selection>(null);
   /** Extra ids to highlight when the user clicks an answer/sample/evidence pointer directly. */
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  /** The draft the shortcuts act on. */
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [request, setRequest] = useState<DraftModeRequest | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const focusAfterRender = useRef<string | null>(null);
+  const nonce = useRef(0);
 
   // The evidence set behind the selection, plus the focused id and the rules that cite it.
   const highlight = useMemo(() => {
@@ -94,8 +127,12 @@ export function CheckInDetail() {
     return (term: string) => byTerm.get(term.toLowerCase()) ?? null;
   }, [items]);
 
+  const todo = useMemo(() => actionableDrafts(detail?.drafts ?? []), [detail?.drafts]);
+  const effectiveActive = todo.some((d) => d.id === activeId) ? activeId : (todo[0]?.id ?? null);
+
   const selectField = (draftId: string, field: string) => {
     setFocusedId(null);
+    setActiveId(draftId);
     setSelection((s) =>
       s?.kind === "field" && s.draftId === draftId && s.field === field
         ? null
@@ -175,18 +212,166 @@ export function CheckInDetail() {
     },
   };
 
+  /** Move the shortcuts (and keyboard focus) to a draft card. */
+  const goToDraft = useCallback((id: string | null) => {
+    if (!id) return;
+    setActiveId(id);
+    focusAfterRender.current = id;
+  }, []);
+
+  // After a render that changed the active draft, move DOM focus to its card.
+  useEffect(() => {
+    const id = focusAfterRender.current;
+    if (!id) return;
+    const el = document.querySelector<HTMLElement>(`[data-draft-id="${id}"]`);
+    if (el) {
+      focusAfterRender.current = null;
+      el.focus({ preventScroll: true });
+      el.scrollIntoView?.({ block: "nearest" });
+    }
+  });
+
+  /** One-click confirm: confirm, then focus the next draft that still needs a person. */
+  const confirmAndAdvance = async (draft: Draft) => {
+    const next = neighbourDraftId(todo, draft.id, 1);
+    await actions.confirm(draft, "");
+    goToDraft(next);
+  };
+
+  const confirmRemaining = async () => {
+    setBulkBusy(true);
+    try {
+      let n = 0;
+      for (const d of todo) {
+        applyDraft(await confirmDraft(d.id));
+        n += 1;
+      }
+      toast.push({
+        kind: "success",
+        title: `${n} draft${n === 1 ? "" : "s"} confirmed`,
+        message: "Each confirmation is its own audit event.",
+      });
+      reload();
+    } catch (e) {
+      toast.push({
+        kind: "error",
+        title: "Not all drafts were confirmed",
+        message: e instanceof Error ? e.message : String(e),
+      });
+      reload();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const ack = async (esc: Escalation) => {
     const updated = await ackEscalation(esc.id);
     setDetail((d) => ({ ...d, escalation: updated }));
     toast.push({ kind: "success", title: "Escalation acknowledged" });
   };
 
+  const [nextBusy, setNextBusy] = useState(false);
+  const goNextItem = useCallback(async () => {
+    if (!sessionId || nextBusy) return;
+    setNextBusy(true);
+    try {
+      const { rows } = await fetchWholeQueue();
+      const next = nextQueueSession(rows, sessionId);
+      if (!next) {
+        toast.push({
+          kind: "info",
+          title: "Nothing else needs review",
+          message: "The queue is clear.",
+        });
+      } else {
+        navigate(
+          next.kind === "session"
+            ? `/dashboard/checkins/${encodeURIComponent(next.id)}`
+            : `/dashboard/notes/${encodeURIComponent(next.id)}`,
+        );
+      }
+    } catch (e) {
+      toast.push({
+        kind: "error",
+        title: "Could not load the queue",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setNextBusy(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, nextBusy, navigate]);
+
+  // Single-key shortcuts. Ignored while typing, with modifiers, or with no drafts to act on.
+  const keyState = useRef({ todo, effectiveActive, detail, role, ack, goNextItem, goToDraft });
+  keyState.current = { todo, effectiveActive, detail, role, ack, goNextItem, goToDraft };
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.defaultPrevented || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (isTypingTarget(ev.target)) return;
+      const st = keyState.current;
+      const draft = st.todo.find((d) => d.id === st.effectiveActive) ?? null;
+      const ask = (mode: "edit" | "reject") => {
+        if (!draft || st.role === null) return;
+        nonce.current += 1;
+        setRequest({ draftId: draft.id, mode, nonce: nonce.current });
+      };
+      switch (ev.key) {
+        case "c":
+          if (!draft || st.role === null) return;
+          ev.preventDefault();
+          void confirmAndAdvanceRef.current(draft).catch((e: unknown) =>
+            toast.push({
+              kind: "error",
+              title: "The draft was not confirmed",
+              message: e instanceof Error ? e.message : String(e),
+            }),
+          );
+          return;
+        case "e":
+          ev.preventDefault();
+          ask("edit");
+          return;
+        case "r":
+          ev.preventDefault();
+          ask("reject");
+          return;
+        case "a": {
+          const esc = st.detail?.escalation;
+          if (!esc || esc.acked_at !== null || st.role === null) return;
+          ev.preventDefault();
+          void st
+            .ack(esc)
+            .catch(() =>
+              toast.push({ kind: "error", title: "The escalation was not acknowledged" }),
+            );
+          return;
+        }
+        case "]":
+        case "[":
+          ev.preventDefault();
+          st.goToDraft(neighbourDraftId(st.todo, st.effectiveActive, ev.key === "]" ? 1 : -1));
+          return;
+        case "j":
+          ev.preventDefault();
+          void st.goNextItem();
+          return;
+        default:
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const confirmAndAdvanceRef = useRef(confirmAndAdvance);
+  confirmAndAdvanceRef.current = confirmAndAdvance;
+
   // ---- states --------------------------------------------------------------
   if (loading && !detail) {
     return (
       <div className="space-y-3" aria-busy="true">
-        <h1 className="text-2xl font-bold text-slate-900">Check-in</h1>
-        <p className="text-slate-600" role="status">
+        <h1 className="text-page font-semibold text-foreground">Check-in</h1>
+        <p className="text-muted-foreground" role="status">
           Loading check-in {sessionId}…
         </p>
       </div>
@@ -196,14 +381,14 @@ export function CheckInDetail() {
     const notFound = isApiError(error) && error.isNotFound;
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">Check-in</h1>
+        <h1 className="text-page font-semibold text-foreground">Check-in</h1>
         <ErrorBanner
           error={error}
           message={notFound ? "Check-in not found" : "Could not load this check-in"}
           onRetry={reload}
         />
         <p>
-          <Link to="/dashboard" className="text-brand-700 underline">
+          <Link to="/dashboard" className="text-primary underline">
             Back to the queue
           </Link>
         </p>
@@ -212,9 +397,23 @@ export function CheckInDetail() {
   }
   if (!detail) return null;
 
+  const sheetOpen = selection?.kind === "field";
+  const allDone = todo.length === 0 && (detail.drafts ?? []).some((d) => d.status === "confirmed");
+
   return (
-    <div className="space-y-4">
-      <Header detail={detail} onReload={reload} loading={loading} />
+    <div className="space-y-3" data-testid="checkin-detail">
+      <Header
+        detail={detail}
+        role={role}
+        remaining={todo.length}
+        bulkBusy={bulkBusy}
+        onConfirmRemaining={() => void confirmRemaining()}
+        onReload={reload}
+        loading={loading}
+        labelMode={labelMode}
+        onLabelMode={setLabelMode}
+        onClockStopped={reload}
+      />
       {error !== null && (
         <ErrorBanner
           error={error}
@@ -222,7 +421,28 @@ export function CheckInDetail() {
           onRetry={reload}
         />
       )}
-      <div className="grid gap-4 lg:grid-cols-3">
+      {allDone && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-panel border border-success-border bg-success-bg px-3 py-2 text-table text-success-fg"
+          data-testid="all-reviewed"
+        >
+          <span>Every draft on this check-in has been reviewed.</span>
+          <Button
+            size="sm"
+            variant="primary"
+            loading={nextBusy}
+            onClick={() => void goNextItem()}
+            title="Open the next item that needs review (j)"
+          >
+            Next item
+            <span aria-hidden="true" className="ml-1 opacity-80">
+              <Kbd>j</Kbd>
+            </span>
+          </Button>
+        </div>
+      )}
+      <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <AnswersColumn detail={detail} items={items} highlight={highlight} onFocusId={focusId} />
         </div>
@@ -237,9 +457,14 @@ export function CheckInDetail() {
             onSelectField={selectField}
             onFocusEvidence={focusEvidence}
             actions={actions}
+            onConfirm={confirmAndAdvance}
+            activeId={effectiveActive}
+            onActivate={setActiveId}
+            request={request}
+            showCodes={labelMode === "codes"}
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 lg:col-span-2 xl:col-span-1">
           <WhyPanel
             detail={detail}
             selection={selection}
@@ -253,40 +478,194 @@ export function CheckInDetail() {
           />
         </div>
       </div>
+
+      <Sheet
+        open={sheetOpen}
+        modal={false}
+        onOpenChange={(open) => {
+          if (!open) setSelection(null);
+        }}
+      >
+        <SheetContent
+          size="sm"
+          overlayClassName="hidden"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          {selection?.kind === "field" && (
+            <EvidenceSheetBody
+              detail={detail}
+              selection={selection}
+              onFocusEvidence={focusEvidence}
+              labels={(detail as unknown as CheckInDetailR3).labels}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+function EvidenceSheetBody({
+  detail,
+  selection,
+  onFocusEvidence,
+  labels,
+}: {
+  detail: CheckInDetailT;
+  selection: Extract<Selection, { kind: "field" }>;
+  onFocusEvidence: (e: Evidence) => void;
+  labels: CheckInDetailR3["labels"];
+}) {
+  const plain = fieldLabel(selection.field, labels);
+  const evidence = selectionEvidence(selection, detail);
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>
+          Evidence for {plain}{" "}
+          <span className="font-mono text-caption font-normal text-muted-foreground">
+            ({selection.field})
+          </span>
+        </SheetTitle>
+        <SheetDescription>
+          Where this value came from. Pick a source to highlight it in the answers, vitals and
+          rules.
+        </SheetDescription>
+      </SheetHeader>
+      <SheetBody>
+        <div
+          className="rounded-panel border border-border bg-surface p-2"
+          data-testid="evidence-panel"
+        >
+          <EvidenceList
+            evidence={evidence}
+            detail={detail}
+            onFocusEvidence={onFocusEvidence}
+            compact
+          />
+        </div>
+      </SheetBody>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+
+/** A running or stopped 24-hour clock as one badge: "SAE report due · 22h 25m left". */
+function ClockPill({ clock }: { clock: ClockRow }) {
+  const running = clock.stopped_at === null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  const kind = clockKind(clock);
+  if (!running) {
+    return <Badge kind="clock-stopped" size="sm" label={`${clockChip(kind)} clock stopped`} />;
+  }
+  const remaining = secondsUntil(clock.due_at, now) ?? clock.seconds_remaining;
+  const overdue = remaining !== null && remaining < 0;
+  return (
+    <Badge
+      kind={kind === "aesi" ? "aesi" : "sae-clock"}
+      size="sm"
+      label={kind === "aesi" ? "AESI report due" : "SAE report due"}
+      detail={
+        overdue ? `overdue ${formatCountdown(remaining)}` : `${formatCountdown(remaining)} left`
+      }
+      title={`${clockName(kind)} within 24 hours of the site knowing`}
+    />
   );
 }
 
 function Header({
   detail,
+  role,
+  remaining,
+  bulkBusy,
+  onConfirmRemaining,
   onReload,
   loading,
+  labelMode,
+  onLabelMode,
+  onClockStopped,
 }: {
   detail: CheckInDetailT;
+  role: ReturnType<typeof useAuth>["role"];
+  remaining: number;
+  bulkBusy: boolean;
+  onConfirmRemaining: () => void;
   onReload: () => void;
   loading: boolean;
+  labelMode: "plain" | "codes";
+  onLabelMode: (m: "plain" | "codes") => void;
+  onClockStopped: () => void;
 }) {
   const s = detail.session;
   const p = detail.participant;
   const tier = detail.result?.escalation_tier ?? s?.tier ?? null;
   const r3 = detail as unknown as CheckInDetailR3;
   const consentBasis = r3.session?.consent_basis;
-  const runningClocks = clocksOf(r3).filter((c) => c.stopped_at === null);
+  const allClocks = clocksOf(r3);
+  const runningClocks = allClocks.filter((c) => c.stopped_at === null);
   // Same derivation as the Vitals card, so header and card never disagree
   // (the summary is null when no sample was usable, but the samples still
   // carry their own is_measured / source).
   const vitals = vitalsProvenance(detail);
+  const tierKind = tierBadgeKind(tier);
+  const hasAeDraft = (detail.drafts ?? []).some(
+    (d) => d.domain === "AE" && d.status !== "rejected" && d.status !== "superseded",
+  );
   return (
-    <header className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="text-xs text-slate-500">
-          <Link to="/dashboard" className="text-brand-700 underline">
-            Queue
-          </Link>
-          <span aria-hidden="true"> / </span>
-          check-in <span className="font-mono">{s?.id}</span>
+    <header className="space-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <nav aria-label="Breadcrumb" className="text-caption text-subtle-foreground">
+            <Link to="/dashboard" className="text-primary underline">
+              Queue
+            </Link>
+            <span aria-hidden="true"> / </span>
+            check-in <span className="font-mono">{s?.id}</span>
+          </nav>
         </div>
-        <h1 className="mt-0.5 flex flex-wrap items-center gap-2 text-2xl font-bold text-slate-900">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <SegmentedControl
+            label="Field labels"
+            size="sm"
+            value={labelMode}
+            onValueChange={onLabelMode}
+            options={[
+              { value: "plain", label: "Plain" },
+              { value: "codes", label: "Codes" },
+            ]}
+          />
+          {s?.usubjid && (
+            <Button asChild size="sm" variant="secondary">
+              <Link to={briefPath(s.usubjid)}>Visit brief</Link>
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" onClick={onReload} loading={loading}>
+            Refresh
+          </Button>
+          {role !== null && remaining > 0 && (
+            <Button
+              size="sm"
+              variant="primary"
+              loading={bulkBusy}
+              onClick={onConfirmRemaining}
+              title="Confirm every draft that is still waiting; each is its own audit event"
+            >
+              Confirm remaining ({remaining})
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h1 className="flex flex-wrap items-center gap-2 text-page font-semibold text-foreground">
           <Link
             to={`/dashboard/participants/${encodeURIComponent(s?.usubjid ?? "")}`}
             className="hover:underline"
@@ -294,59 +673,62 @@ function Header({
           >
             {p?.display_label ?? s?.usubjid ?? "Participant"}
           </Link>
-          <TierChip tier={tier} />
-          {s?.is_eval && (
-            <span className="rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
-              eval session
-            </span>
+          {tierKind && (
+            <Badge
+              kind={tierKind}
+              size="md"
+              title={tier !== null ? `Alert level: ${tierName(tier)}` : undefined}
+            />
           )}
-          {vitals.hasSamples && (
-            <MeasuredBadge isMeasured={vitals.isMeasured} source={vitals.source} size="md" />
-          )}
+          {s?.is_eval && <Badge kind="neutral" size="sm" label="eval session" />}
+          {vitals.hasSamples && <Prov isMeasured={vitals.isMeasured} source={vitals.source} />}
         </h1>
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-slate-600">
-          <span>
-            Started <Time iso={s?.started_at} />
-          </span>
-          <span>
-            Completed <Time iso={s?.completed_at} fallback="not completed" />
-          </span>
-          <span title={tier !== null ? `Alert level: ${tierName(tier)}` : undefined}>
-            {consentBasis === "enrollment_icf" || consentBasis
-              ? `Consent: enrollment consent form${s?.consent_camera === false ? " · camera off" : ""}`
-              : `Camera: ${s?.consent_camera ? "on" : "off"}`}
-          </span>
-          <span>
-            Vitals:{" "}
-            {vitalsStatusLabel(
-              detail.result?.vitals?.status ?? detail.vitals?.status ?? s?.vitals_status,
+        {allClocks.map((c) => (
+          <span key={c.id} className="flex items-center gap-1">
+            <ClockPill clock={c} />
+            {c.stopped_at === null && (
+              <ClockActions
+                packetOnly
+                compact
+                clock={c}
+                role={role}
+                hasAeDraft={c.has_ae_draft ?? hasAeDraft}
+                onStopped={onClockStopped}
+              />
             )}
           </span>
-          {s?.stop_screen_shown && (
-            <span className="font-medium text-red-700">Stop screen was shown</span>
-          )}
-          <span className="text-violet-800">Participant is synthetic</span>
-          {runningClocks.length > 0 && (
-            <span className="font-medium text-red-700">
-              {runningClocks.length === 1
-                ? "A 24-hour report clock is running"
-                : `${runningClocks.length} 24-hour report clocks are running`}
-            </span>
-          )}
-        </div>
+        ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {s?.usubjid && (
-          <Link
-            to={briefPath(s.usubjid)}
-            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus-visible:ring-4"
-          >
-            Visit brief
-          </Link>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-caption text-muted-foreground">
+        <span>
+          Received <Time iso={s?.completed_at ?? s?.started_at} />
+        </span>
+        <span>
+          Started <Time iso={s?.started_at} />
+        </span>
+        <span title={tier !== null ? `Alert level: ${tierName(tier)}` : undefined}>
+          {consentBasis === "enrollment_icf" || consentBasis
+            ? `Consent: enrollment consent form${s?.consent_camera === false ? " · camera off" : ""}`
+            : `Camera: ${s?.consent_camera ? "on" : "off"}`}
+        </span>
+        <span>
+          Vitals:{" "}
+          {vitalsStatusLabel(
+            detail.result?.vitals?.status ?? detail.vitals?.status ?? s?.vitals_status,
+          )}
+        </span>
+        {s?.stop_screen_shown && (
+          <span className="font-medium text-danger-fg">Stop screen was shown</span>
         )}
-        <Button size="sm" variant="secondary" onClick={onReload} busy={loading}>
-          Refresh
-        </Button>
+        <span>Participant is synthetic</span>
+        {runningClocks.length > 0 && (
+          <span className="font-medium text-danger-fg">
+            {runningClocks.length === 1
+              ? "A 24-hour report clock is running"
+              : `${runningClocks.length} 24-hour report clocks are running`}
+          </span>
+        )}
       </div>
     </header>
   );

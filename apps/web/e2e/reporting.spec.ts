@@ -78,7 +78,7 @@ async function clocks(request: APIRequestContext, active = "all"): Promise<Clock
 async function login(browser: Browser, role: Role): Promise<Page> {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
-  await page.goto(`${WEB}/`);
+  await page.goto(`${WEB}/login`);
   await page.locator(`button[data-role="${role}"]`).click();
   await page.locator("#password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -209,7 +209,8 @@ async function packetWalkthrough(
   await expect(inv.getByTestId("deadline")).toContainText("left");
   await inv.getByRole("button", { name: "Sign", exact: true }).click();
   const confirm = inv.getByTestId("sign-confirm");
-  await confirm.getByRole("checkbox").check();
+  // Reviewed, plus "Not available" for every open information item.
+  for (const box of await confirm.getByRole("checkbox").all()) await box.check();
   await confirm.getByRole("button", { name: "Yes, sign the report" }).click();
   await expect(inv.getByTestId("status-label")).toContainText(/signed/i);
   await expect(inv.getByTestId("deadline")).toContainText("Reported (mock)");
@@ -314,7 +315,10 @@ test("step 6b: seriousness decision for a clock with no AE draft", async ({ brow
   await form.getByRole("button", { name: "Continue" }).click();
   await expect(inv.getByTestId("decision-confirm")).toContainText(clock!.usubjid);
   await form.getByRole("button", { name: "Yes, record decision" }).click();
-  await expect(inv.getByText("Seriousness decision recorded", { exact: true })).toBeVisible();
+  // The toast title is preceded by a screen-reader tone word ("Success: "), so match the toast.
+  await expect(
+    inv.getByRole("status").filter({ hasText: "Seriousness decision recorded" }),
+  ).toBeVisible();
   const after = (await clocks(request)).find((c) => c.id === clock!.id);
   expect(after?.stopped_at).toBeTruthy();
   expect(after?.decision).toBeTruthy();

@@ -12,6 +12,7 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { PageHead } from "./admin/SysUI";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { getAdminSettings } from "../lib/api";
 import { ROLE_LABELS, useAuth } from "../lib/auth";
@@ -28,13 +29,13 @@ export function Admin() {
   if (role !== "admin") {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Admin only (403)</h1>
-        <p className="mt-2 text-slate-600">
+        <h1 className="text-page font-semibold text-foreground">Admin only (403)</h1>
+        <p className="mt-2 text-muted-foreground">
           You are signed in as <strong>{role ? ROLE_LABELS[role] : "nobody"}</strong>. This page
           needs the {ROLE_LABELS.admin} role; the API refuses settings changes from other roles too.
         </p>
         <p className="mt-6">
-          <Link to="/dashboard" className="text-brand-700 underline">
+          <Link to="/dashboard" className="text-primary underline">
             Back to the dashboard
           </Link>
         </p>
@@ -78,21 +79,15 @@ function AdminPanel() {
   }, [reloadSettings]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Operator controls for the demo. Every change here is an audited event; none of it touches
-          a provisional grade.
-        </p>
-        <p className="mt-1 text-sm text-slate-600">
-          The persona evaluation (CLAUDE.md §8) runs from the{" "}
-          <Link to="/dashboard/eval" className="text-brand-700 underline">
-            Eval page
-          </Link>
-          , where a judge can also edit a persona and watch the outputs change.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <PageHead title="Admin">
+        Operator controls for the demo. Every change here is an audited event; none of it touches a
+        provisional grade. The persona evaluation (CLAUDE.md §8) runs from the{" "}
+        <Link to="/dashboard/eval" className="text-primary underline underline-offset-2">
+          Eval page
+        </Link>
+        , where a judge can also edit a persona and watch the outputs change.
+      </PageHead>
 
       {settings.error ? (
         <ErrorBanner
@@ -107,7 +102,7 @@ function AdminPanel() {
           notifyBridgeScenario={bridge.setScenario}
         />
       ) : (
-        <p className="text-sm text-slate-500" role="status">
+        <p className="text-table text-muted-foreground" role="status">
           Loading settings…
         </p>
       )}

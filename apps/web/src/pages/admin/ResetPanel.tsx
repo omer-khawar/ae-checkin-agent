@@ -12,8 +12,8 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "../../components/Button";
-import { Card } from "../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { useToast } from "../../components/Toast";
 import { adminReset } from "../../lib/api";
@@ -75,7 +75,7 @@ export function ResetPanel({ onReset }: ResetPanelProps) {
 
   return (
     <Card title="Demo data">
-      <p className="text-sm text-slate-700">
+      <p className="text-table text-foreground">
         Wipes every table (sessions, answers, vitals, drafts, escalations, SAE clocks, audit chain),
         reseeds the 12 synthetic participants with their backdated history, and starts a new audit
         chain with a fresh genesis event. All participants are synthetic; there is no real data to
@@ -87,27 +87,27 @@ export function ResetPanel({ onReset }: ResetPanelProps) {
           <Button ref={triggerRef} variant="danger" onClick={() => setConfirming(true)}>
             Reset demo data…
           </Button>
-          <span className="text-xs text-slate-500">
-            POST /api/v1/admin/reset · admin only · audited as demo.reset
+          <span className="text-caption text-muted-foreground">
+            Requires ALLOW_DEMO_RESET on the API · admin only · audited as demo.reset
           </span>
         </div>
       ) : (
         <div
           role="group"
           aria-labelledby="reset-confirm-title"
-          className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3"
+          className="mt-3 rounded-panel border border-danger-border bg-danger-bg p-3"
         >
-          <div id="reset-confirm-title" className="font-semibold text-red-900">
+          <div id="reset-confirm-title" className="font-semibold text-danger-fg">
             Reset and reseed the demo database now?
           </div>
-          <p className="mt-1 text-sm text-red-900/90">
+          <p className="mt-1 text-table text-danger-fg">
             This cannot be undone. The current audit chain is replaced; exports made before the
             reset will not verify against the new chain.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               ref={confirmRef}
-              variant="danger"
+              variant="destructive"
               busy={busy}
               onClick={() => void run()}
               autoFocus

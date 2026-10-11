@@ -43,6 +43,10 @@ export interface ClockActionsProps {
   className?: string;
   /** Compact layout for table cells. */
   compact?: boolean;
+  /** Only the "Open report packet" button (the page header); no seriousness-decision form. */
+  packetOnly?: boolean;
+  /** Everything except the "Open report packet" button (the clock box, when the header has it). */
+  hidePacket?: boolean;
 }
 
 export function ClockActions({
@@ -52,6 +56,8 @@ export function ClockActions({
   onStopped,
   className,
   compact,
+  packetOnly,
+  hidePacket,
 }: ClockActionsProps) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -77,26 +83,28 @@ export function ClockActions({
     }
   };
 
-  const showDecision = canRecordDecision(clock, role, hasAeDraft);
+  const showDecision = !packetOnly && canRecordDecision(clock, role, hasAeDraft);
 
   return (
     <div className={cx("space-y-2", className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="primary"
-          busy={opening}
-          onClick={() => void open()}
-          title={`Pre-filled ${clockChip(kind)} report: fields with evidence, missing information, draft narrative`}
-        >
-          Open report packet
-        </Button>
-        {!compact && (
-          <span className="text-xs text-slate-600">
-            Pre-filled from the evidence; the investigator reviews and signs.
-          </span>
-        )}
-      </div>
+      {!hidePacket && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="primary"
+            busy={opening}
+            onClick={() => void open()}
+            title={`Pre-filled ${clockChip(kind)} report: fields with evidence, missing information, draft narrative`}
+          >
+            Open report packet
+          </Button>
+          {!compact && (
+            <span className="text-xs text-slate-600">
+              Pre-filled from the evidence; the investigator reviews and signs.
+            </span>
+          )}
+        </div>
+      )}
       <ErrorBanner error={openError} message="Could not open the report packet" />
       {showDecision && (
         <DecisionForm
@@ -196,7 +204,7 @@ function DecisionForm({
           <fieldset>
             <legend className="text-sm font-semibold text-slate-900">
               Is this a serious event?{" "}
-              <span className="rounded bg-white px-1 font-mono text-[10px] font-normal text-slate-600">
+              <span className="rounded bg-white px-1 font-mono text-caption font-normal text-slate-600">
                 AESER
               </span>
             </legend>

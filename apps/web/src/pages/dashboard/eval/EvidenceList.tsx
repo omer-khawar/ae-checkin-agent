@@ -42,7 +42,7 @@ export function InputChips({
       {entries.map(([k, v]) => (
         <li
           key={k}
-          className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-800"
+          className="rounded border border-border bg-surface-subtle px-1.5 py-0.5 font-mono text-caption text-foreground"
         >
           {k}: {formatInputValue(v)}
         </li>
@@ -64,19 +64,19 @@ export function EvidenceList({
   const list = evidence ?? [];
   if (list.length === 0) return null;
   return (
-    <details className={className ?? "mt-1 text-xs text-slate-700"}>
+    <details className={className ?? "mt-1 text-caption text-foreground"}>
       <summary className="cursor-pointer">
         {summary ?? `${list.length} evidence pointer${list.length === 1 ? "" : "s"}`}
       </summary>
       <ul className="mt-1 space-y-1 pl-1">
         {list.map((e, i) => (
           <li key={`${e.id}-${i}`} className="flex flex-wrap items-baseline gap-x-2">
-            <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wide text-slate-700">
+            <span className="rounded bg-surface-subtle px-1 py-0.5 font-mono text-caption uppercase tracking-wide text-foreground">
               {e.kind}
             </span>
-            <span className="text-slate-900">{e.note}</span>
-            {e.ts && <Time iso={e.ts} style="time" className="text-slate-500" />}
-            <span className="font-mono text-[10px] text-slate-500">{e.id}</span>
+            <span className="text-foreground">{e.note}</span>
+            {e.ts && <Time iso={e.ts} style="time" className="text-muted-foreground" />}
+            <span className="font-mono text-caption text-muted-foreground">{e.id}</span>
           </li>
         ))}
       </ul>

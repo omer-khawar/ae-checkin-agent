@@ -14,20 +14,21 @@
  * Roles: coordinator, investigator and admin can answer; admin, acting as the
  * sponsor's monitor, can also raise and close queries. The API enforces this.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { Pagination } from "../../../components/Pagination";
 import { DEFAULT_PAGE_SIZE, getQueryCounts, listQueries } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
-import { cx } from "../../../lib/format";
 import { AGE_ALERT_HOURS, STATUS_LABELS } from "./model";
 import { QueriesTable } from "./QueriesTable";
 import { QueryPanel } from "./QueryPanel";
 import { RaiseQueryForm } from "./RaiseQueryForm";
+import { Button } from "@/ui/button";
+import { isTypingTarget } from "@/ui/keyboard";
+import { SegmentedControl } from "@/ui/segmented-control";
+import { Sheet, SheetContent } from "@/ui/sheet";
 import type { QueriesPage as QueriesPageData, QueryCounts, QueryStatus } from "../../../lib/types";
 
 const TABS: QueryStatus[] = ["open", "answered", "closed"];
@@ -69,7 +70,6 @@ export default function QueriesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [raising, setRaising] = useState(false);
   const nowMs = useMinuteClock();
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const updateParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -127,27 +127,44 @@ export default function QueriesPage() {
     updateParams({ status: t, q: null });
   }
 
-  function onTabKey(e: KeyboardEvent<HTMLButtonElement>, i: number) {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    e.preventDefault();
-    const next = (i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length;
-    selectTab(TABS[next]);
-    tabRefs.current[next]?.focus();
-  }
-
   const rows = page?.items ?? [];
+
+  /** The next open query after the selected one (wraps to the first); null when none. */
+  const nextOpenId = (() => {
+    const open = rows.filter((r) => r.status === "open");
+    if (open.length === 0) return null;
+    const at = open.findIndex((r) => r.id === selectedId);
+    const next = open[(at + 1) % open.length];
+    return next && next.id !== selectedId ? next.id : null;
+  })();
+
+  const goNext = useCallback(() => {
+    if (nextOpenId) updateParams({ q: nextOpenId });
+  }, [nextOpenId, updateParams]);
+
+  // "]" jumps to the next open query while the panel is open and nobody is typing.
+  useEffect(() => {
+    if (!selectedId) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key !== "]" || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+      e.preventDefault();
+      goNext();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, goNext]);
 
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-slate-900">Sponsor queries</h1>
-          <p className="mt-1 max-w-3xl text-sm text-slate-600">
+          <h1 className="text-page font-semibold text-foreground">Sponsor queries</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
             A query is a question the drug company sends back about a record the site entered, such
             as a missing dose or dates that do not add up; the site answers it and, if needed,
             corrects the record.
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Ages turn red once an open query has waited more than {AGE_ALERT_HOURS} hours. Suggested
             answers are drafted from the record's evidence; a person reviews and sends every answer.
           </p>
@@ -158,7 +175,7 @@ export default function QueriesPage() {
       </header>
 
       {usubjid && (
-        <div className="flex items-center gap-2 text-sm text-slate-700">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
             Showing one participant only: <span className="font-mono text-xs">{usubjid}</span>
           </span>
@@ -187,63 +204,33 @@ export default function QueriesPage() {
         />
       )}
 
-      <div
-        role="tablist"
-        aria-label="Query status"
-        className="flex gap-1 border-b border-slate-200"
-      >
-        {TABS.map((t, i) => {
-          const active = t === status;
-          return (
-            <button
-              key={t}
-              ref={(el) => {
-                tabRefs.current[i] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`query-tab-${t}`}
-              aria-selected={active}
-              aria-controls="query-tabpanel"
-              tabIndex={active ? 0 : -1}
-              onClick={() => selectTab(t)}
-              onKeyDown={(e) => onTabKey(e, i)}
-              className={cx(
-                "-mb-px rounded-t-lg border-b-2 px-4 py-2 text-sm font-medium focus-visible:ring-2",
-                active
-                  ? "border-brand-700 text-brand-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900",
-              )}
-            >
-              {STATUS_LABELS[t]}
-              <span
-                className="tnum ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
-                data-testid={`count-${t}`}
-              >
-                {counts ? counts[t] : "–"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <SegmentedControl
+        label="Query status"
+        value={status}
+        onValueChange={selectTab}
+        options={TABS.map((t) => ({
+          value: t,
+          label: STATUS_LABELS[t],
+          accessory: (
+            <span className="tabular text-caption text-muted-foreground" data-testid={`count-${t}`}>
+              {counts ? counts[t] : "–"}
+            </span>
+          ),
+        }))}
+      />
 
-      <div
-        id="query-tabpanel"
-        role="tabpanel"
-        aria-labelledby={`query-tab-${status}`}
-        className={cx("grid gap-4", selectedId && "xl:grid-cols-[minmax(0,1fr)_30rem]")}
-      >
-        <Card flush>
+      <div id="query-tabpanel">
+        <div className="overflow-hidden rounded-panel border border-border bg-surface">
           {error ? (
             <div className="p-4">
               <ErrorBanner error={error} message="Could not load queries" onRetry={reload} />
             </div>
           ) : loading && !page ? (
-            <p className="p-4 text-sm text-slate-500" role="status">
+            <p className="p-4 text-sm text-muted-foreground" role="status">
               Loading queries…
             </p>
           ) : rows.length === 0 ? (
-            <p className="p-6 text-center text-sm text-slate-600">{EMPTY_TEXT[status]}</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">{EMPTY_TEXT[status]}</p>
           ) : (
             <>
               <QueriesTable
@@ -253,7 +240,7 @@ export default function QueriesPage() {
                 nowMs={nowMs}
               />
               {page && page.total > page.limit && (
-                <div className="border-t border-slate-200 p-3">
+                <div className="border-t border-border p-3">
                   <Pagination
                     total={page.total}
                     limit={page.limit}
@@ -264,18 +251,23 @@ export default function QueriesPage() {
               )}
             </>
           )}
-        </Card>
+        </div>
 
-        {selectedId && (
-          <QueryPanel
-            key={selectedId}
-            queryId={selectedId}
-            role={role}
-            nowMs={nowMs}
-            onChanged={reload}
-            onDismiss={() => updateParams({ q: null })}
-          />
-        )}
+        <Sheet open={Boolean(selectedId)} onOpenChange={(o) => !o && updateParams({ q: null })}>
+          <SheetContent size="lg">
+            {selectedId && (
+              <QueryPanel
+                key={selectedId}
+                queryId={selectedId}
+                role={role}
+                nowMs={nowMs}
+                onChanged={reload}
+                onDismiss={() => updateParams({ q: null })}
+                onNext={nextOpenId ? goNext : null}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

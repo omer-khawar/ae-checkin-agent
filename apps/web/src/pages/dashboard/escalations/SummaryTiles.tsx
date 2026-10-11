@@ -37,19 +37,21 @@ const NOT_LOADED_DETAIL = "could not load";
 
 function Tile({ label, value, detail, how, tone = "default" }: TileProps) {
   return (
-    <Card className="min-w-0">
+    <Card className="min-w-0 p-0">
       <dl className="m-0">
         <div className="flex flex-col gap-1" title={how}>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</dt>
+          <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </dt>
           <dd
             className={cx(
-              "tnum text-3xl font-bold",
-              tone === "alert" ? "text-red-700" : "text-slate-900",
+              "tabular text-display font-bold",
+              tone === "alert" ? "text-danger-fg" : "text-foreground",
             )}
           >
             {value}
           </dd>
-          <dd className="text-sm text-slate-600">{detail}</dd>
+          <dd className="text-table text-muted-foreground">{detail}</dd>
           <dd className="sr-only">{how}</dd>
         </div>
       </dl>
@@ -66,7 +68,7 @@ export function SummaryTiles({ escalations, clocks, pages, nowMs }: SummaryTiles
   const overdue = active ? active.filter((c) => isOverdue(c, nowMs)).length : 0;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Tile
         label="Open escalations"
         value={open === null ? NOT_LOADED : String(open)}

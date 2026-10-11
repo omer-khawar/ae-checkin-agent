@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 
-import { Card } from "../../../components/Card";
+import { BriefPanel as Card } from "./BriefPanel";
 import { cx } from "../../../lib/format";
 import { EvidenceChips } from "./EvidenceChips";
 import { cites, QUESTION_KIND_LABELS } from "./model";
@@ -40,14 +40,14 @@ export function QuestionsChecklist({
     <Card
       title="Questions to ask at the visit"
       aside={
-        <span className="tnum text-xs text-slate-600">
+        <span className="tabular text-caption text-muted-foreground">
           {ticked.size}/{questions.length} done
         </span>
       }
       className="break-inside-avoid print:shadow-none"
     >
       {questions.length === 0 ? (
-        <p className="text-sm text-slate-600">No open questions for this visit.</p>
+        <p className="text-table text-muted-foreground">No open questions for this visit.</p>
       ) : (
         <ul className="space-y-2">
           {questions.map((q, i) => {
@@ -59,11 +59,9 @@ export function QuestionsChecklist({
                 key={`${i}-${q.text}`}
                 data-cited={hit ? "true" : undefined}
                 className={cx(
-                  "flex items-start gap-3 rounded-xl border px-3 py-2",
-                  hit
-                    ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/40"
-                    : "border-slate-200",
-                  "print:border-slate-300 print:bg-white print:ring-0",
+                  "flex items-start gap-3 rounded-panel border px-3 py-2",
+                  hit ? "border-primary bg-accent ring-2 ring-ring/40" : "border-border",
+                  "print:border-border-strong print:bg-surface print:ring-0",
                 )}
               >
                 <input
@@ -71,18 +69,18 @@ export function QuestionsChecklist({
                   type="checkbox"
                   checked={ticked.has(i)}
                   onChange={() => toggle(i)}
-                  className="mt-1 h-5 w-5 shrink-0 rounded border-slate-400 text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500"
+                  className="mt-1 h-5 w-5 shrink-0 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <div className="min-w-0 flex-1">
                   <label
                     htmlFor={id}
                     className={cx(
-                      "block cursor-pointer text-sm leading-6 text-slate-900",
-                      ticked.has(i) && "text-slate-500 line-through",
+                      "block cursor-pointer text-table leading-6 text-foreground",
+                      ticked.has(i) && "text-muted-foreground line-through",
                     )}
                   >
                     {kindLabel && (
-                      <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700 no-underline">
+                      <span className="mr-2 rounded bg-surface-subtle px-1.5 py-0.5 text-caption font-medium text-muted-foreground no-underline">
                         {kindLabel}
                       </span>
                     )}
@@ -104,7 +102,7 @@ export function QuestionsChecklist({
           })}
         </ul>
       )}
-      <p className="mt-3 text-xs text-slate-500 print:hidden">
+      <p className="mt-3 text-caption text-muted-foreground print:hidden">
         Ticks stay on this screen only; they are not saved to the record.
       </p>
     </Card>

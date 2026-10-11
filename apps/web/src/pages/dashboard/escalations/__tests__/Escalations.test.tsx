@@ -13,6 +13,7 @@ import { resetAuthCache } from "../../../../lib/auth";
 import type { ClockRow, EscalationRow, PageEventRow, Paginated, Role } from "../../../../lib/types";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import { Escalations } from "../../Escalations";
+import { Toaster } from "@/ui/toaster";
 
 const SESSION_A = "01JSESSION00000000000000AA";
 const SESSION_B = "01JSESSION00000000000000BB";
@@ -248,6 +249,7 @@ function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/dashboard/escalations"]}>
       <ToastProvider>
+        <Toaster />
         <Routes>
           <Route path="/dashboard/escalations" element={<Escalations />} />
         </Routes>
@@ -278,10 +280,12 @@ describe("Escalations page", () => {
     expect(mock.find("GET", "/api/v1/sae-clocks")).toHaveLength(2);
 
     // Escalations table: "Open" filter is the default → two rows, tier 3 first.
-    const rows = document.querySelectorAll("tr[data-escalation-id]");
+    const rows = document.querySelectorAll(
+      '[data-testid="escalations-table"] tbody tr[data-row-id]',
+    );
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveAttribute("data-escalation-id", ESCALATIONS[0].id);
-    expect(within(rows[0] as HTMLElement).getByText("Urgent")).toBeInTheDocument();
+    expect(rows[0]).toHaveAttribute("data-row-id", ESCALATIONS[0].id);
+    expect(within(rows[0] as HTMLElement).getByText(/Urgent/)).toBeInTheDocument();
     expect(
       within(rows[0] as HTMLElement).getByText("tachypnea corroborates reported dyspnea"),
     ).toBeInTheDocument();
@@ -301,18 +305,20 @@ describe("Escalations page", () => {
     ).toHaveAttribute("href", `/dashboard/checkins/${SESSION_A}`);
 
     // SAE clocks: active first (overdue one is due earliest), stopped last.
-    const clockRows = document.querySelectorAll("tr[data-sae-clock-id]");
+    const clockRows = document.querySelectorAll(
+      '[data-testid="clocks-table"] tbody tr[data-row-id]',
+    );
     expect(clockRows).toHaveLength(3);
-    expect(clockRows[0]).toHaveAttribute("data-sae-clock-id", "01JSAE0000000000000000000C");
+    expect(clockRows[0]).toHaveAttribute("data-row-id", "01JSAE0000000000000000000C");
     expect(within(clockRows[0] as HTMLElement).getByText("Overdue")).toBeInTheDocument();
-    expect(clockRows[1]).toHaveAttribute("data-sae-clock-id", "01JSAE0000000000000000000A");
+    expect(clockRows[1]).toHaveAttribute("data-row-id", "01JSAE0000000000000000000A");
     expect(
       within(clockRows[1] as HTMLElement).getByText(/^(59m \d{2}s|1h 00m)$/),
     ).toBeInTheDocument();
     expect(
       within(clockRows[1] as HTMLElement).getByText("Sponsor 7-day (fatal or life-threatening)"),
     ).toBeInTheDocument();
-    expect(clockRows[2]).toHaveAttribute("data-active", "false");
+    expect(within(clockRows[2] as HTMLElement).getByText(/Stopped by/)).toBeInTheDocument();
     expect(within(clockRows[2] as HTMLElement).getByText("AESER=Y")).toBeInTheDocument();
     expect(within(clockRows[2] as HTMLElement).queryByText("Overdue")).not.toBeInTheDocument();
     expect(
@@ -320,7 +326,7 @@ describe("Escalations page", () => {
     ).toBe(3);
 
     // Pager log rows carry the word Simulated.
-    const pageRows = document.querySelectorAll("tr[data-page-id]");
+    const pageRows = document.querySelectorAll('[data-testid="pager-table"] tbody tr[data-row-id]');
     expect(pageRows).toHaveLength(1);
     expect(within(pageRows[0] as HTMLElement).getByText("Simulated")).toBeInTheDocument();
     expect(within(pageRows[0] as HTMLElement).getByText(/URGENT: tier 3/)).toBeInTheDocument();
@@ -333,17 +339,17 @@ describe("Escalations page", () => {
     const user = userEvent.setup();
     await screen.findByText("Open escalations");
 
-    await user.click(screen.getByRole("button", { name: /Acknowledged \(1\)/ }));
-    let rows = document.querySelectorAll("tr[data-escalation-id]");
+    await user.click(screen.getByRole("radio", { name: /Acknowledged \(1\)/ }));
+    let rows = document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]');
     expect(rows).toHaveLength(1);
     expect(within(rows[0] as HTMLElement).getByText("coordinator")).toBeInTheDocument();
     expect(within(rows[0] as HTMLElement).getByText("12m 30s")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /All \(3\)/ }));
-    rows = document.querySelectorAll("tr[data-escalation-id]");
+    await user.click(screen.getByRole("radio", { name: /All \(3\)/ }));
+    rows = document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]');
     expect(rows).toHaveLength(3);
-    expect(screen.getByRole("button", { name: /All \(3\)/ })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("radio", { name: /All \(3\)/ })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
   });
@@ -366,7 +372,9 @@ describe("Escalations page", () => {
 
     // Row left the "Open" filter; tile now says 1 open.
     await waitFor(() =>
-      expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(1),
+      expect(
+        document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+      ).toHaveLength(1),
     );
     expect(
       screen
@@ -380,9 +388,9 @@ describe("Escalations page", () => {
     expect(screen.getByText(/escalation\.acked by coordinator/)).toBeInTheDocument();
 
     // Under "All", the acknowledged row still shows its check-in link (source kept).
-    await user.click(screen.getByRole("button", { name: /All \(3\)/ }));
-    const row = document.querySelector(`tr[data-escalation-id="${ESCALATIONS[0].id}"]`);
-    expect(row).toHaveAttribute("data-acked", "true");
+    await user.click(screen.getByRole("radio", { name: /All \(3\)/ }));
+    const row = document.querySelector(`tr[data-row-id="${ESCALATIONS[0].id}"]`);
+    expect(within(row as HTMLElement).getByText("coordinator")).toBeInTheDocument();
     expect(
       within(row as HTMLElement).getByRole("link", { name: "open check-in" }),
     ).toBeInTheDocument();
@@ -400,11 +408,13 @@ describe("Escalations page", () => {
     );
     expect(await screen.findByText("Could not acknowledge")).toBeInTheDocument();
     expect(screen.getAllByText(/role not allowed/).length).toBeGreaterThanOrEqual(1);
-    expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(2);
+    expect(
+      document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(2);
   });
 
-  it("shows a visible read-only note instead of an unfocusable disabled button for investigators", async () => {
-    signIn("investigator");
+  it("shows a visible read-only note instead of an unfocusable disabled button for admin (non-clinical)", async () => {
+    signIn("admin");
     installMockFetch(routes());
     renderPage();
     await screen.findByText("Open escalations");
@@ -416,11 +426,22 @@ describe("Escalations page", () => {
     // ... and the explanation is visible text in every open row.
     const notes = screen.getAllByTestId("ack-read-only");
     expect(notes).toHaveLength(2);
-    expect(notes[0]).toHaveTextContent(/Coordinator acknowledges/);
+    expect(notes[0]).toHaveTextContent(/Coordinator or investigator acknowledges/);
     expect(notes[0]).toHaveTextContent(/read-only/);
     // Acknowledged rows carry neither the button nor the note.
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Acknowledged \(1\)/ }));
+    await user.click(screen.getByRole("radio", { name: /Acknowledged \(1\)/ }));
+    expect(screen.queryByTestId("ack-read-only")).not.toBeInTheDocument();
+  });
+
+  it("lets an investigator acknowledge", async () => {
+    signIn("investigator");
+    installMockFetch(routes());
+    renderPage();
+    await screen.findByText("Open escalations");
+    expect(
+      screen.getByRole("button", { name: "Acknowledge escalation for R2810-ONC-1624-P-007" }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("ack-read-only")).not.toBeInTheDocument();
   });
 
@@ -449,7 +470,9 @@ describe("Escalations page", () => {
     await screen.findByText("Open escalations");
 
     await waitFor(() =>
-      expect(document.querySelectorAll("tr[data-sae-clock-id]")).toHaveLength(115),
+      expect(
+        document.querySelectorAll('[data-testid="clocks-table"] tbody tr[data-row-id]'),
+      ).toHaveLength(115),
     );
     // The mock caps pages at 50, so each variant needed two pages: 4 calls in all.
     const calls = mock.calls.filter((c) => c.path === "/api/v1/sae-clocks");
@@ -478,7 +501,9 @@ describe("Escalations page", () => {
     const mock = installMockFetch(routes({ bareClockArray: true }));
     renderPage();
     await screen.findByText("Open escalations");
-    expect(document.querySelectorAll("tr[data-sae-clock-id]")).toHaveLength(3);
+    expect(
+      document.querySelectorAll('[data-testid="clocks-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(3);
     expect(mock.find("GET", "/api/v1/sae-clocks")).toHaveLength(2);
   });
 
@@ -507,12 +532,16 @@ describe("Escalations page", () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText("Open escalations");
-    expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(25);
+    expect(
+      document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(25);
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    const page2 = document.querySelectorAll("tr[data-escalation-id]");
+    const page2 = document.querySelectorAll(
+      '[data-testid="escalations-table"] tbody tr[data-row-id]',
+    );
     expect(page2).toHaveLength(1);
-    const lastId = page2[0].getAttribute("data-escalation-id") as string;
+    const lastId = page2[0].getAttribute("data-row-id") as string;
 
     await user.click(screen.getByRole("button", { name: /Acknowledge escalation for/ }));
     await waitFor(() =>
@@ -522,11 +551,13 @@ describe("Escalations page", () => {
     // 25 open rows remain: all of them are on (the now only) page 1, the
     // pagination control is gone, and the empty state is NOT shown.
     await waitFor(() =>
-      expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(25),
+      expect(
+        document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+      ).toHaveLength(25),
     );
     expect(screen.queryByText(/No open escalations/)).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Open \(25\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Open \(25\)/ })).toBeInTheDocument();
   });
 
   it("renders each summary tile as a valid <dl> (no <section> between dl and dt/dd)", async () => {
@@ -572,7 +603,9 @@ describe("Escalations page", () => {
     installMockFetch(routes({ escalations: withProvenance }));
     renderPage();
     await screen.findByText("Open escalations");
-    const rows = document.querySelectorAll("tr[data-escalation-id]");
+    const rows = document.querySelectorAll(
+      '[data-testid="escalations-table"] tbody tr[data-row-id]',
+    );
     expect(within(rows[0] as HTMLElement).getByText("SIMULATED")).toBeInTheDocument();
     expect(within(rows[1] as HTMLElement).getByText("MEASURED")).toBeInTheDocument();
     expect(
@@ -597,8 +630,12 @@ describe("Escalations page", () => {
     await screen.findByText("Open escalations");
 
     // Escalations and SAE clocks render normally ...
-    expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(2);
-    expect(document.querySelectorAll("tr[data-sae-clock-id]")).toHaveLength(3);
+    expect(
+      document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll('[data-testid="clocks-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(3);
     // ... only the pager section carries an alert, with retry ...
     const alerts = screen.getAllByRole("alert");
     expect(alerts).toHaveLength(1);
@@ -626,8 +663,12 @@ describe("Escalations page", () => {
     await screen.findByText("Open escalations");
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(/Could not load SAE clocks/);
-    expect(document.querySelectorAll("tr[data-escalation-id]")).toHaveLength(2);
-    expect(document.querySelectorAll("tr[data-page-id]")).toHaveLength(1);
+    expect(
+      document.querySelectorAll('[data-testid="escalations-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll('[data-testid="pager-table"] tbody tr[data-row-id]'),
+    ).toHaveLength(1);
     expect(
       screen
         .getAllByRole("definition")

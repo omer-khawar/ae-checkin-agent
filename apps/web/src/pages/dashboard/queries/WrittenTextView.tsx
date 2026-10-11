@@ -24,23 +24,25 @@ export function WrittenTextView({
   return (
     <div data-testid="suggested-answer">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 font-medium text-slate-700">
+        <span className="rounded-full border border-border-strong bg-surface-subtle px-2 py-0.5 font-medium text-muted-foreground">
           {writerLabel(written)}
         </span>
         {written.fallback_reason && (
-          <span className="text-amber-800">Template used because: {written.fallback_reason}</span>
+          <span className="text-warning-fg">Template used because: {written.fallback_reason}</span>
         )}
       </div>
       {written.sentences.length === 0 ? (
-        <p className="text-sm text-slate-500">The writer had no facts to cite for this query.</p>
+        <p className="text-sm text-muted-foreground">
+          The writer had no facts to cite for this query.
+        </p>
       ) : (
         <ol className="space-y-2">
           {written.sentences.map((s, i) => (
-            <li key={i} className="text-sm leading-relaxed text-slate-900">
+            <li key={i} className="text-sm leading-relaxed text-foreground">
               <span>{s.text}</span>{" "}
               <span className="inline-flex flex-wrap gap-1 align-middle">
                 {s.evidence_ids.length === 0 ? (
-                  <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-900">
+                  <span className="rounded border border-warning-border bg-warning-bg px-1.5 py-0.5 text-caption text-warning-fg">
                     No evidence cited
                   </span>
                 ) : (

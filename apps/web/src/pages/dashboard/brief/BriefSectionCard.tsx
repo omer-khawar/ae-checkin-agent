@@ -16,7 +16,7 @@
  */
 import { Link } from "react-router-dom";
 
-import { Card } from "../../../components/Card";
+import { BriefPanel as Card } from "./BriefPanel";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { TierChip } from "../../../components/TierChip";
 import { cx, Time } from "../../../lib/format";
@@ -73,7 +73,7 @@ function ItemText({ item }: { item: BriefItem }) {
   const link = safeLink(item.link);
   if (!link) return <span>{item.text}</span>;
   const cls =
-    "rounded text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 print:no-underline";
+    "rounded text-foreground underline decoration-slate-300 underline-offset-2 hover:decoration-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:no-underline";
   if (link.kind === "internal") {
     return (
       <Link to={link.to} className={cls} title="Open the record">
@@ -96,13 +96,13 @@ function TrendChip({ item }: { item: BriefItem }) {
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-caption font-semibold",
         s.cls,
       )}
       title={`${s.label}${path ? ` (${path}, provisional)` : ""}`}
       data-trend={trend.direction}
     >
-      <span aria-hidden="true" className="text-sm leading-none">
+      <span aria-hidden="true" className="text-table leading-none">
         {s.arrow}
       </span>
       <span>{s.label}</span>
@@ -119,7 +119,7 @@ function ProtocolChips({ item, showTechnical }: { item: BriefItem; showTechnical
       {flag && (
         <span
           className={cx(
-            "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
+            "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-caption font-semibold",
             PROTOCOL_FLAG_STYLES[flag].cls,
           )}
           data-protocol-flag={flag}
@@ -130,10 +130,10 @@ function ProtocolChips({ item, showTechnical }: { item: BriefItem; showTechnical
         </span>
       )}
       {item.missing_fields && item.missing_fields.length > 0 && (
-        <span className="text-xs text-slate-700">
+        <span className="text-caption text-muted-foreground">
           Still need: {item.missing_fields.map(plainCmField).join(", ")}
           {showTechnical && (
-            <span className="ml-1 font-mono text-[11px] text-slate-500">
+            <span className="ml-1 font-mono text-caption text-muted-foreground">
               ({item.missing_fields.join(", ")})
             </span>
           )}
@@ -150,8 +150,10 @@ function EscalationChips({ item }: { item: BriefItem }) {
       {typeof item.acknowledged === "boolean" && (
         <span
           className={cx(
-            "rounded px-1.5 py-0.5 text-xs",
-            item.acknowledged ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-900",
+            "rounded px-1.5 py-0.5 text-caption",
+            item.acknowledged
+              ? "bg-surface-subtle text-muted-foreground"
+              : "bg-warning-bg text-warning-fg",
           )}
           data-acknowledged={item.acknowledged ? "true" : "false"}
         >
@@ -160,7 +162,7 @@ function EscalationChips({ item }: { item: BriefItem }) {
       )}
       {item.clock_kind && (
         <span
-          className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-900"
+          className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-danger-border bg-danger-bg px-2 py-0.5 text-caption font-semibold text-danger-fg"
           title={CLOCK_LABELS[item.clock_kind].plain}
         >
           {CLOCK_LABELS[item.clock_kind].chip}
@@ -168,19 +170,19 @@ function EscalationChips({ item }: { item: BriefItem }) {
         </span>
       )}
       {item.due_at && (
-        <span className="text-xs text-slate-700">
+        <span className="text-caption text-muted-foreground">
           due <Time iso={item.due_at} style="short" />
         </span>
       )}
       {item.status && (
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+        <span className="rounded bg-surface-subtle px-1.5 py-0.5 text-caption text-muted-foreground">
           {item.status}
         </span>
       )}
       {item.packet_id && (
         <Link
           to={`/dashboard/packets/${encodeURIComponent(item.packet_id)}`}
-          className="rounded text-xs font-medium text-brand-700 underline decoration-slate-300 underline-offset-2 hover:decoration-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 print:hidden"
+          className="rounded text-caption font-medium text-primary underline decoration-slate-300 underline-offset-2 hover:decoration-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden"
           data-packet-link={item.packet_id}
         >
           {item.packet_status === "signed" ? "Open signed report" : "Open report draft"}
@@ -209,7 +211,7 @@ function Decorations({
     case "notes": {
       const label = noteTypeLabel(item.note_type);
       return label ? (
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-800">
+        <span className="rounded bg-surface-subtle px-1.5 py-0.5 text-caption font-medium text-foreground">
           {label}
         </span>
       ) : null;
@@ -247,22 +249,22 @@ export function BriefSectionCard({
     <Card
       title={<span id={headingId}>{section.title}</span>}
       aside={
-        <span className="flex items-center gap-2 text-xs text-slate-600">
+        <span className="flex items-center gap-2 text-caption text-muted-foreground">
           {showTechnical && (
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">
+            <span className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-caption">
               {section.key}
             </span>
           )}
-          <span className="tnum">{section.items.length}</span>
+          <span className="tabular">{section.items.length}</span>
         </span>
       }
       aria-labelledby={headingId}
       data-section-key={section.key}
       className="break-inside-avoid print:shadow-none"
     >
-      {caption && <p className="-mt-1 mb-3 text-xs text-slate-600">{caption}</p>}
+      {caption && <p className="-mt-1 mb-3 text-caption text-muted-foreground">{caption}</p>}
       {section.items.length === 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-table text-muted-foreground">
           {EMPTY_TEXT[kind]}
           {since ? ` since ${formatDay(since)}` : ""}.
         </p>
@@ -276,26 +278,28 @@ export function BriefSectionCard({
                 id={`brief-item-${index}-${i}`}
                 data-cited={hit ? "true" : undefined}
                 className={cx(
-                  "rounded-xl border px-3 py-2 transition-colors",
-                  hit
-                    ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/40"
-                    : "border-slate-200",
-                  "print:border-slate-300 print:bg-white print:ring-0",
+                  "rounded-panel border px-3 py-2 transition-colors",
+                  hit ? "border-primary bg-accent ring-2 ring-ring/40" : "border-border",
+                  "print:border-border-strong print:bg-surface print:ring-0",
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Decorations kind={kind} item={item} showTechnical={showTechnical} />
                   {/* Basis 18rem: when the chips leave less room than that, the text
                       wraps onto its own line instead of shrinking to one word per line. */}
-                  <span className="min-w-0 flex-[1_1_18rem] text-sm leading-6 text-slate-900">
+                  <span className="min-w-0 flex-[1_1_18rem] text-table leading-6 text-foreground">
                     <ItemText item={item} />
                   </span>
                   {item.ts && (
-                    <Time iso={item.ts} style="short" className="text-xs text-slate-500" />
+                    <Time
+                      iso={item.ts}
+                      style="short"
+                      className="text-caption text-muted-foreground"
+                    />
                   )}
                 </div>
                 {item.exception_text && (
-                  <blockquote className="mt-1 border-l-2 border-amber-300 pl-2 text-xs italic text-slate-700">
+                  <blockquote className="mt-1 border-l-2 border-warning-border pl-2 text-caption italic text-muted-foreground">
                     Protocol exception: “{item.exception_text}”
                   </blockquote>
                 )}

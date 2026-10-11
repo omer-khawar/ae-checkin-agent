@@ -37,7 +37,7 @@ export function SaeClockLine({ clock }: { clock: NoteSAEClock }) {
   }, [clock.stopped_at]);
   const remaining = secondsRemaining(clock, now);
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+    <div className="rounded-control border border-red-200 bg-danger-bg px-3 py-2 text-sm text-danger-fg">
       <div className="font-semibold">
         {clock.kind === "aesi"
           ? "Special-interest event clock started (possible AESI, investigator to confirm)"
@@ -50,12 +50,12 @@ export function SaeClockLine({ clock }: { clock: NoteSAEClock }) {
         <span>
           Investigator → sponsor due: <Time iso={clock.due_at} />
         </span>
-        <span className="tnum font-medium">
+        <span className="tabular font-medium">
           {clock.stopped_at
             ? `Stopped (${clock.decision ?? "decision recorded"})`
             : `Remaining: ${formatCountdown(remaining)}`}
         </span>
-        <span className="text-red-800/80">
+        <span className="text-danger-fg/80">
           24 h site obligation; sponsor 7/15-day clocks are informational.
         </span>
       </div>
@@ -81,21 +81,21 @@ export function Outcome({
   return (
     <div className="space-y-3" data-testid="ingest-outcome">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-semibold text-slate-900">Drafts created:</span>
+        <span className="font-semibold text-foreground">Drafts created:</span>
         {drafts.length === 0 ? (
-          <span className="text-slate-600">none</span>
+          <span className="text-muted-foreground">none</span>
         ) : (
           <>
             {Object.entries(counts).map(([domain, n]) => (
               <span
                 key={domain}
-                className="tnum rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800"
+                className="tabular rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-foreground"
               >
                 {n} {domain}
               </span>
             ))}
             {followups > 0 && (
-              <span className="rounded-full border border-brand-300 bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-900">
+              <span className="rounded-full border border-primary bg-surface-selected px-2 py-0.5 text-xs font-medium text-primary">
                 {followups} linked as follow-up (de-duplicated)
               </span>
             )}
@@ -104,7 +104,7 @@ export function Outcome({
         {showDetailLink && (
           <Link
             to={`/dashboard/notes/${encodeURIComponent(noteId)}`}
-            className="ml-auto text-sm font-medium text-brand-700 underline"
+            className="ml-auto text-sm font-medium text-primary underline"
           >
             Open note detail
           </Link>
@@ -112,25 +112,25 @@ export function Outcome({
       </div>
 
       {escalation ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-control border border-orange-200 bg-orange-50 px-3 py-2 text-sm">
           <TierChip tier={escalation.tier} />
-          <span className="text-slate-800">
+          <span className="text-foreground">
             Escalation created
             {escalation.acked_at ? " (acknowledged)" : " (not yet acknowledged)"}
           </span>
           {reasons.length > 0 && (
-            <ul className="w-full list-disc pl-5 text-xs text-slate-700">
+            <ul className="w-full list-disc pl-5 text-xs text-muted-foreground">
               {reasons.map((r, i) => (
                 <li key={i}>{r}</li>
               ))}
             </ul>
           )}
-          <Link to="/dashboard/escalations" className="text-xs text-brand-700 underline">
+          <Link to="/dashboard/escalations" className="text-xs text-primary underline">
             View escalations
           </Link>
         </div>
       ) : (
-        <div className="text-sm text-slate-600">
+        <div className="text-sm text-muted-foreground">
           <TierChip tier={0} short className="mr-2" />
           No escalation: no urgent or emergency red flag in this note.
         </div>

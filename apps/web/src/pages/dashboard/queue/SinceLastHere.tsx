@@ -18,7 +18,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
+import { Button } from "@/ui/button";
 import { cx, formatLocal, formatUtc } from "../../../lib/format";
 import { useLastSeen } from "./lastSeen";
 import { countLabel, type SinceSummary, summarizeSince } from "./summary";
@@ -55,11 +55,11 @@ function Stat({
   return (
     <li
       className={cx(
-        "inline-flex items-baseline gap-1 rounded-lg border px-2.5 py-1 text-sm",
-        !active && "border-slate-200 bg-white text-slate-500",
-        active && tone === "neutral" && "border-slate-300 bg-white text-slate-900",
-        active && tone === "action" && "border-amber-300 bg-amber-50 text-amber-950",
-        active && tone === "clock" && "border-red-300 bg-red-50 text-red-900",
+        "inline-flex items-baseline gap-1 whitespace-nowrap tabular",
+        !active && "text-subtle-foreground",
+        active && tone === "neutral" && "text-foreground",
+        active && tone === "action" && "font-semibold text-warning-fg",
+        active && tone === "clock" && "font-semibold text-danger-fg",
       )}
       title={title}
     >
@@ -132,103 +132,99 @@ export function SinceLastHere({
   return (
     <section
       aria-labelledby="since-last-here-heading"
-      className="rounded-2xl border border-brand-200 bg-brand-50/60 px-4 py-3"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-panel border border-border bg-surface px-3 py-1.5 text-body"
       data-testid="since-last-here"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="since-last-here-heading" className="text-sm font-semibold text-slate-900">
-          Since you were last here{" "}
-          <span className="font-normal text-slate-600" title={`${formatUtc(since)} (UTC)`}>
-            ({sinceText})
-          </span>
-        </h2>
-        <div className="flex flex-wrap items-center gap-1">
-          {!isDefault && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={resetToDefault}
-              title="Forget when you were last here and count everything from the last 24 hours (this browser only)"
-            >
-              Show last 24 hours
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={markSeen}
-            title="Count only what arrives from now on (stored in this browser only)"
-          >
-            Mark all as seen
-          </Button>
-        </div>
-      </div>
+      <h2 id="since-last-here-heading" className="text-body font-semibold text-foreground">
+        Since you were last here{" "}
+        <span className="font-normal text-muted-foreground" title={`${formatUtc(since)} (UTC)`}>
+          ({sinceText})
+        </span>
+      </h2>
 
       {summary === null && !failed ? (
-        <p className="mt-1 text-sm text-slate-600">Counting what is new…</p>
+        <p className="text-muted-foreground">Counting what is new…</p>
       ) : summary === null ? (
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-muted-foreground">
           Could not count new items right now; the queue below is still current.
         </p>
       ) : (
-        <>
-          <ul className="mt-2 flex flex-wrap gap-2" aria-label="What is new">
-            <Stat n={summary.checkIns} title="Kiosk check-ins completed by participants">
-              {countLabel(summary.checkIns, "check-in")}
-            </Stat>
-            <Stat
-              n={summary.notes}
-              title="Chart notes (ER, urgent care, clinic) read by the site and scanned for side effects"
-            >
-              {countLabel(summary.notes, "chart note")}
-            </Stat>
-            <Stat n={summary.calls} title="Phone calls logged by the study team">
-              {countLabel(summary.calls, "phone call")}
-            </Stat>
-            <Stat
-              n={summary.needAction}
-              tone="action"
-              title="New items with drafts awaiting review or an alert nobody has acknowledged yet"
-            >
-              {`${summary.needAction} need${summary.needAction === 1 ? "s" : ""} action`}
-            </Stat>
-            {openQueries !== null && (
-              <li>
-                <Link
-                  to="/dashboard/queries"
-                  className={cx(
-                    "inline-flex items-baseline rounded-lg border px-2.5 py-1 text-sm underline-offset-2 hover:underline focus-visible:ring-4",
-                    openQueries > 0
-                      ? "border-amber-300 bg-amber-50 text-amber-950"
-                      : "border-slate-200 bg-white text-slate-500",
-                  )}
-                  title="Questions from the sponsor's reviewers still waiting for an answer (all, not only new)"
-                >
-                  {countLabel(openQueries, "open sponsor query", "open sponsor queries")}
-                </Link>
-              </li>
-            )}
-            <Stat
-              n={summary.clocksRunning}
-              tone="clock"
-              title={`24-hour sponsor report clocks still running across the queue${kindBreakdown(
-                summary,
-              )}`}
-            >
-              {countLabel(summary.clocksRunning, "report clock running", "report clocks running")}
-            </Stat>
-          </ul>
-          {nothingNew && (
-            <p className="mt-1 text-xs text-slate-600">Nothing new has arrived {sinceText}.</p>
+        <ul className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5" aria-label="What is new">
+          <Stat n={summary.checkIns} title="Kiosk check-ins completed by participants">
+            {countLabel(summary.checkIns, "check-in")}
+          </Stat>
+          <Stat
+            n={summary.notes}
+            title="Chart notes (ER, urgent care, clinic) read by the site and scanned for side effects"
+          >
+            {countLabel(summary.notes, "chart note")}
+          </Stat>
+          <Stat n={summary.calls} title="Phone calls logged by the study team">
+            {countLabel(summary.calls, "phone call")}
+          </Stat>
+          <Stat
+            n={summary.needAction}
+            tone="action"
+            title="New items with drafts awaiting review or an alert nobody has acknowledged yet"
+          >
+            {`${summary.needAction} need${summary.needAction === 1 ? "s" : ""} action`}
+          </Stat>
+          {openQueries !== null && (
+            <li>
+              <Link
+                to="/dashboard/queries"
+                className={cx(
+                  "focus-ring rounded-control whitespace-nowrap hover:underline",
+                  openQueries > 0 ? "font-semibold text-warning-fg" : "text-subtle-foreground",
+                )}
+                title="Questions from the sponsor's reviewers still waiting for an answer (all, not only new)"
+              >
+                {countLabel(openQueries, "open sponsor query", "open sponsor queries")}
+              </Link>
+            </li>
           )}
-          {summary.truncated && (
-            <p className="mt-1 text-xs text-slate-600">
-              Counted from the first {counts?.rows.length} items only; the true numbers may be
-              higher.
-            </p>
-          )}
-        </>
+          <Stat
+            n={summary.clocksRunning}
+            tone="clock"
+            title={`24-hour sponsor report clocks still running across the queue${kindBreakdown(
+              summary,
+            )}`}
+          >
+            {countLabel(summary.clocksRunning, "report clock running", "report clocks running")}
+          </Stat>
+        </ul>
       )}
+
+      <span className="ml-auto flex flex-wrap items-center gap-1">
+        {nothingNew && (
+          <span className="text-caption text-muted-foreground">
+            Nothing new has arrived {sinceText}.
+          </span>
+        )}
+        {summary?.truncated && (
+          <span className="text-caption text-muted-foreground">
+            Counted from the first {counts?.rows.length} items only; the true numbers may be higher.
+          </span>
+        )}
+        {!isDefault && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={resetToDefault}
+            title="Forget when you were last here and count everything from the last 24 hours (this browser only)"
+          >
+            Show last 24 hours
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={markSeen}
+          title="Count only what arrives from now on (stored in this browser only)"
+        >
+          Mark all as seen
+        </Button>
+      </span>
     </section>
   );
 }

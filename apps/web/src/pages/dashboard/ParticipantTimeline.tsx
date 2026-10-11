@@ -33,9 +33,12 @@
  * fails the page still renders with humanised item ids.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { Card } from "../../components/Card";
+import { Button } from "@/ui/button";
+import { isTypingTarget } from "@/ui/keyboard";
+import { Kbd } from "@/ui/kbd";
+import { SegmentedControl } from "@/ui/segmented-control";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { TierChip } from "../../components/TierChip";
@@ -45,6 +48,7 @@ import type { AEOpen, ChartNoteSummary, Item, Session, Timeline } from "../../li
 import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
 import { callSummary } from "./notes/phoneCallLabels";
 import { BaselineCard } from "./timeline/BaselineCard";
+import { normalizeBaseline } from "./timeline/baseline";
 import { SymptomSparkline, VitalsCharts } from "./timeline/charts";
 import {
   buildSymptomSeries,
@@ -65,6 +69,51 @@ type LoadState =
   | { kind: "error"; error: unknown }
   | { kind: "ready"; data: Timeline };
 
+const TABS = ["overview", "symptoms", "medicines", "notes", "reports"] as const;
+type Tab = (typeof TABS)[number];
+const TAB_LABELS: Record<Tab, string> = {
+  overview: "Overview",
+  symptoms: "Symptoms",
+  medicines: "Medicines",
+  notes: "Notes & calls",
+  reports: "Reports",
+};
+
+/** A flat, opaque data panel (data surfaces are never glass). */
+function Panel({
+  title,
+  aside,
+  children,
+  flush,
+  className,
+  id,
+  ...rest
+}: {
+  title?: ReactNode;
+  aside?: ReactNode;
+  children: ReactNode;
+  flush?: boolean;
+  className?: string;
+  id?: string;
+  "data-testid"?: string;
+}) {
+  return (
+    <section
+      id={id}
+      className={cx("rounded-panel border border-border bg-surface", className)}
+      {...rest}
+    >
+      {(title || aside) && (
+        <header className="flex min-h-row items-center justify-between gap-3 border-b border-border px-3 py-1.5">
+          {title ? <h2 className="text-body font-semibold text-foreground">{title}</h2> : <span />}
+          {aside}
+        </header>
+      )}
+      <div className={flush ? "" : "p-3"}>{children}</div>
+    </section>
+  );
+}
+
 export function ParticipantTimeline() {
   const { usubjid = "" } = useParams<{ usubjid: string }>();
   const navigate = useNavigate();
@@ -72,6 +121,15 @@ export function ParticipantTimeline() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [callOpen, setCallOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get("tab");
+  const tab: Tab = (TABS as readonly string[]).includes(tabParam ?? "")
+    ? (tabParam as Tab)
+    : "overview";
+  const setTab = useCallback(
+    (t: Tab) => setParams(t === "overview" ? {} : { tab: t }, { replace: true }),
+    [setParams],
+  );
 
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -111,6 +169,23 @@ export function ParticipantTimeline() {
     };
   }, []);
 
+  // Keyboard: 1-5 switch tabs, b opens the visit brief. Ignored while typing or with modifiers.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+      const n = Number(e.key);
+      if (Number.isInteger(n) && n >= 1 && n <= TABS.length) {
+        e.preventDefault();
+        setTab(TABS[n - 1]);
+      } else if (e.key === "b" && usubjid) {
+        e.preventDefault();
+        navigate(briefPath(usubjid));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setTab, navigate, usubjid]);
+
   const openCheckin = useCallback(
     (sessionId: string) => navigate(checkinPath(sessionId)),
     [navigate],
@@ -119,8 +194,8 @@ export function ParticipantTimeline() {
   if (state.kind === "loading") {
     return (
       <div className="space-y-4" aria-busy="true">
-        <h1 className="text-2xl font-bold text-slate-900">Participant timeline</h1>
-        <p className="text-sm text-slate-600" role="status">
+        <h1 className="text-page font-semibold text-foreground">Participant timeline</h1>
+        <p className="text-body text-muted-foreground" role="status">
           Loading timeline for <span className="font-mono">{usubjid}</span>…
         </p>
       </div>
@@ -130,14 +205,14 @@ export function ParticipantTimeline() {
   if (state.kind === "error") {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">Participant timeline</h1>
+        <h1 className="text-page font-semibold text-foreground">Participant timeline</h1>
         <ErrorBanner
           error={state.error}
           message={`Could not load the timeline for ${usubjid}`}
           onRetry={retry}
         />
         <p className="text-sm">
-          <Link to="/dashboard" className="text-brand-700 underline">
+          <Link to="/dashboard" className="text-primary underline">
             Back to the queue
           </Link>
         </p>
@@ -163,270 +238,252 @@ export function ParticipantTimeline() {
   const label = participant?.display_label || usubjid;
   const anyMeasured = vitals.some((v) => v.is_measured);
   const anySimulated = vitals.some((v) => !v.is_measured);
+  const baselineRaw =
+    data.baseline ?? (participant as { baseline?: unknown } | undefined)?.baseline;
+  const baseline = normalizeBaseline(baselineRaw);
+  const nextVisit = (data as { next_visit?: string | null }).next_visit ?? null;
+  const id = participant?.usubjid ?? usubjid;
+
+  const count = (n: number) => (
+    <span className="tabular text-caption text-muted-foreground">{n}</span>
+  );
+  const tabOptions = [
+    { value: "overview" as const, label: TAB_LABELS.overview },
+    { value: "symptoms" as const, label: TAB_LABELS.symptoms, accessory: count(symptoms.length) },
+    { value: "medicines" as const, label: TAB_LABELS.medicines, accessory: count(conmeds.length) },
+    { value: "notes" as const, label: TAB_LABELS.notes, accessory: count(notes.length) },
+    { value: "reports" as const, label: TAB_LABELS.reports, accessory: count(sessions.length) },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header ------------------------------------------------------------ */}
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm text-slate-600">
-            <Link to="/dashboard" className="text-brand-700 underline">
-              Queue
-            </Link>{" "}
-            <span aria-hidden="true">/</span> Participant timeline
-          </p>
-          <h1 className="mt-1 flex flex-wrap items-center gap-3 text-2xl font-bold text-slate-900">
-            <span>{label}</span>
-            <span
-              className="rounded-md border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-violet-800"
-              title="Synthetic participant generated by the seed script; no real person"
-            >
-              Synthetic participant
-            </span>
-          </h1>
-          <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm text-slate-700 sm:grid-cols-[auto_1fr]">
-            <dt className="font-medium text-slate-500">USUBJID</dt>
-            <dd className="font-mono">{participant?.usubjid ?? usubjid}</dd>
-            <dt className="font-medium text-slate-500">Study</dt>
-            <dd className="font-mono">{participant?.study_id ?? "—"}</dd>
-            <dt className="font-medium text-slate-500">Enrolled</dt>
-            <dd>
-              <Time iso={participant?.enrolled_at} />
-            </dd>
-          </dl>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={briefPath(participant?.usubjid ?? usubjid)}
-              className="inline-flex min-h-9 items-center rounded-xl border border-brand-800 bg-brand-700 px-3 text-sm font-semibold text-white hover:bg-brand-800 focus-visible:ring-4"
-              title="Everything since the last visit, on one printable page"
-            >
-              Visit brief
-            </Link>
-            <button
+    <div className="space-y-3">
+      {/* Compact header ---------------------------------------------------- */}
+      <header className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <p className="text-caption text-muted-foreground">
+              <Link to="/dashboard" className="text-primary underline">
+                Queue
+              </Link>{" "}
+              <span aria-hidden="true">/</span> Participant timeline
+            </p>
+            <h1 className="mt-0.5 flex flex-wrap items-center gap-2 text-page font-semibold text-foreground">
+              <span>{label}</span>
+              <span
+                className="rounded-control border border-simulated-border bg-simulated-bg px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wide text-simulated-fg"
+                title="Synthetic participant generated by the seed script; no real person"
+              >
+                Synthetic participant
+              </span>
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="primary">
+              <Link
+                to={briefPath(id)}
+                title="Everything since the last visit, on one printable page (shortcut: B)"
+              >
+                Visit brief
+              </Link>
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => setCallOpen((v) => !v)}
               aria-expanded={callOpen}
               aria-controls="timeline-log-call"
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus-visible:ring-4"
+              leadingIcon={<PhoneGlyph />}
             >
-              <PhoneGlyph />
               {callOpen ? "Close call form" : "Log a call"}
-            </button>
+            </Button>
           </div>
-          <ul className="flex flex-wrap gap-2 text-sm" aria-label="Summary">
-            <SummaryChip label="check-ins" value={sessions.length} />
-            <SummaryChip label="open side effects" value={openAes.length} />
-            <SummaryChip label="medication changes" value={conmeds.length} />
-            <SummaryChip label="notes and calls" value={notes.length} />
-          </ul>
         </div>
+        <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-table text-muted-foreground">
+          <MetaItem k="USUBJID">
+            <span className="font-mono text-foreground">{id}</span>
+          </MetaItem>
+          <MetaItem k="Study">
+            <span className="font-mono text-foreground">{participant?.study_id ?? "—"}</span>
+          </MetaItem>
+          <MetaItem k="Enrolled">
+            <span className="text-foreground">
+              <Time iso={participant?.enrolled_at} />
+            </span>
+          </MetaItem>
+          {nextVisit && (
+            <MetaItem k="Next visit">
+              <span className="text-foreground">
+                <Time iso={nextVisit} style="short" />
+              </span>
+            </MetaItem>
+          )}
+          {baseline && (
+            <MetaItem k="Background chart">
+              <span className="text-foreground">Synthea synthetic EHR (simulated)</span>
+            </MetaItem>
+          )}
+        </dl>
+        <ul className="flex flex-wrap gap-1.5 text-caption" aria-label="Summary">
+          <SummaryChip label="check-ins" value={sessions.length} />
+          <SummaryChip label="open side effects" value={openAes.length} />
+          <SummaryChip label="medication changes" value={conmeds.length} />
+          <SummaryChip label="notes and calls" value={notes.length} />
+        </ul>
       </header>
 
       {callOpen && (
-        <Card title={`Log a call about ${label}`} id="timeline-log-call">
+        <Panel title={`Log a call about ${label}`} id="timeline-log-call">
           <LogCallForm
-            usubjid={participant?.usubjid ?? usubjid}
+            usubjid={id}
             displayLabel={label}
             idPrefix="timeline-call"
             onLogged={() => retry()}
           />
-        </Card>
+        </Panel>
       )}
 
-      {/* Synthea background chart (simulated) ------------------------------ */}
-      <BaselineCard
-        baseline={data.baseline ?? (participant as { baseline?: unknown } | undefined)?.baseline}
-      />
-
-      {/* Symptoms ---------------------------------------------------------- */}
-      <Card
-        title="Symptoms over time"
-        aside={
-          <span className="text-xs text-slate-600">
-            Provisional CTCAE grade per check-in, from the participant&apos;s answers only
-          </span>
-        }
-      >
-        {symptoms.length === 0 ? (
-          <Empty>No symptom reports yet for this participant.</Empty>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {symptoms.map((s) => (
-              <SymptomSparkline key={s.itemId} series={s} onPointClick={openCheckin} />
-            ))}
-          </div>
-        )}
-        <p className="mt-3 text-xs text-slate-500">
-          Grades are provisional (investigator to confirm) and come from the PRO-CTCAE composite
-          score mapped through the composite→grade table. Vitals never change a grade. Open a
-          check-in to see each answer and the rules that fired.
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SegmentedControl
+          label="Participant sections"
+          options={tabOptions}
+          value={tab}
+          onValueChange={setTab}
+        />
+        <p className="flex items-center gap-1 text-caption text-muted-foreground">
+          <span>Keys</span>
+          <Kbd>1</Kbd>
+          <span>to</span>
+          <Kbd>5</Kbd>
+          <span>switch section,</span>
+          <Kbd>B</Kbd>
+          <span>opens the visit brief</span>
         </p>
-      </Card>
+      </div>
 
-      {/* Vitals ------------------------------------------------------------ */}
-      <Card
-        title="Vitals over time"
-        aside={
-          <span className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
-            {vitals.length > 0 && (
-              <>
-                {anyMeasured && <MeasuredBadge isMeasured />}
-                {anySimulated && <MeasuredBadge isMeasured={false} />}
-              </>
+      {/* Overview ---------------------------------------------------------- */}
+      {tab === "overview" && (
+        <div className="space-y-3" data-testid="tab-overview">
+          <AesPanel allAes={allAes} openAes={openAes} resolvedAes={resolvedAes} byId={byId} />
+          <BaselineCard baseline={baselineRaw} />
+        </div>
+      )}
+
+      {/* Symptoms + vitals --------------------------------------------------- */}
+      {tab === "symptoms" && (
+        <div className="space-y-3" data-testid="tab-symptoms">
+          <Panel
+            title="Symptoms over time"
+            aside={
+              <span className="text-caption text-muted-foreground">
+                Provisional CTCAE grade per check-in, from the participant&apos;s answers only
+              </span>
+            }
+          >
+            {symptoms.length === 0 ? (
+              <Empty>No symptom reports yet for this participant.</Empty>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {symptoms.map((s) => (
+                  <SymptomSparkline key={s.itemId} series={s} onPointClick={openCheckin} />
+                ))}
+              </div>
             )}
-            <span>median per check-in</span>
-          </span>
-        }
-      >
-        {vitals.length === 0 ? (
-          <Empty>
-            No vitals recorded for this participant (camera off, source unavailable, or no eligible
-            samples).
-          </Empty>
-        ) : (
-          <VitalsCharts rows={vitals} onPointClick={openCheckin} />
-        )}
-        <p className="mt-3 text-xs text-slate-500">
-          Each point is the median of the eligible samples captured during that check-in (VS domain{" "}
-          <span className="font-mono">VSORRES</span>). Simulated values come from the mock vitals
-          source and are labeled SIMULATED everywhere, including exports.
-        </p>
-      </Card>
+            <p className="mt-3 text-caption text-muted-foreground">
+              Grades are provisional (investigator to confirm) and come from the PRO-CTCAE composite
+              score mapped through the composite→grade table. Vitals never change a grade. Open a
+              check-in to see each answer and the rules that fired.
+            </p>
+          </Panel>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Open AEs -------------------------------------------------------- */}
-        <Card
-          title="Side effects (open and resolved)"
-          aside={
-            <span className="tnum text-xs text-slate-600" data-testid="ae-count">
-              {openAes.length} open
-              {resolvedAes > 0 && <> · {resolvedAes} resolved</>}
-            </span>
-          }
-        >
-          {allAes.length === 0 ? (
-            <Empty>No AE records.</Empty>
-          ) : (
-            <ul className="divide-y divide-slate-100" data-testid="open-aes">
-              {allAes.map((ae) => (
-                <li key={ae.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-slate-900">
-                      {ae.aedecod || "—"}{" "}
-                      <span className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] font-normal text-slate-500">
-                        AEDECOD
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-slate-600">
-                      First reported{" "}
-                      <SessionTime iso={ae.first_reported_at} session={byId[ae.first_session_id]} />
-                      {" · "}
-                      Last reported{" "}
-                      <SessionTime iso={ae.last_reported_at} session={byId[ae.last_session_id]} />
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
-                      {ae.first_session_id && (
-                        <Link
-                          to={checkinPath(ae.first_session_id)}
-                          className="text-brand-700 underline"
-                        >
-                          First check-in
-                        </Link>
-                      )}
-                      {ae.last_session_id && ae.last_session_id !== ae.first_session_id && (
-                        <Link
-                          to={checkinPath(ae.last_session_id)}
-                          className="text-brand-700 underline"
-                        >
-                          Latest follow-up
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                  <span
-                    className={cx(
-                      "shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold",
-                      ae.ongoing !== false
-                        ? "border-amber-300 bg-amber-100 text-amber-900"
-                        : "border-slate-300 bg-slate-100 text-slate-700",
-                    )}
-                    title="AEONGO: whether the event is still ongoing"
-                  >
-                    {ae.ongoing !== false ? "Ongoing" : "Resolved"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-3 text-xs text-slate-500">
-            Repeat reports of the same CTCAE term within the dedup window link to the open AE as
-            follow-ups instead of creating a new record.
-          </p>
-        </Card>
+          <Panel
+            title="Vitals over time"
+            aside={
+              <span className="flex flex-wrap items-center gap-1.5 text-caption text-muted-foreground">
+                {vitals.length > 0 && (
+                  <>
+                    {anyMeasured && <MeasuredBadge isMeasured />}
+                    {anySimulated && <MeasuredBadge isMeasured={false} />}
+                  </>
+                )}
+                <span>median per check-in</span>
+              </span>
+            }
+          >
+            {vitals.length === 0 ? (
+              <Empty>
+                No vitals recorded for this participant (camera off, source unavailable, or no
+                eligible samples).
+              </Empty>
+            ) : (
+              <VitalsCharts rows={vitals} onPointClick={openCheckin} />
+            )}
+            <p className="mt-3 text-caption text-muted-foreground">
+              Each point is the median of the eligible samples captured during that check-in (VS
+              domain <span className="font-mono">VSORRES</span>). Simulated values come from the
+              mock vitals source and are labeled SIMULATED everywhere, including exports.
+            </p>
+          </Panel>
+        </div>
+      )}
 
-        {/* Con-meds -------------------------------------------------------- */}
-        <Card title="Medication changes" aside={<Count n={conmeds.length} />}>
+      {/* Medicines ----------------------------------------------------------- */}
+      {tab === "medicines" && (
+        <Panel title="Medication changes" aside={<Count n={conmeds.length} />} flush>
           {conmeds.length === 0 ? (
-            <Empty>No medication changes reported.</Empty>
+            <div className="p-3">
+              <Empty>No medication changes reported.</Empty>
+            </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" data-testid="conmeds">
+              <table className="w-full text-table" data-testid="conmeds">
                 <caption className="sr-only">Concomitant medication changes</caption>
-                <thead>
-                  <tr className="text-left text-xs text-slate-500">
-                    <th scope="col" className="py-1 pr-3 font-medium">
-                      When
-                    </th>
-                    <th scope="col" className="py-1 pr-3 font-medium">
-                      As reported, word for word{" "}
-                      <span className="font-mono text-[10px]">CMTRT</span>
-                    </th>
-                    <th scope="col" className="py-1 pr-3 font-medium">
-                      Standard name <span className="font-mono text-[10px]">CMDECOD</span>
-                    </th>
-                    <th scope="col" className="py-1 pr-3 font-medium">
-                      Direction
-                    </th>
-                    <th scope="col" className="py-1 pr-3 font-medium">
-                      Match confidence
-                    </th>
-                    <th scope="col" className="py-1 font-medium">
+                <thead className="bg-surface-subtle">
+                  <tr className="text-left text-caption text-muted-foreground">
+                    <Th>When</Th>
+                    <Th>
+                      As reported, word for word <Code>CMTRT</Code>
+                    </Th>
+                    <Th>
+                      Standard name <Code>CMDECOD</Code>
+                    </Th>
+                    <Th>Direction</Th>
+                    <Th>Match confidence</Th>
+                    <Th>
                       <span className="sr-only">Link</span>
-                    </th>
+                    </Th>
                   </tr>
                 </thead>
                 <tbody>
                   {conmeds.map((c, i) => (
-                    <tr key={`${c.session_id}-${i}`} className="border-t border-slate-100">
-                      <td className="py-1.5 pr-3 text-slate-700">
+                    <tr
+                      key={`${c.session_id}-${i}`}
+                      className="h-row border-t border-border hover:bg-surface-subtle"
+                    >
+                      <td className="tabular px-3 py-1 text-muted-foreground">
                         <Time iso={c.ts} style="short" />
                       </td>
-                      <td className="py-1.5 pr-3 font-mono text-slate-900">
-                        &quot;{c.cmtrt}&quot;
-                      </td>
-                      <td className="py-1.5 pr-3">
+                      <td className="px-3 py-1 font-mono text-foreground">&quot;{c.cmtrt}&quot;</td>
+                      <td className="px-3 py-1">
                         {c.cmdecod ? (
                           <span className="font-mono">{c.cmdecod}</span>
                         ) : (
                           <span
-                            className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900"
+                            className="rounded-control bg-warning-bg px-1.5 py-0.5 text-caption font-semibold text-warning-fg"
                             title="No entry in the bundled medication list within edit distance 2; kept verbatim for the coordinator"
                           >
                             Unmatched, verbatim kept
                           </span>
                         )}
                       </td>
-                      <td className="py-1.5 pr-3">{directionLabel(c.direction)}</td>
+                      <td className="px-3 py-1">{directionLabel(c.direction)}</td>
                       <td
-                        className="tnum py-1.5 pr-3"
+                        className="tabular px-3 py-1"
                         title="Deterministic string match (exact, case-insensitive, or Levenshtein ≤ 2) against the bundled list; not RxNorm"
                       >
                         {formatConfidence(c.confidence)}
                       </td>
-                      <td className="py-1.5">
-                        <Link to={checkinPath(c.session_id)} className="text-brand-700 underline">
+                      <td className="px-3 py-1">
+                        <Link to={checkinPath(c.session_id)} className="text-primary underline">
                           Open
                         </Link>
                       </td>
@@ -436,108 +493,117 @@ export function ParticipantTimeline() {
               </table>
             </div>
           )}
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="border-t border-border p-3 text-caption text-muted-foreground">
             The reported text is stored verbatim. The match is a deterministic string comparison
             against a bundled list (not RxNorm); unmatched names stay verbatim for review.
           </p>
-        </Card>
-      </div>
+        </Panel>
+      )}
 
-      {/* Chart notes --------------------------------------------------------- */}
-      <Card title="Chart notes and calls" aside={<Count n={notes.length} />}>
-        {notes.length === 0 ? (
-          <Empty>No chart notes or phone calls yet for this participant.</Empty>
-        ) : (
-          <ul className="divide-y divide-slate-100" data-testid="chart-notes">
-            {notes.map((n) => (
-              <li key={n.id} className="py-2">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                  <span className="font-medium text-slate-900">
-                    <NoteDate value={n.note_date} />
-                  </span>
-                  <span className="text-slate-700">{n.author || "Unknown author"}</span>
-                  {n.note_type && (
-                    <NoteTypeLabel
-                      noteType={n.note_type}
-                      className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
-                    />
-                  )}
-                  {callSummary(n.caller, n.call_direction) && (
-                    <span className="text-xs text-slate-600">
-                      {callSummary(n.caller, n.call_direction)}
+      {/* Notes and calls ----------------------------------------------------- */}
+      {tab === "notes" && (
+        <Panel title="Chart notes and calls" aside={<Count n={notes.length} />}>
+          {notes.length === 0 ? (
+            <Empty>No chart notes or phone calls yet for this participant.</Empty>
+          ) : (
+            <ul className="divide-y divide-border" data-testid="chart-notes">
+              {notes.map((n) => (
+                <li key={n.id} className="py-2 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body">
+                    <span className="font-medium text-foreground">
+                      <NoteDate value={n.note_date} />
                     </span>
-                  )}
-                  {typeof n.escalation_tier === "number" && (
-                    <TierChip tier={n.escalation_tier} short />
-                  )}
-                  <Link to={notePath(n.id)} className="text-xs text-brand-700 underline">
-                    {n.note_type === "phone_call" ? "Open call" : "Open note"}
-                  </Link>
-                </div>
-                {n.ingested_at && (
-                  <div className="mt-0.5 text-xs text-slate-500">
-                    Ingested <Time iso={n.ingested_at} style="short" />
-                    {n.ingested_by && <> by {n.ingested_by}</>}
+                    <span className="text-muted-foreground">{n.author || "Unknown author"}</span>
+                    {n.note_type && (
+                      <NoteTypeLabel
+                        noteType={n.note_type}
+                        className="rounded-control bg-surface-subtle px-1.5 py-0.5 text-caption text-foreground"
+                      />
+                    )}
+                    {callSummary(n.caller, n.call_direction) && (
+                      <span className="text-caption text-muted-foreground">
+                        {callSummary(n.caller, n.call_direction)}
+                      </span>
+                    )}
+                    {typeof n.escalation_tier === "number" && (
+                      <TierChip tier={n.escalation_tier} short />
+                    )}
+                    <Link to={notePath(n.id)} className="text-caption text-primary underline">
+                      {n.note_type === "phone_call" ? "Open call" : "Open note"}
+                    </Link>
                   </div>
-                )}
-                {n.text && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-brand-700 underline">
-                      Note text (verbatim)
-                    </summary>
-                    <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 font-sans text-xs text-slate-800">
-                      {n.text}
-                    </pre>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="mt-3 text-xs text-slate-500">
-          Notes are scanned by a deterministic pattern matcher (no language model); findings become
-          drafts with the quoted span as evidence.
-        </p>
-      </Card>
+                  {n.ingested_at && (
+                    <div className="mt-0.5 text-caption text-muted-foreground">
+                      Ingested <Time iso={n.ingested_at} style="short" />
+                      {n.ingested_by && <> by {n.ingested_by}</>}
+                    </div>
+                  )}
+                  {n.text && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-caption text-primary underline">
+                        Note text (verbatim)
+                      </summary>
+                      <pre className="mt-1 whitespace-pre-wrap rounded-control bg-surface-subtle p-2 font-sans text-table text-foreground">
+                        {n.text}
+                      </pre>
+                    </details>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-caption text-muted-foreground">
+            Notes are scanned by a deterministic pattern matcher (no language model); findings
+            become drafts with the quoted span as evidence.
+          </p>
+        </Panel>
+      )}
 
-      {/* Sessions ---------------------------------------------------------- */}
-      <Card title="Check-ins" aside={<Count n={sessions.length} />} flush>
-        {sessions.length === 0 ? (
-          <div className="p-4">
-            <Empty>No check-ins yet.</Empty>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" data-testid="sessions">
-              <caption className="sr-only">Check-ins, newest first</caption>
-              <thead>
-                <tr className="text-left text-xs text-slate-500">
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    Completed
-                  </th>
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    Tier
-                  </th>
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    Camera
-                  </th>
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    Vitals
-                  </th>
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    <span className="sr-only">Link</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <SessionRow key={s.id} session={s} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* Reports: the brief and every check-in ------------------------------ */}
+      {tab === "reports" && (
+        <div className="space-y-3" data-testid="tab-reports">
+          <Panel title="Visit brief">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-prose text-body text-muted-foreground">
+                One printable page with everything since the last completed visit: new side effects,
+                medication changes, open clocks, notes and the questions to ask.
+              </p>
+              <Button asChild variant="secondary">
+                <Link to={briefPath(id)}>Open the brief</Link>
+              </Button>
+            </div>
+          </Panel>
+          <Panel title="Check-ins" aside={<Count n={sessions.length} />} flush>
+            {sessions.length === 0 ? (
+              <div className="p-3">
+                <Empty>No check-ins yet.</Empty>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-table" data-testid="sessions">
+                  <caption className="sr-only">Check-ins, newest first</caption>
+                  <thead className="bg-surface-subtle">
+                    <tr className="text-left text-caption text-muted-foreground">
+                      <Th>Completed</Th>
+                      <Th>Tier</Th>
+                      <Th>Camera</Th>
+                      <Th>Vitals</Th>
+                      <Th>
+                        <span className="sr-only">Link</span>
+                      </Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((s) => (
+                      <SessionRow key={s.id} session={s} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+        </div>
+      )}
     </div>
   );
 }
@@ -546,10 +612,112 @@ export function ParticipantTimeline() {
 // Small presentational pieces
 // ---------------------------------------------------------------------------
 
+function AesPanel({
+  allAes,
+  openAes,
+  resolvedAes,
+  byId,
+}: {
+  allAes: AEOpen[];
+  openAes: AEOpen[];
+  resolvedAes: number;
+  byId: Record<string, Session>;
+}) {
+  return (
+    <Panel
+      title="Side effects (open and resolved)"
+      aside={
+        <span className="tabular text-caption text-muted-foreground" data-testid="ae-count">
+          {openAes.length} open
+          {resolvedAes > 0 && <> · {resolvedAes} resolved</>}
+        </span>
+      }
+    >
+      {allAes.length === 0 ? (
+        <Empty>No AE records.</Empty>
+      ) : (
+        <ul className="divide-y divide-border" data-testid="open-aes">
+          {allAes.map((ae) => (
+            <li
+              key={ae.id}
+              className="flex flex-wrap items-start justify-between gap-2 py-2 first:pt-0 last:pb-0"
+            >
+              <div className="min-w-0">
+                <div className="text-body font-semibold text-foreground">
+                  {ae.aedecod || "—"} <Code>AEDECOD</Code>
+                </div>
+                <div className="mt-0.5 text-caption text-muted-foreground">
+                  First reported{" "}
+                  <SessionTime iso={ae.first_reported_at} session={byId[ae.first_session_id]} />
+                  {" · "}
+                  Last reported{" "}
+                  <SessionTime iso={ae.last_reported_at} session={byId[ae.last_session_id]} />
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 text-caption">
+                  {ae.first_session_id && (
+                    <Link to={checkinPath(ae.first_session_id)} className="text-primary underline">
+                      First check-in
+                    </Link>
+                  )}
+                  {ae.last_session_id && ae.last_session_id !== ae.first_session_id && (
+                    <Link to={checkinPath(ae.last_session_id)} className="text-primary underline">
+                      Latest follow-up
+                    </Link>
+                  )}
+                </div>
+              </div>
+              <span
+                className={cx(
+                  "shrink-0 rounded-control border px-2 py-0.5 text-caption font-semibold",
+                  ae.ongoing !== false
+                    ? "border-warning-border bg-warning-bg text-warning-fg"
+                    : "border-border-strong bg-surface-subtle text-muted-foreground",
+                )}
+                title="AEONGO: whether the event is still ongoing"
+              >
+                {ae.ongoing !== false ? "Ongoing" : "Resolved"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-caption text-muted-foreground">
+        Repeat reports of the same CTCAE term within the dedup window link to the open AE as
+        follow-ups instead of creating a new record.
+      </p>
+    </Panel>
+  );
+}
+
+function MetaItem({ k, children }: { k: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <dt>{k}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+function Th({ children }: { children: ReactNode }) {
+  return (
+    <th scope="col" className="px-3 py-1.5 font-medium">
+      {children}
+    </th>
+  );
+}
+
+function Code({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-control border border-border bg-surface-subtle px-1 font-mono text-caption font-normal text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
 /** Small decorative phone glyph for the "Log a call" button (the text carries the meaning). */
 function PhoneGlyph() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
       <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148a1.5 1.5 0 0 1 1.465 1.175l.513 2.31a1.5 1.5 0 0 1-1.02 1.756l-.97.323a11.04 11.04 0 0 0 6.1 6.1l.323-.97a1.5 1.5 0 0 1 1.756-1.02l2.31.513A1.5 1.5 0 0 1 18 13.352V14.5a1.5 1.5 0 0 1-1.5 1.5H15C8.096 16 2.5 10.404 2.5 3.5V3.5Z" />
     </svg>
   );
@@ -557,22 +725,22 @@ function PhoneGlyph() {
 
 function SummaryChip({ label, value }: { label: string; value: number }) {
   return (
-    <li className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">
-      <span className="tnum font-semibold text-slate-900">{value}</span> {label}
+    <li className="rounded-control border border-border bg-surface px-2 py-0.5 text-muted-foreground">
+      <span className="tabular font-semibold text-foreground">{value}</span> {label}
     </li>
   );
 }
 
 function Count({ n }: { n: number }) {
   return (
-    <span className="tnum text-xs text-slate-600">
+    <span className="tabular text-caption text-muted-foreground">
       {n} {n === 1 ? "record" : "records"}
     </span>
   );
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-slate-600">{children}</p>;
+  return <p className="text-body text-muted-foreground">{children}</p>;
 }
 
 /**
@@ -602,37 +770,36 @@ function SessionTime({ iso, session }: { iso?: string | null; session?: Session 
 function SessionRow({ session: s }: { session: Session }) {
   const incomplete = !s.completed_at;
   return (
-    <tr className="border-t border-slate-100">
-      <td className="px-4 py-2 text-slate-900">
+    <tr className="h-row border-t border-border hover:bg-surface-subtle">
+      <td className="tabular px-3 py-1 text-foreground">
         {incomplete ? (
-          <span className="text-slate-500">
+          <span className="text-muted-foreground">
             In progress (started <Time iso={s.started_at} style="short" />)
           </span>
         ) : (
           <Time iso={s.completed_at} style="short" />
         )}
         {s.is_eval && (
-          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
+          <span className="ml-2 rounded-control bg-surface-subtle px-1.5 py-0.5 text-caption text-muted-foreground">
             eval
           </span>
         )}
       </td>
-      <td className="px-4 py-2">
+      <td className="px-3 py-1">
         {typeof s.tier === "number" ? (
           <TierChip tier={s.tier} />
         ) : (
-          <span className="text-xs text-slate-500">not yet evaluated</span>
+          <span className="text-caption text-muted-foreground">not yet evaluated</span>
         )}
       </td>
-      <td className="px-4 py-2 text-slate-700">{s.consent_camera ? "Camera on" : "Camera off"}</td>
-      <td className="px-4 py-2 text-slate-700">{vitalsStatusLabel(s.vitals_status)}</td>
-      <td className="px-4 py-2 text-right">
-        <Link
-          to={checkinPath(s.id)}
-          className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-        >
-          Open
-        </Link>
+      <td className="px-3 py-1 text-muted-foreground">
+        {s.consent_camera ? "Camera on" : "Camera off"}
+      </td>
+      <td className="px-3 py-1 text-muted-foreground">{vitalsStatusLabel(s.vitals_status)}</td>
+      <td className="px-3 py-1 text-right">
+        <Button asChild size="sm" variant="secondary">
+          <Link to={checkinPath(s.id)}>Open</Link>
+        </Button>
       </td>
     </tr>
   );

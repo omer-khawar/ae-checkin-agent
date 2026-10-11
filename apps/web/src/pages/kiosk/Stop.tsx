@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { Button } from "../../components/Button";
+import { Button } from "@/ui/button";
 
 /**
  * Fallback only if the API omits `stop_screen_text`. Verbatim from CLAUDE.md §3.4(e).
@@ -18,8 +18,8 @@ export interface StopProps {
 
 /**
  * Tier 3 stop screen. Shows the API's fixed text and nothing else: no tier, no
- * grade, no explanation. A single "Done" button resets the kiosk for the next
- * participant (it also resets itself after a while).
+ * grade, no explanation, no colour that signals alarm. A single "Done" button
+ * resets the kiosk for the next participant (it also resets itself after a while).
  */
 export function Stop({ text, onDone, autoResetMs = 90_000 }: StopProps) {
   useEffect(() => {
@@ -29,13 +29,16 @@ export function Stop({ text, onDone, autoResetMs = 90_000 }: StopProps) {
   }, [onDone, autoResetMs]);
 
   return (
-    <div className="mx-auto max-w-2xl text-center" data-testid="stop-screen">
-      <p className="text-3xl font-semibold leading-relaxed text-slate-900 sm:text-4xl">
+    <section
+      className="glass mx-auto flex w-full max-w-k-content flex-col items-center gap-10 rounded-sheet p-8 text-center sm:p-12"
+      data-testid="stop-screen"
+    >
+      <p className="m-0 text-k-question leading-relaxed text-foreground">
         {text || DEFAULT_STOP_TEXT}
       </p>
-      <Button size="xl" variant="secondary" className="mt-12" onClick={onDone}>
+      <Button size="xl" variant="secondary" onClick={onDone}>
         Done
       </Button>
-    </div>
+    </section>
   );
 }

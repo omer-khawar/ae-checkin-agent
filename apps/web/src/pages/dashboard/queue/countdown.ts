@@ -85,3 +85,16 @@ export function plainRemaining(remainingMs: number): PlainRemaining {
   if (totalMin === 0) return { text: "under 1 min", spoken: "under 1 minute", overdue };
   return { text: `${totalMin} min`, spoken: plural(totalMin, "minute"), overdue };
 }
+
+/**
+ * Compact remaining time for dense table cells: "22h 25m left", "42m left",
+ * "overdue 1h 05m". Always carries a unit, so it can never be read as a time of day.
+ */
+export function compactRemaining(remainingMs: number): string {
+  const overdue = remainingMs < 0;
+  const totalMin = Math.floor(Math.abs(remainingMs) / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const body = h > 0 ? `${h}h ${two(m)}m` : totalMin === 0 ? "<1m" : `${m}m`;
+  return overdue ? `overdue ${body}` : `${body} left`;
+}

@@ -1,8 +1,10 @@
 /**
- * MEASURED (green) / SIMULATED (violet). The word is always rendered as text so a
+ * MEASURED / SIMULATED: wrapper over `@/ui/badge`. The word is always rendered as text so a
  * screenshot, a screen reader and a colour-blind judge all get the same answer.
  */
-import { cx, MEASURED_STYLES, measuredLabel } from "../lib/format";
+import { Badge } from "@/ui/badge";
+
+import { measuredLabel } from "../lib/format";
 
 export interface MeasuredBadgeProps {
   isMeasured: boolean;
@@ -13,21 +15,16 @@ export interface MeasuredBadgeProps {
 }
 
 export function MeasuredBadge({ isMeasured, source, size = "sm", className }: MeasuredBadgeProps) {
-  const word = measuredLabel(isMeasured);
-  const style = MEASURED_STYLES[word];
   return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border font-bold uppercase tracking-wide",
-        size === "sm" ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs",
-        style.badgeClass,
-        className,
-      )}
-      title={style.title}
+    <Badge
+      kind={isMeasured ? "measured" : "simulated"}
+      label={measuredLabel(isMeasured)}
+      detail={
+        source ? <span className="font-mono font-normal normal-case">{source}</span> : undefined
+      }
+      size={size}
       data-measured={isMeasured ? "true" : "false"}
-    >
-      <span>{word}</span>
-      {source && <span className="font-mono font-normal normal-case opacity-80">{source}</span>}
-    </span>
+      className={className}
+    />
   );
 }

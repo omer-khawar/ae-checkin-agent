@@ -25,13 +25,13 @@ export function RequireRole({ roles, children }: RequireRoleProps) {
   if (roles && !roles.includes(role)) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Not available for your role</h1>
-        <p className="mt-2 text-slate-600">
+        <h1 className="text-page font-semibold text-foreground">Not available for your role</h1>
+        <p className="mt-2 text-muted-foreground">
           You are signed in as <strong>{ROLE_LABELS[role]}</strong>. This page needs:{" "}
           {roles.map((r) => ROLE_LABELS[r]).join(" or ")}.
         </p>
         <p className="mt-6">
-          <Link to="/dashboard" className="text-brand-700 underline">
+          <Link to="/dashboard" className="text-primary underline">
             Back to the dashboard
           </Link>
         </p>

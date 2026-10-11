@@ -57,14 +57,17 @@ export function ConfusionMatrix({ matrix, labels = DEFAULT_LABELS }: ConfusionMa
 
   return (
     <div className="overflow-x-auto">
-      <table className="border-separate border-spacing-0.5 text-sm" data-testid="confusion-matrix">
-        <caption className="mb-2 text-left text-xs text-slate-600">
+      <table
+        className="border-separate border-spacing-0.5 text-table"
+        data-testid="confusion-matrix"
+      >
+        <caption className="mb-2 text-left text-caption text-muted-foreground">
           Rows: expected grade from the answer key. Columns: actual provisional grade. Diagonal =
           correct.
           {total > 0 && (
             <>
               {" "}
-              <span className="tnum font-medium text-slate-900">
+              <span className="tnum font-medium text-foreground">
                 {diagonal} / {total}
               </span>{" "}
               item grades on the diagonal.
@@ -73,14 +76,17 @@ export function ConfusionMatrix({ matrix, labels = DEFAULT_LABELS }: ConfusionMa
         </caption>
         <thead>
           <tr>
-            <th scope="col" className="px-2 py-1 text-left text-xs font-medium text-slate-600">
+            <th
+              scope="col"
+              className="h-8 bg-surface px-2 text-left text-caption font-medium text-muted-foreground"
+            >
               expected ↓ / actual →
             </th>
             {labels.map((l) => (
               <th
                 key={l}
                 scope="col"
-                className="tnum px-2 py-1 text-center text-xs font-semibold text-slate-700"
+                className="tnum h-8 bg-surface px-2 text-center text-caption font-semibold text-foreground"
               >
                 {l}
               </th>
@@ -92,7 +98,7 @@ export function ConfusionMatrix({ matrix, labels = DEFAULT_LABELS }: ConfusionMa
             <tr key={rowLabel}>
               <th
                 scope="row"
-                className="tnum px-2 py-1 text-left text-xs font-semibold text-slate-700"
+                className="tnum h-8 bg-surface px-2 text-left text-caption font-semibold text-foreground"
               >
                 {rowLabel}
               </th>
@@ -105,11 +111,11 @@ export function ConfusionMatrix({ matrix, labels = DEFAULT_LABELS }: ConfusionMa
                   <td
                     key={colLabel}
                     className={cx(
-                      "tnum h-11 w-14 rounded-md border text-center align-middle",
+                      "tnum h-11 w-14 rounded-control border text-center align-middle",
                       step < 0
-                        ? "border-slate-200 bg-slate-50 text-slate-500"
+                        ? "border-border bg-surface-subtle text-muted-foreground"
                         : "border-transparent",
-                      step >= 0 && (dark ? "text-slate-900" : "text-white"),
+                      step >= 0 && (dark ? "text-foreground" : "text-white"),
                       r === c && "font-semibold ring-1 ring-inset ring-slate-900/20",
                     )}
                     style={style}

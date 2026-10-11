@@ -747,13 +747,23 @@ export async function patchPacket(packetId: string, body: PatchPacketRequest): P
  * "reported (mock)", audits `packet.signed` / `packet.followup_signed` and
  * posts the packet to the mock EDC. Nothing is sent anywhere real.
  */
-export async function signPacket(packetId: string): Promise<Packet> {
+export async function signPacket(
+  packetId: string,
+  opts?: { missingNotAvailable?: string[] },
+): Promise<Packet> {
   // Called only from the sign confirmation dialog, which shows the narrative and the
   // missing-information count: confirming there is the investigator's attestation. The
   // API refuses a signature that does not carry it (422).
   const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}/sign`, {
     method: "POST",
-    body: { narrative_reviewed: true, missing_info_acknowledged: true },
+    body:
+      opts?.missingNotAvailable !== undefined
+        ? {
+            narrative_reviewed: true,
+            // Each open item the investigator marked "Not available", verbatim.
+            missing_info_not_available: opts.missingNotAvailable,
+          }
+        : { narrative_reviewed: true, missing_info_acknowledged: true },
   });
   return normalizePacket(unwrapPacket(raw));
 }

@@ -1,11 +1,11 @@
+import { ArrowRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { Button } from "../../components/Button";
-import { ErrorBanner } from "../../components/ErrorBanner";
-import type { Study } from "../../lib/types";
+import { QuestionCard } from "@/ui/kiosk/question-card";
+import { Button } from "@/ui/button";
+import { KioskError } from "./KioskError";
 
 export interface WelcomeProps {
-  study: Study | null;
   loading: boolean;
   /** Error loading /items or /study. */
   loadError: unknown;
@@ -34,7 +34,7 @@ export const CAMERA_OPT_OUT_LABEL = "I'd rather not use the camera";
 
 /**
  * Screen 1 (and the only screen before the questions): welcome, study ID and
- * the camera opt-out.
+ * the camera opt-out, on one glass card. No study title and no clinical words.
  *
  * There is no per-session consent step any more: camera use is covered by the
  * informed consent form signed at enrollment (CLAUDE.md §00, DECISIONS.md
@@ -44,7 +44,6 @@ export const CAMERA_OPT_OUT_LABEL = "I'd rather not use the camera";
  * there is no participant picker; the ID is validated for real by POST /sessions.
  */
 export function Welcome({
-  study,
   loading,
   loadError,
   onRetryLoad,
@@ -63,7 +62,7 @@ export function Welcome({
   const normalized = trimmed.toUpperCase();
   const valid = ID_PATTERN.test(trimmed);
   /**
-   * The "check your study ID" banner describes the ID that was rejected; once
+   * The "check your study ID" message describes the ID that was rejected; once
    * the participant edits the box it no longer applies, so it is hidden (it
    * reappears if they type the same rejected ID back).
    */
@@ -83,114 +82,109 @@ export function Welcome({
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="text-4xl font-bold text-slate-900">Welcome</h1>
-      <p className="mt-3 text-xl text-slate-700">
-        This short check-in asks how you have been feeling in the last 7 days. It takes about three
-        minutes.
-      </p>
-      {study && (
-        <p className="mt-2 text-base text-slate-600">
-          Study: <span className="font-medium text-slate-800">{study.title}</span>
-        </p>
-      )}
+    <div className="mx-auto w-full max-w-k-content">
+      <QuestionCard
+        title="Welcome"
+        titleSize="screen"
+        description="This short check-in asks how you have been feeling in the last 7 days. It takes about three minutes."
+        focusKey="welcome"
+      >
+        {loadError ? (
+          <KioskError
+            message="The check-in could not load. Please ask the study team."
+            onRetry={onRetryLoad}
+          />
+        ) : null}
 
-      {loadError ? (
-        <ErrorBanner
-          className="mt-6"
-          error={loadError}
-          message="The check-in could not load. Please ask the study team."
-          onRetry={onRetryLoad}
-        />
-      ) : null}
+        {showStartError ? (
+          <KioskError message="We couldn't start a check-in with that study ID. Please check it and try again, or ask the study team." />
+        ) : null}
 
-      {showStartError ? (
-        <ErrorBanner
-          className="mt-6"
-          error={startError}
-          message="We couldn't start a check-in with that study ID. Please check it and try again, or ask the study team."
-        />
-      ) : null}
+        {startFailure ? (
+          <KioskError
+            message="We couldn't start the check-in. Please try again."
+            onRetry={attemptStart}
+          />
+        ) : null}
 
-      {startFailure ? (
-        <ErrorBanner
-          className="mt-6"
-          error={startFailure}
-          message="We couldn't start the check-in. Please try again."
-          onRetry={attemptStart}
-        />
-      ) : null}
-
-      <form onSubmit={submit} className="mt-8" noValidate>
-        <label htmlFor="study-id" className="block text-lg font-semibold text-slate-800">
-          Your study ID
-        </label>
-        <input
-          id="study-id"
-          name="study-id"
-          type="text"
-          inputMode="text"
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          onBlur={() => setTouched(true)}
-          placeholder="e.g. P-007"
-          aria-describedby="study-id-hint"
-          aria-invalid={touched && !valid ? true : undefined}
-          disabled={busy}
-          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-4 font-mono text-2xl tracking-wide text-slate-900 placeholder:text-slate-400 disabled:bg-slate-100"
-        />
-        <p id="study-id-hint" className="mt-2 text-base text-slate-600">
-          It is printed on your study card, e.g. <span className="font-mono">P-007</span>.
-        </p>
-        {touched && !valid && (
-          <p className="mt-2 text-base font-medium text-red-700" role="alert">
-            Please enter your study ID to continue.
-          </p>
-        )}
-
-        {/* Camera opt-out. The whole row is the label, so the tap target is large;
-            the native checkbox keeps Space/Enter and screen-reader semantics. */}
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-base text-slate-700" id="camera-note">
-            While you answer, the camera can read your pulse and breathing rate.{" "}
-            <span className="font-medium text-slate-800">{NO_VIDEO_TEXT}</span>
-          </p>
-          <label
-            htmlFor="no-camera"
-            className="mt-3 flex min-h-tap cursor-pointer items-center gap-4 rounded-lg px-1 py-2 text-lg font-medium text-slate-900 hover:bg-slate-50"
-          >
+        <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+          <div>
+            <label htmlFor="study-id" className="block text-k-lead font-semibold">
+              Your study ID
+            </label>
             <input
-              id="no-camera"
-              type="checkbox"
-              checked={noCamera}
-              onChange={(e) => setNoCamera(e.target.checked)}
+              id="study-id"
+              name="study-id"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="e.g. P-007"
+              aria-describedby="study-id-hint"
+              aria-invalid={touched && !valid ? true : undefined}
               disabled={busy}
-              aria-describedby="camera-note camera-state"
-              className="h-7 w-7 shrink-0 cursor-pointer rounded border-slate-400 accent-brand-700"
+              className="mt-3 block min-h-k-option w-full rounded-control border-2 border-input bg-surface px-5 font-mono text-k-lead tracking-wide text-foreground placeholder:text-subtle-foreground disabled:opacity-60"
             />
-            {CAMERA_OPT_OUT_LABEL}
-          </label>
-          <p id="camera-state" className="mt-1 text-base text-slate-600" aria-live="polite">
-            {noCamera
-              ? "The camera will stay off. The check-in is exactly the same without it."
-              : "The camera will be on. You can tick the box above to turn it off."}
-          </p>
-        </div>
+            <p id="study-id-hint" className="mt-2 text-k-helper text-muted-foreground">
+              It is printed on your study card, e.g. <span className="font-mono">P-007</span>.
+            </p>
+            {touched && !valid && (
+              <p role="alert" className="mt-2 text-k-helper font-semibold text-destructive">
+                Please enter your study ID to continue.
+              </p>
+            )}
+          </div>
 
-        <Button
-          type="submit"
-          size="xl"
-          block
-          className="mt-8"
-          disabled={loading || busy || Boolean(loadError)}
-          busy={loading || busy}
-        >
-          Start check-in
-        </Button>
-      </form>
+          {/* Camera opt-out. The whole row is the label, so the tap target is large;
+              the native checkbox keeps Space/Enter and screen-reader semantics. */}
+          <div className="rounded-control border-2 border-border bg-surface p-5">
+            <p className="m-0 text-k-helper text-muted-foreground" id="camera-note">
+              While you answer, the camera can read your pulse and breathing rate.{" "}
+              <span className="font-semibold text-foreground">{NO_VIDEO_TEXT}</span>
+            </p>
+            <label
+              htmlFor="no-camera"
+              className="mt-3 flex min-h-k-option cursor-pointer items-center gap-4 rounded-control px-1 text-k-answer font-semibold hover:bg-surface-subtle"
+            >
+              <input
+                id="no-camera"
+                type="checkbox"
+                checked={noCamera}
+                onChange={(e) => setNoCamera(e.target.checked)}
+                disabled={busy}
+                aria-describedby="camera-note camera-state"
+                className="size-8 shrink-0 cursor-pointer accent-primary"
+              />
+              {CAMERA_OPT_OUT_LABEL}
+            </label>
+            <p
+              id="camera-state"
+              className="mt-1 text-k-helper text-muted-foreground"
+              aria-live="polite"
+            >
+              {noCamera
+                ? "The camera will stay off. The check-in is exactly the same without it."
+                : "The camera will be on. You can tick the box above to turn it off."}
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="xl"
+            fullWidth
+            loading={loading || busy}
+            disabled={Boolean(loadError)}
+            trailingIcon={<ArrowRight />}
+          >
+            Start check-in
+          </Button>
+        </form>
+      </QuestionCard>
     </div>
   );
 }

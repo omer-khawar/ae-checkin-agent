@@ -18,21 +18,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { Button } from "../../components/Button";
-import { Card } from "../../components/Card";
+import { Button } from "@/ui/button";
+import { Kbd } from "@/ui/kbd";
+import { isTypingTarget } from "@/ui/keyboard";
+import { notify } from "@/ui/toast";
+import { CheckCheck, RefreshCw } from "lucide-react";
+
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { Pagination } from "../../components/Pagination";
-import { TierChip } from "../../components/TierChip";
 import { useToast } from "../../components/Toast";
 import { DEFAULT_PAGE_SIZE, fetchAllPages, listParticipants } from "../../lib/api";
-import { cx, formatLocal, formatUtc } from "../../lib/format";
+import { formatLocal, formatUtc } from "../../lib/format";
 import type { Participant } from "../../lib/types";
-import { buildQueueQuery, hasNarrowingFilter } from "./queue/normalize";
+import { BulkConfirmSheet } from "./queue/BulkConfirmSheet";
+import { draftTotal } from "./queue/bulk";
+import { buildQueueQuery, hasNarrowingFilter, inView } from "./queue/normalize";
 import { SinceLastHere } from "./queue/SinceLastHere";
 import { QueueFilters } from "./queue/QueueFilters";
 import { QueueTable } from "./queue/QueueTable";
-import type { QueueFilterState, QueueRow } from "./queue/types";
+import { countLabel } from "./queue/summary";
+import type { QueueFilterState, QueueRow, QueueView } from "./queue/types";
 import { useNow } from "./queue/useNow";
 import { DEFAULT_REFRESH_MS, useQueuePolling } from "./queue/useQueuePolling";
 
@@ -49,7 +54,9 @@ export interface QueueProps {
 function readFilters(sp: URLSearchParams): QueueFilterState {
   const minTier = Number.parseInt(sp.get("min_tier") ?? "0", 10);
   const offset = Number.parseInt(sp.get("offset") ?? "0", 10);
+  const view = sp.get("view");
   return {
+    view: view === "needs" || view === "serious" || view === "notes" ? view : "all",
     participant: sp.get("participant") ?? "",
     minTier: Number.isFinite(minTier) && minTier >= 1 && minTier <= 3 ? minTier : 0,
     status: sp.get("status") === "all" ? "all" : "open",
@@ -61,6 +68,7 @@ function readFilters(sp: URLSearchParams): QueueFilterState {
 /** Only non-default values are written, so the default queue URL stays clean. */
 function writeFilters(f: QueueFilterState): URLSearchParams {
   const sp = new URLSearchParams();
+  if (f.view !== "all") sp.set("view", f.view);
   if (f.participant) sp.set("participant", f.participant);
   if (f.minTier > 0) sp.set("min_tier", String(f.minTier));
   if (f.status !== "open") sp.set("status", f.status);
@@ -153,7 +161,18 @@ export function Queue({
   const anyClock = Boolean(data?.items.some((r) => r.clocks.some((c) => !c.stopped)));
   const now = useNow(anyClock);
 
-  const rows = data?.items ?? [];
+  const allRows = useMemo(() => data?.items ?? [], [data]);
+  const rows = useMemo(
+    () => allRows.filter((r) => inView(r, filters.view)),
+    [allRows, filters.view],
+  );
+  const counts = useMemo(() => {
+    const out: Record<QueueView, number> = { all: 0, needs: 0, serious: 0, notes: 0 };
+    for (const v of ["all", "needs", "serious", "notes"] as const) {
+      out[v] = allRows.filter((r) => inView(r, v)).length;
+    }
+    return out;
+  }, [allRows]);
 
   // The Refresh button re-counts the "since you were last here" row too.
   const [summaryKey, setSummaryKey] = useState(0);
@@ -162,19 +181,47 @@ export function Queue({
     setSummaryKey((k) => k + 1);
   }, [refresh]);
 
+  // Bulk review: ticked rows -> confirmation sheet -> existing confirm endpoint per draft.
+  const [selection, setSelection] = useState<Record<string, boolean>>({});
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const selectedRows = useMemo(() => rows.filter((r) => selection[r.key]), [rows, selection]);
+
+  // Page shortcuts: c = confirm drafts of the ticked rows, r = refresh. (j/k/Enter/x/Esc
+  // live in the table.) Ignored while typing, with a modifier, or while a dialog is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (isTypingTarget(e.target)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.key === "c" && selectedRows.length > 0) {
+        e.preventDefault();
+        setSheetOpen(true);
+      } else if ((e.key === "j" || e.key === "k") && e.target === document.body) {
+        // From the page body, j/k enters the table at the first row.
+        const first = document.querySelector<HTMLElement>("tbody tr[data-row-id]");
+        if (first) {
+          e.preventDefault();
+          first.focus();
+        }
+      } else if (e.key === "r") {
+        e.preventDefault();
+        refreshAll();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedRows.length, refreshAll]);
+
+  const empty =
+    data && rows.length === 0 ? <EmptyState filters={filters} total={data.total} /> : undefined;
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Queue</h1>
-          <p className="mt-0.5 text-sm text-slate-600">
-            Everything that needs a look, most urgent first, then most recent. Order comes from the
-            rules engine on the server; nothing is re-ranked in the browser.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-slate-600">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <h1 className="text-lg font-semibold text-foreground">Queue</h1>
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
           <span
-            className="tnum"
+            className="tabular"
             title={
               updatedAt
                 ? `Last successful fetch ${formatUtc(updatedAt)} (UTC). Auto-refreshes every ${Math.round(refreshIntervalMs / 1000)} s.`
@@ -184,9 +231,15 @@ export function Queue({
             // interrupt a screen-reader user for as long as the page is open.
           >
             {updatedAt ? `updated ${formatLocal(updatedAt, "time")}` : "not yet updated"}
-            {refreshing && <span className="ml-1 text-slate-400">· refreshing…</span>}
+            {refreshing && <span className="ml-1 text-subtle-foreground">· refreshing…</span>}
           </span>
-          <Button size="sm" variant="secondary" onClick={refreshAll} busy={loading}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={refreshAll}
+            loading={loading}
+            leadingIcon={<RefreshCw />}
+          >
             Refresh
           </Button>
         </div>
@@ -194,9 +247,12 @@ export function Queue({
 
       <SinceLastHere refreshKey={summaryKey} />
 
-      <Card>
-        <QueueFilters value={filters} participants={participants} onChange={patchFilters} />
-      </Card>
+      <QueueFilters
+        value={filters}
+        participants={participants}
+        onChange={patchFilters}
+        counts={data ? counts : undefined}
+      />
 
       {error ? (
         <ErrorBanner
@@ -210,33 +266,91 @@ export function Queue({
         />
       ) : null}
 
-      <Card flush>
-        {loading ? (
-          <div className="px-4 py-12 text-center text-slate-600" role="status">
-            <span
-              aria-hidden="true"
-              className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent align-middle"
+      {loading ? (
+        <div
+          className="rounded-panel border border-border bg-surface px-4 py-12 text-center text-muted-foreground"
+          role="status"
+        >
+          Loading queue…
+        </div>
+      ) : data && data.items.length === 0 ? (
+        <div className="rounded-panel border border-border bg-surface">{empty}</div>
+      ) : data ? (
+        <>
+          <QueueTable
+            rows={rows}
+            now={now}
+            refreshing={refreshing}
+            selection={selection}
+            onSelectionChange={setSelection}
+            emptyState={empty}
+            bulkActions={({ rows: picked }) => (
+              <Button
+                size="sm"
+                variant="primary"
+                leadingIcon={<CheckCheck />}
+                onClick={() => setSheetOpen(true)}
+                title="Confirm every unconfirmed draft on the ticked items (shortcut: c)"
+              >
+                {`Confirm all drafts (${picked.reduce((n, r) => n + draftTotal(r), 0)})`}
+              </Button>
+            )}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
+              <span>
+                Order from the rules engine: most urgent first, then most recent. Sorting a column
+                reorders this page only.
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd size="sm">j</Kbd>
+                <Kbd size="sm">k</Kbd> move
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd size="sm">Enter</Kbd> open
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd size="sm">x</Kbd> select
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd size="sm">c</Kbd> confirm selected
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd size="sm">r</Kbd> refresh
+              </span>
+            </p>
+            <Pagination
+              total={data.total}
+              limit={data.limit || pageSize}
+              offset={data.offset}
+              onChange={({ offset }) => patchFilters({ offset })}
             />
-            Loading queue…
           </div>
-        ) : data && rows.length === 0 ? (
-          <EmptyState filters={filters} />
-        ) : data ? (
-          <>
-            <QueueTable rows={rows} now={now} refreshing={refreshing} />
-            <div className="border-t border-slate-200 px-4 py-3">
-              <Pagination
-                total={data.total}
-                limit={data.limit || pageSize}
-                offset={data.offset}
-                onChange={({ offset }) => patchFilters({ offset })}
-              />
-            </div>
-          </>
-        ) : null}
-      </Card>
+        </>
+      ) : null}
 
-      <Legend />
+      <BulkConfirmSheet
+        open={sheetOpen}
+        rows={selectedRows}
+        onOpenChange={setSheetOpen}
+        onDone={(result, itemCount) => {
+          setSelection({});
+          refreshAll();
+          const items = countLabel(itemCount, "item");
+          if (result.failed === 0) {
+            notify.success(`Confirmed ${countLabel(result.confirmed, "draft")}`, {
+              description: `Across ${items}. Each confirmation is in the audit log.`,
+            });
+          } else {
+            notify.warning(
+              `Confirmed ${result.confirmed}, ${result.failed} could not be confirmed`,
+              {
+                description: "Open the items that remain in the queue and confirm them one by one.",
+              },
+            );
+          }
+        }}
+      />
     </div>
   );
 }
@@ -247,7 +361,14 @@ export function Queue({
  * really has nothing in it. Saying "nothing recorded" under an active filter
  * would be false.
  */
-function EmptyState({ filters }: { filters: QueueFilterState }) {
+function EmptyState({ filters, total }: { filters: QueueFilterState; total: number }) {
+  if (total > 0 && filters.view !== "all") {
+    return (
+      <p className="text-body">
+        Nothing on this page fits this view. Switch to All to see every item.
+      </p>
+    );
+  }
   const narrowed = hasNarrowingFilter(filters);
   let detail: string;
   if (narrowed) {
@@ -262,8 +383,8 @@ function EmptyState({ filters }: { filters: QueueFilterState }) {
     detail = "Nothing has been recorded yet. Start a check-in from the kiosk.";
   }
   return (
-    <div className="px-4 py-12 text-center text-slate-600" role="status">
-      <p className="font-medium text-slate-800">
+    <div className="px-4 py-10 text-center text-muted-foreground" role="status">
+      <p className="font-medium text-foreground">
         {narrowed || filters.status === "open"
           ? "No items match these filters."
           : "The queue is empty."}
@@ -279,29 +400,3 @@ const SOURCE_WORD: Record<QueueRow["source"], string> = {
   chart_note: "chart note",
   phone_call: "phone call",
 };
-
-/** What the chips mean, so a first-time reader never has to guess. */
-function Legend() {
-  return (
-    <div className={cx("flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600")}>
-      <span className="font-medium text-slate-700">Legend</span>
-      <span className="inline-flex items-center gap-1.5">
-        <TierChip tier={0} short /> <TierChip tier={1} short /> <TierChip tier={2} short />{" "}
-        <TierChip tier={3} short />
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <MeasuredBadge isMeasured /> real sensor
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <MeasuredBadge isMeasured={false} /> mock source; never used for rules unless the admin demo
-        toggle is on
-      </span>
-      <span>
-        <span className="font-medium text-slate-700">Report due</span>: a serious event (SAE) or
-        special-interest event (AESI) must reach the sponsor within 24 hours (protocol
-        §9.4.2–9.4.3).
-      </span>
-      <span>Grades are provisional (participant answers only); vitals never change a grade.</span>
-    </div>
-  );
-}

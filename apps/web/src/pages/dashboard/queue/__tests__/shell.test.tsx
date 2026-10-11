@@ -121,15 +121,20 @@ describe("stage-2 routes", () => {
     expect(screen.getByText(/not a medical device/i)).toBeInTheDocument();
   });
 
-  it("adds Queries to the nav and keeps every existing item", async () => {
+  it("nav is Worklist, Queries, Escalations, Notes (Audit and Eval live in System)", async () => {
     installMockFetch(baseRoutes());
     renderApp("/dashboard/queries");
     const nav = screen.getByRole("navigation", { name: "Dashboard" });
     const labels = within(nav)
       .getAllByRole("link")
       .map((a) => a.textContent);
-    expect(labels).toEqual(["Queue", "Escalations", "Notes", "Queries", "Audit", "Eval"]);
-    expect(within(nav).getByRole("link", { name: "Queries" })).toHaveAttribute(
+    // Audit, Eval and Admin moved into the System menu; counts are separate badges.
+    expect(
+      labels.map((l) =>
+        (l ?? "").replace(/\d+\+?\s*(need action|open|not acknowledged|chart notes)?$/, "").trim(),
+      ),
+    ).toEqual(["Worklist", "Queries", "Escalations", "Notes"]);
+    expect(within(nav).getByRole("link", { name: /^Queries/ })).toHaveAttribute(
       "href",
       "/dashboard/queries",
     );
@@ -176,7 +181,7 @@ describe("TimeSavedStrip", () => {
     signIn();
     render(<TimeSavedStrip />);
     const strip = await screen.findByTestId("time-saved-strip");
-    expect(strip).toHaveTextContent("≈ 3.5 hours of coordinator time saved this week");
+    expect(strip).toHaveTextContent("≈ 3.5 h saved");
     expect(within(strip).getByText("estimate")).toBeInTheDocument();
     const call = mock.fn.mock.calls
       .map((c) => new URL(String(c[0]), "http://localhost"))
@@ -193,6 +198,7 @@ describe("TimeSavedStrip", () => {
     render(<TimeSavedStrip />);
     const toggle = await screen.findByRole("button", { name: "How is this estimated?" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent("estimate");
     toggle.focus();
     await user.keyboard("{Enter}");
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -220,7 +226,7 @@ describe("TimeSavedStrip", () => {
     const user = userEvent.setup();
     render(<TimeSavedStrip />);
     const strip = await screen.findByTestId("time-saved-strip");
-    expect(strip).toHaveTextContent("≈ 25 minutes of coordinator time saved this week");
+    expect(strip).toHaveTextContent("≈ 25 min saved");
     await user.click(screen.getByRole("button", { name: "How is this estimated?" }));
     expect(screen.getByText("Sponsor queries answered").nextElementSibling).toHaveTextContent(
       "not reported",

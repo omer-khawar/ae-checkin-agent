@@ -10,8 +10,9 @@
  */
 import { Link } from "react-router-dom";
 
-import { Card } from "../../../components/Card";
-import { MeasuredBadge } from "../../../components/MeasuredBadge";
+import { Panel as Card } from "./Panel";
+import { Badge } from "@/ui/badge";
+import { provenanceBadgeKind } from "@/ui/badge-kinds";
 import { cx, Time } from "../../../lib/format";
 import { evidenceKindLabel, evidenceLink, evidenceQuote } from "./model";
 import type { PacketEvidence } from "../../../lib/types";
@@ -27,17 +28,17 @@ export interface EvidenceSelection {
 }
 
 const KIND_CLASS: Record<string, string> = {
-  pro_response: "bg-brand-50 text-brand-900 border-brand-300",
-  gate_answer: "bg-brand-50 text-brand-900 border-brand-300",
-  vitals_sample: "bg-violet-50 text-violet-900 border-violet-300",
-  rule: "bg-amber-50 text-amber-900 border-amber-300",
-  table: "bg-slate-100 text-slate-700 border-slate-300",
-  chart_note: "bg-sky-50 text-sky-900 border-sky-300",
-  phone_call: "bg-sky-50 text-sky-900 border-sky-300",
+  pro_response: "bg-accent text-accent-foreground border-border-strong",
+  gate_answer: "bg-accent text-accent-foreground border-border-strong",
+  vitals_sample: "bg-simulated-bg text-simulated-fg border-simulated-border",
+  rule: "bg-warning-bg text-warning-fg border-warning-border",
+  table: "bg-surface-subtle text-foreground border-border-strong",
+  chart_note: "bg-info-bg text-info-fg border-info-border",
+  phone_call: "bg-info-bg text-info-fg border-info-border",
 };
 
 function kindClass(kind: string | null | undefined): string {
-  return (kind && KIND_CLASS[kind]) || "bg-slate-50 text-slate-700 border-slate-300";
+  return (kind && KIND_CLASS[kind]) || "bg-surface-subtle text-foreground border-border-strong";
 }
 
 export interface EvidenceChipsProps {
@@ -61,7 +62,7 @@ export function EvidenceChips({
   emptyText = "No evidence",
 }: EvidenceChipsProps) {
   if (!items.length) {
-    return <span className="text-xs italic text-slate-500">{emptyText}</span>;
+    return <span className="text-caption italic text-muted-foreground">{emptyText}</span>;
   }
   return (
     <span className="inline-flex flex-wrap gap-1">
@@ -79,7 +80,7 @@ export function EvidenceChips({
             title={`${label} · ${it.id}`}
             data-evidence-id={it.id}
             className={cx(
-              "inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold",
+              "inline-flex items-center gap-1 whitespace-nowrap rounded-control border px-1.5 py-0.5 text-caption font-semibold",
               "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
               kindClass(it.evidence?.kind),
               active && "ring-2 ring-brand-700",
@@ -119,7 +120,7 @@ export function EvidenceInspector({
           <button
             type="button"
             onClick={onClear}
-            className="rounded px-2 py-0.5 text-sm text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-brand-600"
+            className="rounded px-2 py-0.5 text-body text-muted-foreground hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand-600"
           >
             Clear
           </button>
@@ -128,7 +129,7 @@ export function EvidenceInspector({
     >
       <div aria-live="polite" data-testid="evidence-inspector">
         {!selection ? (
-          <p className="text-sm text-slate-600">
+          <p className="text-body text-muted-foreground">
             Click any evidence chip next to a value or a sentence to see exactly where it came from.
           </p>
         ) : (
@@ -143,12 +144,12 @@ function EvidenceDetails({ selection }: { selection: EvidenceSelection }) {
   const e = selection.evidence;
   if (!e) {
     return (
-      <div className="space-y-2 text-sm">
-        <p className="text-slate-500">Supports: {selection.context}</p>
+      <div className="space-y-2 text-body">
+        <p className="text-muted-foreground">Supports: {selection.context}</p>
         <p>
-          Evidence id <code className="font-mono text-xs">{selection.id}</code>
+          Evidence id <code className="font-mono text-caption">{selection.id}</code>
         </p>
-        <p className="text-slate-600">
+        <p className="text-muted-foreground">
           This packet does not include the details for this id. It can be looked up in the audit
           trail.
         </p>
@@ -159,17 +160,21 @@ function EvidenceDetails({ selection }: { selection: EvidenceSelection }) {
   const link = evidenceLink(e);
   const isVitals = e.kind === "vitals_sample";
   return (
-    <dl className="space-y-2 text-sm">
+    <dl className="space-y-2 text-body">
       <div>
-        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Supports</dt>
+        <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+          Supports
+        </dt>
         <dd>{selection.context}</dd>
       </div>
       <div>
-        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</dt>
+        <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+          Source
+        </dt>
         <dd className="flex flex-wrap items-center gap-2">
           <span
             className={cx(
-              "rounded-md border px-1.5 py-0.5 text-xs font-semibold",
+              "rounded-control border px-1.5 py-0.5 text-caption font-semibold",
               kindClass(e.kind),
             )}
           >
@@ -177,9 +182,13 @@ function EvidenceDetails({ selection }: { selection: EvidenceSelection }) {
           </span>
           {isVitals &&
             (typeof e.is_measured === "boolean" ? (
-              <MeasuredBadge isMeasured={e.is_measured} />
+              <Badge
+                kind={provenanceBadgeKind(e.is_measured)}
+                size="sm"
+                label={e.is_measured ? "MEASURED" : "SIMULATED"}
+              />
             ) : (
-              <span className="text-xs font-semibold uppercase text-slate-700">
+              <span className="text-caption font-semibold uppercase text-foreground">
                 MEASURED / SIMULATED: not stated
               </span>
             ))}
@@ -187,11 +196,11 @@ function EvidenceDetails({ selection }: { selection: EvidenceSelection }) {
       </div>
       {quote && (
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
             Exact words
           </dt>
           <dd>
-            <blockquote className="border-l-4 border-sky-300 bg-sky-50 px-3 py-1.5 italic text-slate-800">
+            <blockquote className="border-l-4 border-sky-300 bg-sky-50 px-3 py-1.5 italic text-foreground">
               “{quote}”
             </blockquote>
           </dd>
@@ -199,29 +208,33 @@ function EvidenceDetails({ selection }: { selection: EvidenceSelection }) {
       )}
       {e.note && e.note !== quote && (
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Note</dt>
-          <dd className="text-slate-800">{e.note}</dd>
+          <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+            Note
+          </dt>
+          <dd className="text-foreground">{e.note}</dd>
         </div>
       )}
       <div>
-        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recorded</dt>
+        <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+          Recorded
+        </dt>
         <dd>
           <Time iso={e.ts} fallback="Time not recorded" />
         </dd>
       </div>
       <div>
-        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <dt className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
           Evidence id
         </dt>
         <dd>
-          <code className="break-all font-mono text-xs text-slate-700">{e.id || "—"}</code>
+          <code className="break-all font-mono text-caption text-foreground">{e.id || "—"}</code>
         </dd>
       </div>
       {link && (
         <div>
           <Link
             to={link}
-            className="text-sm font-semibold text-brand-800 underline underline-offset-2 hover:text-brand-900"
+            className="text-body font-semibold text-primary underline underline-offset-2 hover:text-primary-strong"
           >
             Open the source record
           </Link>

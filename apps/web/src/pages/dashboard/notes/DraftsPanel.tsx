@@ -11,7 +11,7 @@
  */
 import { useState } from "react";
 
-import { Button } from "../../../components/Button";
+import { Button } from "@/ui/button";
 import { cx, Time } from "../../../lib/format";
 import {
   AESI_BANNER,
@@ -47,10 +47,10 @@ export interface DraftsPanelProps {
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  draft: "bg-amber-100 text-amber-900 border-amber-300",
+  draft: "bg-warning-bg text-warning-fg border-warning-border",
   confirmed: "bg-green-100 text-green-800 border-green-300",
-  rejected: "bg-slate-200 text-slate-700 border-slate-300",
-  superseded: "bg-slate-100 text-slate-500 border-slate-200",
+  rejected: "bg-slate-200 text-muted-foreground border-border-strong",
+  superseded: "bg-surface-subtle text-muted-foreground border-border",
 };
 
 /** The SDTM columns to show first; everything else follows alphabetically. */
@@ -96,28 +96,28 @@ function valueText(v: unknown): string {
 
 function EvidenceList({ items }: { items: Evidence[] }) {
   if (items.length === 0) {
-    return <p className="text-xs text-slate-500">No evidence recorded for this field.</p>;
+    return <p className="text-xs text-muted-foreground">No evidence recorded for this field.</p>;
   }
   return (
     <ul className="space-y-1.5" data-testid="evidence-list">
       {items.map((e, i) => (
-        <li key={`${e.kind}-${e.id}-${i}`} className="text-xs text-slate-700">
+        <li key={`${e.kind}-${e.id}-${i}`} className="text-xs text-muted-foreground">
           <span
-            className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-700"
+            className="rounded bg-surface-subtle px-1.5 py-0.5 text-caption text-muted-foreground"
             title={e.kind}
           >
             {evidenceKindName(e.kind)}
           </span>{" "}
-          <span className="font-mono text-[11px] text-slate-500">{e.id}</span>
+          <span className="font-mono text-caption text-muted-foreground">{e.id}</span>
           {e.ts && (
             <>
               {" · "}
               <Time iso={e.ts} style="short" />
             </>
           )}
-          {e.note && <div className="mt-0.5 text-slate-800">{e.note}</div>}
+          {e.note && <div className="mt-0.5 text-foreground">{e.note}</div>}
           {typeof e.span_start === "number" && typeof e.span_end === "number" && (
-            <div className="text-[11px] text-slate-500">
+            <div className="text-caption text-muted-foreground">
               chars {e.span_start}–{e.span_end}
             </div>
           )}
@@ -176,17 +176,17 @@ function DraftCard({
 
   return (
     <article
-      className="rounded-xl border border-slate-200 bg-white"
+      className="rounded-panel border border-border bg-surface"
       aria-label={`${draft.domain} draft ${draft.id}`}
       data-testid={`draft-${draft.domain}`}
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">
+          <span className="text-sm font-semibold text-foreground">
             {plainDraftTitle(draft.domain, draft.fields)}
           </span>
           <span
-            className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] text-slate-600"
+            className="rounded border border-border bg-surface-subtle px-1 font-mono text-[10px] text-muted-foreground"
             title="SDTM domain"
           >
             {sdtmBadge(draft.domain, draft.fields)}
@@ -199,10 +199,10 @@ function DraftCard({
           >
             {draft.status}
           </span>
-          <span className="text-xs text-slate-500">v{draft.version}</span>
+          <span className="text-xs text-muted-foreground">v{draft.version}</span>
           {draft.is_followup && (
             <span
-              className="rounded-full border border-brand-300 bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-900"
+              className="rounded-full border border-primary bg-surface-selected px-2 py-0.5 text-xs font-medium text-primary"
               title={
                 draft.linked_ae_open_id
                   ? `Linked to open AE ${draft.linked_ae_open_id} (same term within the dedup window)`
@@ -213,7 +213,7 @@ function DraftCard({
             </span>
           )}
         </div>
-        <span className="font-mono text-[11px] text-slate-500">{draft.id}</span>
+        <span className="font-mono text-caption text-muted-foreground">{draft.id}</span>
       </header>
 
       {/*
@@ -227,7 +227,7 @@ function DraftCard({
       */}
       <ProtocolNotes draft={draft} protocol={protocol} />
 
-      <dl className="divide-y divide-slate-100">
+      <dl className="divide-y divide-border">
         {fields.map(([name, value]) => {
           const ev = draft.evidence[name] ?? [];
           const sel = selectedField === name;
@@ -245,7 +245,10 @@ function DraftCard({
               key={name}
               data-field={name}
               data-selected={sel ? "true" : "false"}
-              className={cx("flex flex-wrap items-start gap-x-3 px-3 py-1.5", sel && "bg-brand-50")}
+              className={cx(
+                "flex flex-wrap items-start gap-x-3 px-3 py-1.5",
+                sel && "bg-surface-selected",
+              )}
             >
               <dt className="w-44 shrink-0">
                 <button
@@ -254,11 +257,11 @@ function DraftCard({
                   aria-pressed={sel}
                   aria-label={`${plain} (${name}): ${shown}. Show evidence`}
                   title={`Show evidence for ${plain} (${name})`}
-                  className="w-full rounded text-left hover:text-brand-800 hover:underline focus-visible:ring-4"
+                  className="w-full rounded text-left hover:text-primary hover:underline focus-visible:ring-4"
                 >
-                  <span className="block text-xs font-medium text-slate-800">{plain}</span>
-                  <span className="font-mono text-[10px] text-slate-500">{name}</span>
-                  <span className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600">
+                  <span className="block text-xs font-medium text-foreground">{plain}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{name}</span>
+                  <span className="tabular ml-1 rounded bg-surface-subtle px-1 text-[10px] text-muted-foreground">
                     {ev.length} ev
                   </span>
                 </button>
@@ -269,7 +272,7 @@ function DraftCard({
                   tabIndex={-1}
                   onClick={() => select(name)}
                   aria-label={`Value of ${plain} (${name}): ${shown}. Show evidence`}
-                  className="w-full break-words rounded text-left text-sm text-slate-900 hover:bg-slate-50"
+                  className="w-full break-words rounded text-left text-sm text-foreground hover:bg-surface-subtle"
                 >
                   {chip ? (
                     <span
@@ -285,13 +288,13 @@ function DraftCard({
                     shown
                   )}
                   {name === "AETOXGR" && value !== null && value !== undefined && value !== "" && (
-                    <span className="ml-1 text-xs text-slate-500">
+                    <span className="ml-1 text-xs text-muted-foreground">
                       (provisional, investigator to confirm)
                     </span>
                   )}
                 </button>
                 {sel && (
-                  <div className="mt-1 border-t border-brand-100 bg-brand-50/50 px-2 py-2">
+                  <div className="mt-1 border-t border-brand-100 bg-surface-selected/50 px-2 py-2">
                     <EvidenceList items={ev} />
                   </div>
                 )}
@@ -302,9 +305,9 @@ function DraftCard({
       </dl>
 
       {canAct && (
-        <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-3 py-2">
+        <footer className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
           {onConfirm && (
-            <Button size="sm" onClick={() => void onConfirm(draft)} busy={busy} disabled={busy}>
+            <Button size="sm" onClick={() => void onConfirm(draft)} loading={busy} disabled={busy}>
               Confirm
             </Button>
           )}
@@ -336,7 +339,7 @@ function DraftCard({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Reason (required)"
-                className="min-w-[12rem] flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                className="min-w-[12rem] flex-1 rounded-control border border-border-strong px-2 py-1 text-sm"
               />
               <Button size="sm" variant="danger" type="submit" disabled={!reason.trim() || busy}>
                 Reject
@@ -364,14 +367,14 @@ export function DraftsPanel({
 }: DraftsPanelProps) {
   if (drafts.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         No drafts were created from this note (nothing non-excluded was found).
       </p>
     );
   }
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-muted-foreground">
         Click a field to see the evidence it points at; the quoted words are outlined in the note.
         Drafts stay drafts until a coordinator confirms them.
       </p>
@@ -409,7 +412,7 @@ function ProtocolNotes({
     if (draft.fields.INTERIM_AESI_SUSPECTED !== true) return null;
     return (
       <p
-        className="border-b border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-900"
+        className="border-b border-red-100 bg-danger-bg px-3 py-2 text-sm font-medium text-danger-fg"
         data-testid="aesi-banner"
       >
         {AESI_BANNER}
@@ -423,7 +426,7 @@ function ProtocolNotes({
   if (!chip && !missing) return null;
   return (
     <div
-      className="space-y-1 border-b border-slate-100 bg-slate-50 px-3 py-2"
+      className="space-y-1 border-b border-border bg-surface-subtle px-3 py-2"
       data-testid="cm-protocol"
     >
       {chip && (
@@ -440,7 +443,7 @@ function ProtocolNotes({
         </span>
       )}
       {missing && (
-        <p className="text-xs text-slate-800" data-testid="cm-missing">
+        <p className="text-xs text-foreground" data-testid="cm-missing">
           {missing}
         </p>
       )}

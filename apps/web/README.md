@@ -160,3 +160,15 @@ rendering, and one suite per dashboard page (queue, check-in detail, notes and c
 queries, escalations, timeline, audit, eval, admin) against a mocked `fetch`. A drift test keeps
 `detail/plainLanguageTable.ts` equal to `packages/rules/data/plain_language.json`; regenerate it with
 `node src/pages/dashboard/detail/genPlainLanguageTable.mjs`.
+
+## UI design system
+
+Components live in `src/ui/` (see `src/ui/README.md` for tokens, glass rules and the contrast table; credits in `src/ui/CREDITS.md`). Direction: Apple liquid glass x healthcare, not techno.
+
+- **Glass on chrome only.** The header, command menu, side sheets, toasts and kiosk cards/action bar are translucent. Data surfaces (tables, forms, evidence) stay opaque, crisp and dense (36px rows, 13px cells, tabular numerals).
+- **Keyboard shortcuts (console).** Cmd/Ctrl+K opens the command menu; `?` lists every shortcut; the worklist supports row navigation, confirm and next-item from the keyboard, plus bulk confirm. Press `?` in the app for the authoritative list.
+- **`?presenter=1`** adds presenter mode to any route (larger type for projecting, quieter chrome).
+- **Demo guide toggle** in the header shows or hides the step-by-step demo guide overlay; it never changes data.
+- Rules that never change: the not-a-medical-device footer on every page, MEASURED/SIMULATED beside every vital, click-to-evidence on derived fields, no clinical language on the kiosk.
+
+Screenshots: `docs/screenshots/v3/`. A visual catalog of every component is at `/ui-preview`.

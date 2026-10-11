@@ -80,7 +80,11 @@ export interface QueuePage {
 }
 
 /** The filter controls, as kept in the URL search params. */
+/** Worklist tabs. Applied in the browser to the loaded page; the rest of the filters go to GET /queue. */
+export type QueueView = "all" | "needs" | "serious" | "notes";
+
 export interface QueueFilterState {
+  view: QueueView;
   /** What the user typed or picked: a display label (P-007) or a full USUBJID. */
   participant: string;
   minTier: number;

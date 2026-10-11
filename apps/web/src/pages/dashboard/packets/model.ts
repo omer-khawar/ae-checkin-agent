@@ -519,3 +519,46 @@ export function saveBlob(blob: Blob, filename: string): boolean {
     setTimeout(() => URL.revokeObjectURL(href), 1000);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Report sections (display grouping only; the API owns the field list)
+// ---------------------------------------------------------------------------
+
+export type FieldSection = "event" | "seriousness" | "medicines" | "reporter";
+
+export const FIELD_SECTIONS: ReadonlyArray<{ id: FieldSection; title: string }> = [
+  { id: "event", title: "Event" },
+  { id: "seriousness", title: "Seriousness" },
+  { id: "medicines", title: "Medicines" },
+  { id: "reporter", title: "Reporter" },
+];
+
+/** Fields a sponsor report is not complete without. A marker only; rules decide nothing here. */
+const REQUIRED_FIELDS = new Set([
+  "AETERM",
+  "EVENT_TERM",
+  "AESTDTC",
+  "SAE_ONSET_DATE",
+  "AETOXGR",
+  "LATEST_GRADE",
+  "AEOUT",
+  "SAE_OUTCOME",
+  "LAST_DOSE_DATE",
+]);
+
+export function isRequiredField(name: string): boolean {
+  return REQUIRED_FIELDS.has(name.toUpperCase());
+}
+
+/** Which report section a field belongs to, by its SDTM / form name. */
+export function sectionOf(name: string): FieldSection {
+  const n = name.toUpperCase();
+  if (/^(REPORTER|SITE_|SPONSOR|REPORT_|AWARE|SITE$)/.test(n) || n.includes("REPORTER")) {
+    return "reporter";
+  }
+  if (/^CM/.test(n) || /(DRUG|DOSE|MEDIC|CONMED|TREATMENT)/.test(n)) return "medicines";
+  if (/^(AESER|AESI|AEREL|AEACN|AEOUT|SAE_|INTERIM_IRAE)/.test(n) || /(SERIOUS|HOSPITAL)/.test(n)) {
+    return "seriousness";
+  }
+  return "event";
+}

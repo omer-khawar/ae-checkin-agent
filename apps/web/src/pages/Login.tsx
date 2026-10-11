@@ -6,7 +6,9 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import { Button } from "../components/Button";
+import { Button } from "@/ui/button";
+import { GlassCard, GlassCardDescription, GlassCardTitle } from "@/ui/glass-card";
+import { cn } from "@/lib/cn";
 import { Disclaimer } from "../components/Disclaimer";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ROLE_LABELS, ROLES, useAuth } from "../lib/auth";
@@ -40,69 +42,107 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-12">
-        <div className="flex items-center gap-2 text-2xl font-bold text-brand-800">
-          <span className="inline-block h-8 w-8 rounded-lg bg-brand-700" aria-hidden="true" />
-          Interim
-        </div>
-        <p className="mt-1 text-slate-600">Between-visit check-in desk for study sites.</p>
-
-        <form
-          onSubmit={submit}
-          className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-card"
+    <div
+      data-surface="console"
+      className="login relative flex min-h-screen flex-col overflow-hidden bg-background text-foreground"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-32 left-1/2 h-96 w-[48rem] max-w-full -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
+      />
+      <main
+        id="main"
+        className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10"
+      >
+        <Link
+          to="/"
+          className="mb-4 inline-flex w-fit items-center gap-1 text-table text-muted-foreground hover:text-foreground"
         >
-          <fieldset>
-            <legend className="text-sm font-semibold text-slate-800">Sign in as</legend>
-            <div role="group" aria-label="Role" className="mt-2 grid gap-2">
-              {ROLES.map((r) => (
-                <Button
-                  key={r}
-                  variant="option"
-                  size="md"
-                  block
-                  selected={role === r}
-                  onClick={() => setRole(r)}
-                  data-role={r}
-                >
-                  <span className="font-mono text-xs text-slate-500">{r}</span>
-                  <span>{ROLE_LABELS[r]}</span>
-                </Button>
-              ))}
+          <span aria-hidden="true">←</span> Back to home
+        </Link>
+
+        <GlassCard as="form" strength="strong" onSubmit={submit} className="shadow-elev-2">
+          <div>
+            <div className="flex items-center gap-2 text-display font-semibold text-foreground">
+              <span
+                className="inline-block h-7 w-7 rounded-control bg-primary"
+                aria-hidden="true"
+              />
+              Interim
+            </div>
+            <GlassCardTitle className="mt-3 text-title">
+              Sign in to the safety-data desk
+            </GlassCardTitle>
+            <GlassCardDescription className="text-table">
+              Pick a role, enter the shared demo password.
+            </GlassCardDescription>
+          </div>
+
+          <fieldset className="min-w-0">
+            <legend className="text-table font-medium text-foreground">Role</legend>
+            <div
+              role="radiogroup"
+              aria-label="Role"
+              className="mt-1.5 grid gap-1 rounded-control border border-input bg-surface-subtle p-1"
+            >
+              {ROLES.map((r) => {
+                const on = role === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    data-role={r}
+                    onClick={() => setRole(r)}
+                    className={cn(
+                      "focus-ring transition-calm flex h-9 items-center justify-between gap-3 rounded-control border px-3 text-body",
+                      on
+                        ? "border-input bg-surface font-semibold text-foreground shadow-elev-1"
+                        : "border-transparent text-muted-foreground hover:bg-surface hover:text-foreground",
+                    )}
+                  >
+                    <span>{ROLE_LABELS[r]}</span>
+                    <span className="font-mono text-caption text-muted-foreground">{r}</span>
+                  </button>
+                );
+              })}
             </div>
           </fieldset>
 
-          <label htmlFor="password" className="mt-5 block text-sm font-semibold text-slate-800">
-            Demo password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-base"
-            required
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Shared demo password from <code className="font-mono">DEMO_PASSWORD</code> in{" "}
-            <code>.env</code>.
-          </p>
+          <div>
+            <label htmlFor="password" className="block text-table font-medium text-foreground">
+              Demo password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1.5 block h-9 w-full rounded-control border border-input bg-surface px-3 text-body"
+              required
+            />
+            <p className="mt-1 text-caption text-muted-foreground">
+              Shared demo password from <code className="font-mono">DEMO_PASSWORD</code> in{" "}
+              <code className="font-mono">.env</code>.
+            </p>
+          </div>
 
-          <ErrorBanner className="mt-4" error={error} message="Sign-in failed" />
+          <ErrorBanner error={error} message="Sign-in failed" />
 
-          <Button type="submit" size="lg" block className="mt-5" busy={busy} disabled={!password}>
+          <Button type="submit" variant="primary" fullWidth loading={busy} disabled={!password}>
             Sign in
           </Button>
-        </form>
+        </GlassCard>
 
-        <p className="mt-6 text-center text-sm text-slate-600">
+        <p className="mt-5 text-center text-table text-muted-foreground">
           Running a check-in?{" "}
-          <Link to="/kiosk" className="font-medium text-brand-700 underline">
-            Open kiosk
+          <Link to="/kiosk" className="font-medium text-primary underline underline-offset-2">
+            Try the patient kiosk
           </Link>
         </p>
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <p className="mt-3 text-center text-caption text-muted-foreground">
           Demo auth model: three seeded users and a shared password. Production would need SSO and
           per-user audit identity (see README).
         </p>

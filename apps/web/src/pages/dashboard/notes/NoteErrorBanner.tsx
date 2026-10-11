@@ -19,7 +19,7 @@ export function NoteErrorBanner({ error, message }: { error: unknown; message: R
     <div
       role="alert"
       data-testid="duplicate-note"
-      className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900"
+      className="rounded-panel border border-warning-border bg-warning-bg px-4 py-3 text-warning-fg"
     >
       <div className="font-semibold">This was already recorded</div>
       <div className="mt-0.5 text-sm">

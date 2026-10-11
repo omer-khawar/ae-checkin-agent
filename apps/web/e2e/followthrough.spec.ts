@@ -41,9 +41,9 @@ function watchConsole(page: Page): string[] {
 
 async function signIn(page: Page, role: "coordinator" | "investigator" | "admin") {
   // Start signed out (the login page redirects a signed-in user to the dashboard).
-  await page.goto("/");
+  await page.goto("/login");
   await page.evaluate(() => window.sessionStorage.clear());
-  await page.goto("/");
+  await page.goto("/login");
   await page.locator(`[data-role="${role}"]`).click();
   await page.getByLabel("Demo password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -140,7 +140,9 @@ test("7 queries: answer the seeded query with a correction, raise and close as a
     "Please confirm the start date against the source document.",
   );
 
-  await page.getByRole("tab", { name: /Answered/ }).click();
+  // The panel is a sheet over the list: close it before switching tab.
+  await page.keyboard.press("Escape");
+  await page.getByRole("radio", { name: /Answered/ }).click();
   const answered = page.getByRole("button", { name: /^Open query:/ });
   await expect(answered.first()).toBeVisible();
   const nAnswered = Number(await page.getByTestId("count-answered").innerText());
@@ -241,12 +243,14 @@ test("platform: audit verify, eval 100%, admin, timeline with simulated baseline
 
   // Participant timeline with the Synthea baseline labeled simulated.
   await page.goto(`/dashboard/participants/${BRIEF_PARTICIPANT}`);
-  await expect(page.getByTestId("sessions")).toBeVisible();
+  await expect(page.getByTestId("open-aes")).toBeVisible();
   const baseline = page.getByTestId("synthea-baseline");
   await expect(baseline).toBeVisible();
   await expect(baseline).toContainText(/simulated/i);
   await expect(baseline).toContainText(/83/);
   await shot(page, "10-timeline");
+  await page.keyboard.press("5");
+  await expect(page.getByTestId("sessions")).toBeVisible();
 
   // Remaining dashboard pages render without console errors.
   for (const path of ["/dashboard", "/dashboard/escalations", "/dashboard/notes"]) {

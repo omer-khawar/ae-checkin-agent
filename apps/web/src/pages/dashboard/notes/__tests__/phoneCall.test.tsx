@@ -64,6 +64,7 @@ describe("Log a call", () => {
         <Notes />
       </MemoryRouter>,
     );
+    await user.click(screen.getByRole("button", { name: "Log a call" }));
     const form = await screen.findByRole("form", { name: "Log a call" });
     const who = await within(form).findByRole("combobox", { name: "Call is about" });
     await waitFor(() => expect(within(who).getAllByRole("option").length).toBeGreaterThan(1));
@@ -161,7 +162,14 @@ describe("Notes list", () => {
         <Notes />
       </MemoryRouter>,
     );
-    const row = (await screen.findAllByTestId("note-row"))[0];
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll('[data-testid="notes-table"] tbody tr[data-row-id]'),
+      ).toHaveLength(1),
+    );
+    const row = document.querySelector(
+      '[data-testid="notes-table"] tbody tr[data-row-id]',
+    ) as HTMLElement;
     const label = within(row).getByTestId("phone-call-label");
     expect(label).toHaveTextContent("Phone call");
     expect(label.querySelector("svg")).not.toBeNull();

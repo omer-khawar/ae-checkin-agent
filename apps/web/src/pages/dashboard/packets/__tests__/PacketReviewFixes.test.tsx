@@ -157,7 +157,10 @@ describe("signing never covers unsaved text", () => {
     expect(screen.queryByLabelText("Narrative text (your edit)")).not.toBeInTheDocument();
 
     const panel = screen.getByTestId("sign-confirm");
-    await user.click(within(panel).getByLabelText(/I have reviewed every field/));
+    await user.click(within(panel).getByLabelText(/I reviewed the narrative/));
+    for (const box of within(panel).getAllByRole("checkbox")) {
+      if (!(box as HTMLInputElement).checked) await user.click(box);
+    }
     await user.click(within(panel).getByRole("button", { name: "Yes, sign the report" }));
 
     await waitFor(() =>
@@ -177,14 +180,13 @@ describe("signing never covers unsaved text", () => {
     render(
       <SignConfirm
         packet={normalizePacket(draftPacket())}
-        missingCount={0}
         dirty
         busy={false}
         onConfirm={onConfirm}
         onCancel={() => undefined}
       />,
     );
-    await user.click(screen.getByLabelText(/I have reviewed every field/));
+    await user.click(screen.getByLabelText(/I reviewed the narrative/));
     expect(screen.getByRole("button", { name: "Yes, sign the report" })).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent(/unsaved changes/);
     expect(onConfirm).not.toHaveBeenCalled();
@@ -455,5 +457,21 @@ describe("history card markup", () => {
     const link = screen.getByRole("link", { name: "Open the previous report" });
     expect(dl.contains(link)).toBe(false);
     expect(screen.getByText(/^packet /)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Report sections and counters (UI phase 2)
+// ---------------------------------------------------------------------------
+
+describe("report sections", () => {
+  it("groups fields by section with a filled counter", async () => {
+    signIn("coordinator");
+    installMockFetch(routes({ [PACKET_ID]: draftPacket() }).list);
+    renderAt(`/dashboard/packets/${PACKET_ID}`);
+    const event = await screen.findByText("Event");
+    expect(event.closest("tbody")?.getAttribute("data-section")).toBe("event");
+    expect(screen.getByText("Seriousness")).toBeInTheDocument();
+    expect(screen.getAllByText(/of \d+ filled/).length).toBeGreaterThan(0);
   });
 });

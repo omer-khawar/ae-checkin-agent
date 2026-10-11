@@ -5,7 +5,7 @@
  */
 import { tierStyle } from "../../../lib/format";
 import type { Domain, Participant, QueueItem, QueueQuery, QueueSource } from "../../../lib/types";
-import type { QueueClockKind, QueueClock, QueueFilterState, QueueRow } from "./types";
+import type { QueueClockKind, QueueClock, QueueFilterState, QueueRow, QueueView } from "./types";
 
 const DOMAINS: Domain[] = ["AE", "VS", "CM"];
 
@@ -212,7 +212,9 @@ export function buildQueueQuery(
 
 /** True when every filter is at its default (the "Clear filters" button is disabled). */
 export function isDefaultFilters(f: QueueFilterState): boolean {
-  return !f.participant && f.minTier === 0 && f.status === "open" && !f.includeEval;
+  return (
+    !f.participant && f.minTier === 0 && f.status === "open" && !f.includeEval && f.view === "all"
+  );
 }
 
 /**
@@ -231,4 +233,20 @@ export function hasVitalsSamples(row: Pick<QueueRow, "source" | "vitals_status">
   if (isNoteSource(row.source)) return false;
   if (!row.vitals_status) return false;
   return !NO_SAMPLE_STATUSES.has(row.vitals_status);
+}
+
+/** Does this row belong to the chosen worklist tab? */
+export function inView(row: QueueRow, view: QueueView): boolean {
+  switch (view) {
+    case "needs":
+      return (
+        row.needs_action || row.escalation_acked === false || row.clocks.some((c) => !c.stopped)
+      );
+    case "serious":
+      return row.clocks.length > 0;
+    case "notes":
+      return row.source !== "check_in";
+    default:
+      return true;
+  }
 }

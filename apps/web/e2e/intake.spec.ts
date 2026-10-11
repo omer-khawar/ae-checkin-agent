@@ -9,7 +9,7 @@
  *   run  : npx playwright test e2e/intake.spec.ts --reporter=line --workers=1
  * Override with INTAKE_WEB_URL. Screenshots land in docs/screenshots/v2/.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const WEB = process.env.INTAKE_WEB_URL ?? "http://localhost:5191";
 const PASSWORD = process.env.DEMO_PASSWORD ?? "interim-demo";
@@ -28,11 +28,22 @@ async function shot(page: Page, name: string) {
 }
 
 async function signIn(page: Page, role: "coordinator" | "investigator" | "admin") {
-  await page.goto("/");
+  await page.goto("/login");
   await page.locator(`[data-role="${role}"]`).click();
   await page.getByLabel("Demo password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/dashboard|\/admin/);
+}
+
+/**
+ * Kiosk answers are visually-hidden native radios inside a 64px <label> row (src/ui/kiosk/
+ * answer-group.tsx); the row is the tap target, so click the row like a participant would.
+ */
+async function choose(radio: Locator) {
+  const row = radio.locator("xpath=ancestor::label[1]");
+  if (await row.count()) await row.click();
+  else await radio.click();
+  await expect(radio).toBeChecked();
 }
 
 /** Clinical words the participant must never see on the kiosk. */
@@ -65,14 +76,14 @@ test("1-2 kiosk check-in as P-007 (diarrhea almost constantly, prednisone starte
       const grp = groups.nth(g);
       const pick = /diarrhea/i.test(heading)
         ? "Almost constantly"
-        : (await grp.getByRole("button", { name: "None", exact: true }).count())
+        : (await grp.getByRole("radio", { name: "None", exact: true }).count())
           ? "None"
-          : (await grp.getByRole("button", { name: "Never", exact: true }).count())
+          : (await grp.getByRole("radio", { name: "Never", exact: true }).count())
             ? "Never"
-            : (await grp.getByRole("button", { name: "Not at all", exact: true }).count())
+            : (await grp.getByRole("radio", { name: "Not at all", exact: true }).count())
               ? "Not at all"
               : "No";
-      await grp.getByRole("button", { name: pick, exact: true }).click();
+      await choose(grp.getByRole("radio", { name: pick, exact: true }));
     }
     if (/diarrhea/i.test(heading)) await shot(page, "01-kiosk-diarrhea");
     const next = page.getByRole("button", { name: /^(Next|Continue)$/ });
@@ -82,14 +93,17 @@ test("1-2 kiosk check-in as P-007 (diarrhea almost constantly, prednisone starte
 
   // Gates: no hospitalization; con-med prednisone started; nothing else.
   await expect(page.getByText(/Question 11 of 13/)).toBeVisible();
-  await page.getByTestId("yesno-hospitalization").getByRole("button", { name: "No" }).click();
+  await choose(page.getByTestId("yesno-hospitalization").getByRole("radio", { name: "No" }));
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByTestId("yesno-conmed").getByRole("button", { name: "Yes" }).click();
+  await choose(page.getByTestId("yesno-conmed").getByRole("radio", { name: "Yes" }));
   await page.locator("#conmed-text").fill("prednisone");
-  await page.getByRole("button", { name: "Started", exact: true }).click();
+  await choose(page.getByRole("radio", { name: "Started", exact: true }));
   await shot(page, "01-kiosk-conmed");
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("button", { name: "Finish check-in" }).click();
+  await page.getByRole("button", { name: "Review my answers" }).click();
+  await expect(page.getByRole("heading", { name: "Check your answers" })).toBeVisible();
+  await shot(page, "01-kiosk-review");
+  await page.getByRole("button", { name: "Send my answers" }).click();
 
   await expect(page.getByRole("heading", { name: /Thank you/ })).toBeVisible({ timeout: 30_000 });
   const body = await page.locator("main, body").first().innerText();
@@ -100,6 +114,8 @@ test("1-2 kiosk check-in as P-007 (diarrhea almost constantly, prednisone starte
 test("2 coordinator logs a call for another participant", async ({ page }) => {
   await signIn(page, "coordinator");
   await page.goto("/dashboard/notes");
+  // The call form is a side sheet now.
+  await page.getByRole("button", { name: "Log a call" }).click();
   const form = page.getByRole("form", { name: "Log a call" });
   await expect(form).toBeVisible();
   const sel = form.locator("select").first();
@@ -176,6 +192,15 @@ test("3 dashboard: time saved, since-last-here, queue chips", async ({ page }) =
   );
   expect(chipOverflow).toBe(0);
   await shot(page, "03-dashboard-queue");
+
+  // Worklist density: at 1366x768 at least min(10, rows) queue rows sit above the fold.
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const fold = await page.evaluate(() => {
+    const all = [...document.querySelectorAll("tbody tr")];
+    const above = all.filter((r) => r.getBoundingClientRect().bottom <= window.innerHeight);
+    return { total: all.length, above: above.length };
+  });
+  expect(fold.above).toBeGreaterThanOrEqual(Math.min(10, fold.total));
 });
 
 test("4 check-in detail: plain labels, evidence, protocol chips, confirm", async ({ page }) => {
@@ -214,9 +239,10 @@ test("4 check-in detail: plain labels, evidence, protocol chips, confirm", async
   await expect(cm).toContainText(/exception/i);
   await expect(page.getByTestId("cm-missing").first()).toBeVisible();
 
-  // Confirm the AE draft.
+  // Close the evidence sheet (Esc), then confirm the AE draft.
+  await page.keyboard.press("Escape");
+  // One click confirms and moves focus to the next draft (no note form).
   await page.getByRole("button", { name: "Confirm", exact: true }).first().click();
-  await page.getByRole("button", { name: "Confirm draft" }).first().click();
-  await expect(page.getByText(/confirmed/i).first()).toBeVisible();
+  await expect(page.getByText("Confirmed", { exact: true }).first()).toBeVisible();
   await shot(page, "04-detail-confirmed");
 });

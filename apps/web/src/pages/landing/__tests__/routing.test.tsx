@@ -30,18 +30,18 @@ describe("routes", () => {
 
   it("serves the staff sign-in at /login", () => {
     renderAt("/login");
-    expect(screen.getByText("Sign in as")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in to the safety-data desk" })).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
   it("redirects a signed-out visitor from the dashboard to /login", () => {
     renderAt("/dashboard");
-    expect(screen.getByText("Sign in as")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in to the safety-data desk" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1, name: /Side effects between visits/ })).toBeNull();
   });
 
   it("redirects a signed-out visitor from /admin to /login", () => {
     renderAt("/admin");
-    expect(screen.getByText("Sign in as")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in to the safety-data desk" })).toBeInTheDocument();
   });
 });

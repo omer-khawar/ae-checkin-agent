@@ -9,8 +9,8 @@
  */
 import { useState } from "react";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
 import { bundleUrl, exportBlob, exportBundle, exportUrl } from "../../../lib/api";
@@ -95,31 +95,33 @@ export function ExportsCard({ onExported }: ExportsCardProps) {
 
   return (
     <Card title="Exports">
-      <p className="text-sm text-slate-700">
+      <p className="text-table text-foreground">
         Exports are themselves audited: every download below writes an{" "}
-        <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">export.generated</code>{" "}
+        <code className="rounded bg-surface-subtle px-1 font-mono text-caption">
+          export.generated
+        </code>{" "}
         event to this log, and the bundle manifest records the audit head hash at the moment it was
         built. Simulated vitals stay labeled <em>Simulated</em> in{" "}
-        <code className="font-mono text-[12px]">VSMETHOD</code> and{" "}
-        <code className="font-mono text-[12px]">INTERIM_SOURCE</code>.
+        <code className="font-mono text-caption">VSMETHOD</code> and{" "}
+        <code className="font-mono text-caption">INTERIM_SOURCE</code>.
       </p>
 
       {/* The Records selector sits above every download because it applies to all of them,
           the bundle included (`GET /export/bundle.zip?status=`). */}
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-        <label htmlFor="export-status" className="font-medium text-slate-800">
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-table">
+        <label htmlFor="export-status" className="font-medium text-foreground">
           Records
         </label>
         <select
           id="export-status"
           value={status}
           onChange={(e) => setStatus(e.target.value as ExportStatusFilter)}
-          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+          className="rounded-control border border-input bg-surface h-8 bg-surface px-2 text-table"
         >
           <option value="confirmed">Confirmed only</option>
           <option value="all">All (drafts included)</option>
         </select>
-        <span className="text-xs text-slate-600">
+        <span className="text-caption text-muted-foreground">
           Applies to the bundle and to every per-domain file below.
         </span>
       </div>
@@ -135,16 +137,16 @@ export function ExportsCard({ onExported }: ExportsCardProps) {
         >
           Download submission bundle (.zip)
         </Button>
-        <span className="text-xs text-slate-600">
+        <span className="text-caption text-muted-foreground">
           AE/VS/CM as CSV + JSON, per-sample VS, audit excerpt, manifest with sha256 per file.
         </span>
       </div>
 
-      <ul className="mt-3 divide-y divide-slate-100 text-sm">
+      <ul className="mt-3 divide-y divide-border text-table">
         {DOMAINS.map((domain) => (
           <li key={domain} className="flex flex-wrap items-center gap-2 py-2">
-            <span className="w-28 font-mono font-semibold text-slate-900">{domain}</span>
-            <span className="flex-1 text-slate-600">{DOMAIN_NAMES[domain]}</span>
+            <span className="w-28 font-mono font-semibold text-foreground">{domain}</span>
+            <span className="flex-1 text-muted-foreground">{DOMAIN_NAMES[domain]}</span>
             <span className="flex flex-wrap gap-1.5">
               {domainSpecs(domain).map((spec) => (
                 <Button

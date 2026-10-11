@@ -31,7 +31,9 @@ export function EvidenceChips({
 }: EvidenceChipsProps) {
   if (ids.length === 0) {
     return (
-      <span className={cx("text-xs italic text-slate-500", className)}>no evidence cited</span>
+      <span className={cx("text-caption italic text-muted-foreground", className)}>
+        no evidence cited
+      </span>
     );
   }
   return (
@@ -50,12 +52,12 @@ export function EvidenceChips({
             title={`${kind} · ${id}${ref?.note ? ` · ${ref.note}` : ""}\nClick to highlight everything on this page that cites it.`}
             data-evidence-id={id}
             className={cx(
-              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] leading-4 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
-              "print:border-slate-300 print:bg-white print:text-slate-600",
+              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption leading-4 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "print:border-border-strong print:bg-surface print:text-muted-foreground",
               active
-                ? "border-brand-700 bg-brand-700 text-white"
-                : "border-slate-300 bg-slate-50 text-slate-700 hover:border-brand-500 hover:bg-brand-50",
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border-strong bg-surface-subtle text-muted-foreground hover:border-primary hover:bg-accent",
             )}
           >
             <span className="font-semibold">{kind}</span>

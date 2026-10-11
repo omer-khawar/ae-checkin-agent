@@ -1,4 +1,6 @@
-import { ErrorBanner } from "../../components/ErrorBanner";
+import { Loader2 } from "lucide-react";
+
+import { KioskError } from "./KioskError";
 
 export interface SubmittingProps {
   error: unknown;
@@ -8,23 +10,28 @@ export interface SubmittingProps {
 /** Shown while the bridge flushes (≤ 2.5 s) and `/complete` runs. */
 export function Submitting({ error, onRetry }: SubmittingProps) {
   return (
-    <div className="mx-auto max-w-2xl text-center" role="status" aria-live="polite">
+    <section
+      className="glass mx-auto flex w-full max-w-k-content flex-col items-center gap-4 rounded-sheet p-10 text-center"
+      role="status"
+      aria-live="polite"
+    >
       {error ? (
-        <ErrorBanner
-          error={error}
+        <KioskError
           message="We couldn't finish saving your check-in. Please try again."
           onRetry={onRetry}
+          className="w-full"
         />
       ) : (
         <>
-          <span
+          <Loader2
             aria-hidden="true"
-            className="mx-auto block h-12 w-12 animate-spin rounded-full border-4 border-brand-200 border-t-brand-700"
+            className="size-12 text-primary motion-safe:animate-spin"
+            strokeWidth={2.5}
           />
-          <h1 className="mt-6 text-3xl font-bold text-slate-900">Saving your answers…</h1>
-          <p className="mt-2 text-lg text-slate-600">This only takes a moment.</p>
+          <h1 className="m-0 text-k-question">Saving your answers…</h1>
+          <p className="m-0 text-k-body text-muted-foreground">This only takes a moment.</p>
         </>
       )}
-    </div>
+    </section>
   );
 }

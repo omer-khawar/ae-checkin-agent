@@ -5,7 +5,7 @@
  */
 import { Link } from "react-router-dom";
 
-import { Card } from "../../components/Card";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { MOCK_SCENARIOS } from "./tables";
 
@@ -17,7 +17,7 @@ export interface KioskLinksProps {
 export function KioskLinks({ savedScenario }: KioskLinksProps) {
   return (
     <Card title="Open the kiosk">
-      <p className="text-sm text-slate-700">
+      <p className="text-table text-foreground">
         Each link starts a kiosk with the mock scenario pinned by{" "}
         <code className="font-mono">?scenario=</code>; only that kiosk is affected and every sample
         stays <MeasuredBadge isMeasured={false} />.
@@ -28,7 +28,7 @@ export function KioskLinks({ savedScenario }: KioskLinksProps) {
             to="/kiosk"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-11 items-center rounded-xl border border-brand-800 bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+            className="inline-flex min-h-11 items-center rounded-panel border border-primary bg-primary px-4 text-table font-semibold text-white hover:bg-primary-strong"
           >
             Kiosk (saved scenario{savedScenario ? `: ${savedScenario}` : ""})
           </Link>
@@ -40,10 +40,12 @@ export function KioskLinks({ savedScenario }: KioskLinksProps) {
               target="_blank"
               rel="noreferrer"
               title={sc.physiology}
-              className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 hover:bg-slate-100"
+              className="inline-flex min-h-11 items-center rounded-panel border border-input bg-surface px-4 text-table font-medium text-foreground hover:bg-surface-subtle"
             >
               {sc.label}
-              <code className="ml-2 font-mono text-xs text-slate-500">?scenario={sc.id}</code>
+              <code className="ml-2 font-mono text-caption text-muted-foreground">
+                ?scenario={sc.id}
+              </code>
             </Link>
           </li>
         ))}

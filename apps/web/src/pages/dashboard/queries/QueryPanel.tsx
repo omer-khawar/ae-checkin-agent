@@ -19,10 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Button } from "../../../components/Button";
-import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
-import { useToast } from "../../../components/Toast";
 import { answerQuery, closeQuery, describeError, getDraft, getQuery } from "../../../lib/api";
 import { cx, Time } from "../../../lib/format";
 import type { Draft, QueryDetail, Role } from "../../../lib/types";
@@ -47,6 +44,10 @@ import {
   type IndexedEvidence,
 } from "./model";
 import { WrittenTextView } from "./WrittenTextView";
+import { Button } from "@/ui/button";
+import { Kbd } from "@/ui/kbd";
+import { SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/ui/sheet";
+import { notify } from "@/ui/toast";
 
 export interface QueryPanelProps {
   queryId: string;
@@ -55,6 +56,8 @@ export interface QueryPanelProps {
   /** Called after an answer or close so the list and counts refresh. */
   onChanged: () => void;
   onDismiss: () => void;
+  /** Jump to the next open query in the list (hidden when there is none). */
+  onNext?: (() => void) | null;
 }
 
 const ANSWER_ROLES: Role[] = ["coordinator", "investigator", "admin"];
@@ -88,8 +91,7 @@ function recordLink(draft: Draft | null): { to: string; label: string } | null {
   return null;
 }
 
-export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: QueryPanelProps) {
-  const toast = useToast();
+export function QueryPanel({ queryId, role, nowMs, onChanged, onNext }: QueryPanelProps) {
   const [detail, setDetail] = useState<QueryDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftError, setDraftError] = useState<unknown>(null);
@@ -176,22 +178,34 @@ export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: Query
 
   if (loading && !detail) {
     return (
-      <Card title="Query">
-        <p className="text-sm text-slate-500" role="status">
-          Loading the query…
-        </p>
-      </Card>
+      <>
+        <SheetHeader>
+          <SheetTitle>Query</SheetTitle>
+          <SheetDescription className="sr-only">Loading the query</SheetDescription>
+        </SheetHeader>
+        <SheetBody>
+          <p className="text-body text-muted-foreground" role="status">
+            Loading the query…
+          </p>
+        </SheetBody>
+      </>
     );
   }
   if (loadError || !detail) {
     return (
-      <Card title="Query">
-        <ErrorBanner
-          error={loadError ?? "Query not found"}
-          message="Could not load this query"
-          onRetry={() => setReloadKey((k) => k + 1)}
-        />
-      </Card>
+      <>
+        <SheetHeader>
+          <SheetTitle>Query</SheetTitle>
+          <SheetDescription className="sr-only">The query could not be loaded</SheetDescription>
+        </SheetHeader>
+        <SheetBody>
+          <ErrorBanner
+            error={loadError ?? "Query not found"}
+            message="Could not load this query"
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        </SheetBody>
+      </>
     );
   }
 
@@ -224,10 +238,8 @@ export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: Query
     setBusy("answer");
     try {
       await answerQuery(detail.id, built.body);
-      toast.push({
-        kind: "success",
-        title: "Answer sent to the sponsor (mock)",
-        message: built.body.also_edit
+      notify.success("Answer sent to the sponsor (mock)", {
+        description: built.body.also_edit
           ? `The record was also corrected (${fieldLabel(built.body.also_edit.field)}); a new version was saved.`
           : undefined,
       });
@@ -246,7 +258,7 @@ export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: Query
     setBusy("close");
     try {
       await closeQuery(detail.id);
-      toast.push({ kind: "success", title: "Query closed" });
+      notify.success("Query closed");
       setReloadKey((k) => k + 1);
       onChanged();
     } catch (e) {
@@ -258,303 +270,312 @@ export function QueryPanel({ queryId, role, nowMs, onChanged, onDismiss }: Query
   }
 
   return (
-    <Card
-      title={`Query for ${participantLabel(detail)}`}
-      aside={
-        <Button size="sm" variant="ghost" onClick={onDismiss} aria-label="Close the query panel">
-          Close panel
-        </Button>
-      }
-      data-testid="query-panel"
-    >
-      <div className="space-y-5">
-        {/* 1. The question */}
-        <section aria-label="The question">
-          <p className="text-base font-medium text-slate-900">{detail.text}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <SeverityChip severity={detail.severity} />
-            <StatusChip status={detail.status} />
-            <AgeChip hours={hours} alert={isAgeAlert(detail, hours)} />
-            <span>
-              Raised by {who.label} {who.code && <CodeBadge>{who.code}</CodeBadge>} ·{" "}
-              <Time iso={detail.raised_at} style="short" />
-            </span>
-          </div>
-        </section>
+    <div data-testid="query-panel" className="flex min-h-0 flex-1 flex-col">
+      <SheetHeader>
+        <SheetTitle>{`Query for ${participantLabel(detail)}`}</SheetTitle>
+        <SheetDescription>
+          A question from the sponsor about one field. A person reviews and sends every answer.
+        </SheetDescription>
+      </SheetHeader>
+      <SheetBody>
+        <div className="space-y-5">
+          {/* 1. The question */}
+          <section aria-label="The question">
+            <p className="text-title font-medium text-foreground">{detail.text}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <SeverityChip severity={detail.severity} />
+              <StatusChip status={detail.status} />
+              <AgeChip hours={hours} alert={isAgeAlert(detail, hours)} />
+              <span>
+                Raised by {who.label} {who.code && <CodeBadge>{who.code}</CodeBadge>} ·{" "}
+                <Time iso={detail.raised_at} style="short" />
+              </span>
+            </div>
+          </section>
 
-        {/* 2. The record field */}
-        <section aria-label="The record" className="rounded-xl border border-slate-200 p-3">
-          <h3 className="text-sm font-semibold text-slate-900">The record it is about</h3>
-          <dl className="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-slate-500">Record</dt>
-            <dd className="text-slate-900">
-              {domainLabel(detail.domain)} <CodeBadge title="Draft id">{detail.draft_id}</CodeBadge>
-            </dd>
-            <dt className="text-slate-500">Field</dt>
-            <dd className="text-slate-900">
-              {fieldLabel(detail.field, detail.field_label)}{" "}
-              <CodeBadge title="SDTM variable">{detail.field}</CodeBadge>
-            </dd>
-            {covered.length > 1 && (
-              <>
-                <dt className="text-slate-500">Also asks about</dt>
-                <dd className="text-slate-900" data-testid="covered-fields">
-                  {covered
-                    .slice(1)
-                    .map((f) => fieldLabel(f))
-                    .join(", ")}
-                </dd>
-              </>
-            )}
-            <dt className="text-slate-500">Current value</dt>
-            <dd className="font-medium text-slate-900" data-testid="current-value">
-              {draft || detail.current_value !== undefined ? formatValue(value) : "—"}
-              {draft && (
-                <span className="ml-2 text-xs font-normal text-slate-500">
-                  version {draft.version}, {draft.status}
-                </span>
+          {/* 2. The record field */}
+          <section aria-label="The record" className="rounded-panel border border-border p-3">
+            <h3 className="text-sm font-semibold text-foreground">The record it is about</h3>
+            <dl className="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">Record</dt>
+              <dd className="text-foreground">
+                {domainLabel(detail.domain)}{" "}
+                <CodeBadge title="Draft id">{detail.draft_id}</CodeBadge>
+              </dd>
+              <dt className="text-muted-foreground">Field</dt>
+              <dd className="text-foreground">
+                {fieldLabel(detail.field, detail.field_label)}{" "}
+                <CodeBadge title="SDTM variable">{detail.field}</CodeBadge>
+              </dd>
+              {covered.length > 1 && (
+                <>
+                  <dt className="text-muted-foreground">Also asks about</dt>
+                  <dd className="text-foreground" data-testid="covered-fields">
+                    {covered
+                      .slice(1)
+                      .map((f) => fieldLabel(f))
+                      .join(", ")}
+                  </dd>
+                </>
               )}
-            </dd>
-          </dl>
-          {link && (
-            <Link to={link.to} className="mt-2 inline-block text-xs text-brand-700 underline">
-              {link.label}
-            </Link>
+              <dt className="text-muted-foreground">Current value</dt>
+              <dd className="font-medium text-foreground" data-testid="current-value">
+                {draft || detail.current_value !== undefined ? formatValue(value) : "—"}
+                {draft && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    version {draft.version}, {draft.status}
+                  </span>
+                )}
+              </dd>
+            </dl>
+            {link && (
+              <Link to={link.to} className="mt-2 inline-block text-xs text-primary underline">
+                {link.label}
+              </Link>
+            )}
+            {draftError !== null && (
+              <p className="mt-2 text-xs text-warning-fg" role="status">
+                The record itself could not be loaded ({describeError(draftError)}); the query can
+                still be answered.
+              </p>
+            )}
+
+            <div ref={evidenceListRef}>
+              <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Evidence behind this field
+              </h4>
+              {primaryEvidence.length === 0 ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No evidence is attached to this field. That is often what the query is about.
+                </p>
+              ) : (
+                <EvidenceRows rows={primaryEvidence} active={activeEvidence} label="Evidence" />
+              )}
+              {moreEvidence.length > 0 && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary underline focus-visible:ring-2"
+                    aria-expanded={moreOpen}
+                    aria-controls="query-more-evidence"
+                    onClick={() => setMoreOpen((o) => !o)}
+                  >
+                    {moreOpen ? "Hide" : "Show"} more evidence on this record ({moreEvidence.length}
+                    )
+                  </button>
+                  {moreOpen && (
+                    <div id="query-more-evidence" className="mt-1">
+                      <EvidenceRows
+                        rows={moreEvidence}
+                        active={activeEvidence}
+                        label="More evidence on this record"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 3 + 4. Suggested answer and the editor (open queries) */}
+          {detail.status === "open" && (
+            <section aria-label="Suggested answer">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Suggested answer</h3>
+              {detail.suggested_answer ? (
+                <WrittenTextView
+                  written={detail.suggested_answer}
+                  evidenceById={evidenceById}
+                  activeEvidenceId={activeEvidence}
+                  onSelectEvidence={selectEvidence}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No suggestion for this query; write the answer below.
+                </p>
+              )}
+            </section>
           )}
-          {draftError !== null && (
-            <p className="mt-2 text-xs text-amber-800" role="status">
-              The record itself could not be loaded ({describeError(draftError)}); the query can
-              still be answered.
+
+          {canAnswer && (
+            <section aria-label="Answer" className="rounded-panel border border-border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label htmlFor="query-answer" className="text-sm font-semibold text-foreground">
+                  Your answer
+                </label>
+                {detail.suggested_answer && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setForm((f) => ({ ...f, text: detail.suggested_answer?.text ?? "" }))
+                    }
+                  >
+                    Start again from the suggestion
+                  </Button>
+                )}
+              </div>
+              <textarea
+                id="query-answer"
+                className="mt-1 w-full rounded-control border border-border-strong p-2 text-sm focus-visible:ring-2"
+                rows={5}
+                value={form.text}
+                onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+              />
+              {suggestionIds.length > 0 && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.citeSuggestion}
+                    onChange={(e) => setForm((f) => ({ ...f, citeSuggestion: e.target.checked }))}
+                  />
+                  Attach the evidence the suggestion cites ({suggestionIds.length})
+                </label>
+              )}
+
+              {block && (
+                <p
+                  className="mt-2 rounded-control border border-border bg-surface-subtle p-2 text-xs text-muted-foreground"
+                  data-testid="field-block"
+                  data-block-kind={block.kind}
+                >
+                  {block.message}
+                  {block.kind === "investigator" && link && draft?.session_id && (
+                    <>
+                      {" "}
+                      <Link to={link.to} className="text-primary underline">
+                        Open the check-in
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
+
+              {fields.length > 0 && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.alsoEdit}
+                    onChange={(e) => setForm((f) => ({ ...f, alsoEdit: e.target.checked }))}
+                  />
+                  Also correct the field
+                </label>
+              )}
+              {form.alsoEdit && fields.length > 0 && (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <label className="text-sm text-muted-foreground">
+                    <span className="block text-xs font-medium text-muted-foreground">Field</span>
+                    <select
+                      className="mt-0.5 w-full rounded-control border border-border-strong bg-surface p-2 text-sm"
+                      aria-label="Field to correct"
+                      value={editField}
+                      onChange={(e) => setForm((f) => ({ ...f, editField: e.target.value }))}
+                    >
+                      {fields.map((f) => (
+                        <option key={f} value={f}>
+                          {fieldLabel(f)} ({f})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-muted-foreground">
+                    <span className="block text-xs font-medium text-muted-foreground">
+                      New value (now: {formatValue(draft?.fields?.[editField])})
+                    </span>
+                    <input
+                      className="mt-0.5 w-full rounded-control border border-border-strong p-2 text-sm"
+                      aria-label="New value"
+                      value={form.editValue}
+                      onChange={(e) => setForm((f) => ({ ...f, editValue: e.target.value }))}
+                      placeholder="Leave empty to clear the field"
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    One field can be corrected per answer
+                    {covered.length > 1 ? "; give the other details in the answer text" : ""}. The
+                    correction is saved as a new version of the record; the old version is kept and
+                    the change is written to the audit trail.
+                  </p>
+                </div>
+              )}
+
+              {formError && (
+                <p className="mt-2 text-sm text-danger-fg" role="alert">
+                  {formError}
+                </p>
+              )}
+              <ErrorBanner error={actionError} message="The answer was not sent" className="mt-2" />
+              <div className="mt-3 flex justify-end">
+                <Button onClick={submitAnswer} loading={busy === "answer"} disabled={busy !== null}>
+                  Answer
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {detail.status === "open" && !canAnswer && (
+            <p className="text-sm text-muted-foreground">
+              Only a coordinator, investigator or admin can answer queries.
             </p>
           )}
 
-          <div ref={evidenceListRef}>
-            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Evidence behind this field
-            </h4>
-            {primaryEvidence.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-500">
-                No evidence is attached to this field. That is often what the query is about.
+          {/* 5. Answered / closed */}
+          {detail.status !== "open" && (
+            <section aria-label="Answer given" className="rounded-panel border border-border p-3">
+              <h3 className="text-sm font-semibold text-foreground">Answer given</h3>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                {detail.answer_text || "(no answer text recorded)"}
               </p>
-            ) : (
-              <EvidenceRows rows={primaryEvidence} active={activeEvidence} label="Evidence" />
-            )}
-            {moreEvidence.length > 0 && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  className="text-xs font-medium text-brand-700 underline focus-visible:ring-2"
-                  aria-expanded={moreOpen}
-                  aria-controls="query-more-evidence"
-                  onClick={() => setMoreOpen((o) => !o)}
-                >
-                  {moreOpen ? "Hide" : "Show"} more evidence on this record ({moreEvidence.length})
-                </button>
-                {moreOpen && (
-                  <div id="query-more-evidence" className="mt-1">
-                    <EvidenceRows
-                      rows={moreEvidence}
-                      active={activeEvidence}
-                      label="More evidence on this record"
+              {answerEvidenceIds.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {answerEvidenceIds.map((id) => (
+                    <EvidenceChip
+                      key={id}
+                      id={id}
+                      evidence={evidenceById.get(id)}
+                      active={activeEvidence === id}
+                      onSelect={selectEvidence}
                     />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 3 + 4. Suggested answer and the editor (open queries) */}
-        {detail.status === "open" && (
-          <section aria-label="Suggested answer">
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">Suggested answer</h3>
-            {detail.suggested_answer ? (
-              <WrittenTextView
-                written={detail.suggested_answer}
-                evidenceById={evidenceById}
-                activeEvidenceId={activeEvidence}
-                onSelectEvidence={selectEvidence}
-              />
-            ) : (
-              <p className="text-sm text-slate-500">
-                No suggestion for this query; write the answer below.
-              </p>
-            )}
-          </section>
-        )}
-
-        {canAnswer && (
-          <section aria-label="Answer" className="rounded-xl border border-slate-200 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label htmlFor="query-answer" className="text-sm font-semibold text-slate-900">
-                Your answer
-              </label>
-              {detail.suggested_answer && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    setForm((f) => ({ ...f, text: detail.suggested_answer?.text ?? "" }))
-                  }
-                >
-                  Start again from the suggestion
-                </Button>
+                  ))}
+                </div>
               )}
-            </div>
-            <textarea
-              id="query-answer"
-              className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm focus-visible:ring-2"
-              rows={5}
-              value={form.text}
-              onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
-            />
-            {suggestionIds.length > 0 && (
-              <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.citeSuggestion}
-                  onChange={(e) => setForm((f) => ({ ...f, citeSuggestion: e.target.checked }))}
-                />
-                Attach the evidence the suggestion cites ({suggestionIds.length})
-              </label>
-            )}
-
-            {block && (
-              <p
-                className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700"
-                data-testid="field-block"
-                data-block-kind={block.kind}
-              >
-                {block.message}
-                {block.kind === "investigator" && link && draft?.session_id && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Answered by {detail.answered_by ?? "—"} ·{" "}
+                <Time iso={detail.answered_at ?? null} style="short" />
+                {detail.status === "closed" && (
                   <>
                     {" "}
-                    <Link to={link.to} className="text-brand-700 underline">
-                      Open the check-in
-                    </Link>
+                    · Closed by {detail.closed_by ?? "—"} ·{" "}
+                    <Time iso={detail.closed_at ?? null} style="short" />
                   </>
                 )}
               </p>
-            )}
-
-            {fields.length > 0 && (
-              <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.alsoEdit}
-                  onChange={(e) => setForm((f) => ({ ...f, alsoEdit: e.target.checked }))}
-                />
-                Also correct the field
-              </label>
-            )}
-            {form.alsoEdit && fields.length > 0 && (
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <label className="text-sm text-slate-700">
-                  <span className="block text-xs font-medium text-slate-500">Field</span>
-                  <select
-                    className="mt-0.5 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm"
-                    aria-label="Field to correct"
-                    value={editField}
-                    onChange={(e) => setForm((f) => ({ ...f, editField: e.target.value }))}
-                  >
-                    {fields.map((f) => (
-                      <option key={f} value={f}>
-                        {fieldLabel(f)} ({f})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="block text-xs font-medium text-slate-500">
-                    New value (now: {formatValue(draft?.fields?.[editField])})
-                  </span>
-                  <input
-                    className="mt-0.5 w-full rounded-lg border border-slate-300 p-2 text-sm"
-                    aria-label="New value"
-                    value={form.editValue}
-                    onChange={(e) => setForm((f) => ({ ...f, editValue: e.target.value }))}
-                    placeholder="Leave empty to clear the field"
-                  />
-                </label>
-                <p className="text-xs text-slate-500 sm:col-span-2">
-                  One field can be corrected per answer
-                  {covered.length > 1 ? "; give the other details in the answer text" : ""}. The
-                  correction is saved as a new version of the record; the old version is kept and
-                  the change is written to the audit trail.
-                </p>
-              </div>
-            )}
-
-            {formError && (
-              <p className="mt-2 text-sm text-red-700" role="alert">
-                {formError}
-              </p>
-            )}
-            <ErrorBanner error={actionError} message="The answer was not sent" className="mt-2" />
-            <div className="mt-3 flex justify-end">
-              <Button onClick={submitAnswer} busy={busy === "answer"} disabled={busy !== null}>
-                Answer
-              </Button>
-            </div>
-          </section>
-        )}
-
-        {detail.status === "open" && !canAnswer && (
-          <p className="text-sm text-slate-500">
-            Only a coordinator, investigator or admin can answer queries.
-          </p>
-        )}
-
-        {/* 5. Answered / closed */}
-        {detail.status !== "open" && (
-          <section aria-label="Answer given" className="rounded-xl border border-slate-200 p-3">
-            <h3 className="text-sm font-semibold text-slate-900">Answer given</h3>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
-              {detail.answer_text || "(no answer text recorded)"}
-            </p>
-            {answerEvidenceIds.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {answerEvidenceIds.map((id) => (
-                  <EvidenceChip
-                    key={id}
-                    id={id}
-                    evidence={evidenceById.get(id)}
-                    active={activeEvidence === id}
-                    onSelect={selectEvidence}
-                  />
-                ))}
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-500">
-              Answered by {detail.answered_by ?? "—"} ·{" "}
-              <Time iso={detail.answered_at ?? null} style="short" />
-              {detail.status === "closed" && (
+              {canClose && (
                 <>
-                  {" "}
-                  · Closed by {detail.closed_by ?? "—"} ·{" "}
-                  <Time iso={detail.closed_at ?? null} style="short" />
+                  <ErrorBanner error={actionError} message="Not closed" className="mt-2" />
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="secondary"
+                      onClick={submitClose}
+                      loading={busy === "close"}
+                      disabled={busy !== null}
+                    >
+                      Close query (as sponsor)
+                    </Button>
+                  </div>
                 </>
               )}
-            </p>
-            {canClose && (
-              <>
-                <ErrorBanner error={actionError} message="Not closed" className="mt-2" />
-                <div className="mt-3 flex justify-end">
-                  <Button
-                    variant="secondary"
-                    onClick={submitClose}
-                    busy={busy === "close"}
-                    disabled={busy !== null}
-                  >
-                    Close query (as sponsor)
-                  </Button>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-      </div>
-    </Card>
+            </section>
+          )}
+        </div>
+      </SheetBody>
+      {onNext !== undefined && (
+        <SheetFooter>
+          <Button variant="secondary" onClick={onNext ?? undefined} disabled={!onNext}>
+            Next open query <Kbd>]</Kbd>
+          </Button>
+        </SheetFooter>
+      )}
+    </div>
   );
 }
 
@@ -576,22 +597,22 @@ function EvidenceRows({
           data-evidence-row={e.id}
           data-active={active === e.id ? "true" : "false"}
           className={cx(
-            "rounded-lg border px-2 py-1.5 text-sm",
+            "rounded-control border px-2 py-1.5 text-sm",
             active === e.id
-              ? "border-brand-700 bg-brand-50 ring-2 ring-brand-700/30"
-              : "border-slate-200",
+              ? "border-primary bg-surface-selected ring-2 ring-primary/30"
+              : "border-border",
           )}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-slate-800">{evidenceKindLabel(e.kind)}</span>
+            <span className="font-medium text-foreground">{evidenceKindLabel(e.kind)}</span>
             <CodeBadge>{e.id}</CodeBadge>
             {e.ts && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted-foreground">
                 <Time iso={e.ts} style="short" />
               </span>
             )}
           </div>
-          {e.note && <p className="mt-0.5 text-slate-700">{e.note}</p>}
+          {e.note && <p className="mt-0.5 text-muted-foreground">{e.note}</p>}
         </li>
       ))}
     </ul>

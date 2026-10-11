@@ -3,9 +3,11 @@
  * evidence list, and a disclosure wrapper. Kept here (not in src/components)
  * because they are specific to the evidence-pointer model of this page.
  */
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 import { Time } from "../../../lib/format";
+import { Badge } from "@/ui/badge";
+import { provenanceBadgeKind } from "@/ui/badge-kinds";
 import { cx } from "../../../lib/format";
 import type { CheckInDetail, Evidence } from "../../../lib/types";
 import { evidenceKindLabel, resolveEvidence, ruleCategoryClass } from "./model";
@@ -22,7 +24,7 @@ export function Chip({
   return (
     <span
       className={cx(
-        "inline-flex items-center whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-semibold",
+        "inline-flex h-5 items-center whitespace-nowrap rounded-control border px-1.5 text-caption font-medium leading-none",
         className,
       )}
       title={title}
@@ -48,7 +50,7 @@ export function SdtmBadge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1 py-px font-mono text-[10px] font-normal text-slate-600",
+        "inline-flex items-center rounded-control border border-border bg-surface-subtle px-1 font-mono text-caption font-normal text-muted-foreground",
         className,
       )}
       title={title}
@@ -97,21 +99,21 @@ export function EvidenceList({
   emptyText = "No evidence pointers (value is null until a human decides).",
   compact,
 }: EvidenceListProps) {
-  if (!evidence.length) return <p className="text-sm text-slate-500">{emptyText}</p>;
+  if (!evidence.length) return <p className="text-table text-subtle-foreground">{emptyText}</p>;
   return (
-    <ol className={cx("space-y-1", compact ? "text-xs" : "text-sm")} aria-label="Evidence">
+    <ol className={cx("space-y-1", compact ? "text-caption" : "text-table")} aria-label="Evidence">
       {evidence.map((raw, i) => {
         const e = resolveEvidence(raw, detail);
         const inner = (
           <>
             <KindChip kind={e.kind} />
-            <span className="break-all font-mono text-[11px] text-slate-600">{e.id}</span>
+            <span className="break-all font-mono text-caption text-muted-foreground">{e.id}</span>
             {e.ts && (
-              <span className="text-[11px] text-slate-500">
+              <span className="text-caption text-subtle-foreground">
                 <Time iso={e.ts} style="time" />
               </span>
             )}
-            {e.note && <span className="w-full text-slate-800">{e.note}</span>}
+            {e.note && <span className="w-full text-foreground">{e.note}</span>}
           </>
         );
         return (
@@ -120,8 +122,8 @@ export function EvidenceList({
               <button
                 type="button"
                 onClick={() => onFocusEvidence(e)}
-                className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-transparent px-1.5 py-1 text-left hover:border-slate-300 hover:bg-slate-50"
-                title="Highlight this evidence in the other columns"
+                className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-transparent px-1.5 py-1 text-left hover:border-border-strong hover:bg-surface-subtle"
+                title="Highlight this source in the answers, vitals and rules"
               >
                 {inner}
               </button>
@@ -153,14 +155,65 @@ export function Disclosure({
 }) {
   return (
     <details
-      className={cx("group rounded-xl border border-slate-200 bg-white", className)}
+      className={cx("group rounded-panel border border-border bg-surface", className)}
       open={open}
       onToggle={(ev) => onToggle?.((ev.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className="cursor-pointer select-none rounded-xl px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50">
+      <summary className="cursor-pointer select-none rounded-panel px-3 py-1.5 text-table font-medium text-foreground hover:bg-surface-subtle">
         {summary}
       </summary>
-      <div className="border-t border-slate-200 px-3 py-2">{children}</div>
+      <div className="border-t border-border px-3 py-2">{children}</div>
     </details>
+  );
+}
+
+/**
+ * Opaque, flat panel for the detail page (data surface: no glass). `section` with an `h2`,
+ * so screen readers and tests find each block by its heading. `dense` drops the body padding.
+ */
+export function Panel({
+  title,
+  aside,
+  flush,
+  className,
+  children,
+  ...rest
+}: Omit<HTMLAttributes<HTMLElement>, "title"> & {
+  title?: ReactNode;
+  aside?: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <section className={cx("rounded-panel border border-border bg-surface", className)} {...rest}>
+      {(title || aside) && (
+        <header className="flex min-h-9 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+          {title ? <h2 className="text-table font-semibold text-foreground">{title}</h2> : <span />}
+          {aside}
+        </header>
+      )}
+      <div className={flush ? "" : "p-3"}>{children}</div>
+    </section>
+  );
+}
+
+/** MEASURED / SIMULATED as a word beside a vital (ui Badge: icon + uppercase word + source). */
+export function Prov({
+  isMeasured,
+  source,
+  className,
+}: {
+  isMeasured: boolean;
+  source?: string | null;
+  className?: string;
+}) {
+  return (
+    <Badge
+      kind={provenanceBadgeKind(isMeasured)}
+      size="sm"
+      label={isMeasured ? "MEASURED" : "SIMULATED"}
+      detail={source ?? undefined}
+      className={className}
+      data-measured={isMeasured ? "true" : "false"}
+    />
   );
 }

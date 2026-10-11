@@ -11,8 +11,8 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 
-import { Button } from "../../components/Button";
-import { Card } from "../../components/Card";
+import { Button } from "@/pages/admin/SysUI";
+import { Panel as Card } from "@/pages/admin/SysUI";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { getHealth, getPublicSettings } from "../../lib/api";
@@ -74,7 +74,7 @@ export function HealthPanel({ bridge, saved, refreshKey = 0 }: HealthPanelProps)
       <div className="grid gap-4 md:grid-cols-2">
         {/* ---- API ------------------------------------------------------- */}
         <section aria-labelledby="health-api">
-          <h3 id="health-api" className="text-sm font-semibold text-slate-900">
+          <h3 id="health-api" className="text-table font-semibold text-foreground">
             API
           </h3>
           <ErrorBanner
@@ -84,29 +84,29 @@ export function HealthPanel({ bridge, saved, refreshKey = 0 }: HealthPanelProps)
             className="mt-2"
           />
           {!health.error && (
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-slate-500">Status</dt>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-table">
+              <dt className="text-muted-foreground">Status</dt>
               <dd className="flex items-center gap-2">
                 <Dot ok={health.data?.status === "ok"} />
                 {health.loading && !health.data ? "Checking…" : (health.data?.status ?? "—")}
               </dd>
-              <dt className="text-slate-500">Version</dt>
+              <dt className="text-muted-foreground">Version</dt>
               <dd className="font-mono">{health.data?.version ?? "—"}</dd>
-              <dt className="text-slate-500">Server time</dt>
+              <dt className="text-muted-foreground">Server time</dt>
               <dd>
                 <Time iso={health.data?.time_utc} />
-                <span className="ml-1 text-xs text-slate-500">(UTC on hover)</span>
+                <span className="ml-1 text-caption text-muted-foreground">(UTC on hover)</span>
               </dd>
-              <dt className="text-slate-500">Database</dt>
+              <dt className="text-muted-foreground">Database</dt>
               <dd className="font-mono">{health.data?.db ?? "—"}</dd>
-              <dt className="text-slate-500">Env vitals source</dt>
+              <dt className="text-muted-foreground">Env vitals source</dt>
               <dd>
                 <SourceValue source={health.data?.vitals_source} />
               </dd>
             </dl>
           )}
 
-          <h3 className="mt-4 text-sm font-semibold text-slate-900">
+          <h3 className="mt-4 text-table font-semibold text-foreground">
             Public settings (what the kiosk and bridge read)
           </h3>
           <ErrorBanner
@@ -116,20 +116,20 @@ export function HealthPanel({ bridge, saved, refreshKey = 0 }: HealthPanelProps)
             className="mt-2"
           />
           {pub.data ? (
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-slate-500">vitals_source</dt>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-table">
+              <dt className="text-muted-foreground">vitals_source</dt>
               <dd>
                 <SourceValue source={pub.data.vitals_source} />
               </dd>
-              <dt className="text-slate-500">mock_scenario</dt>
+              <dt className="text-muted-foreground">mock_scenario</dt>
               <dd className="font-mono">{pub.data.mock_scenario}</dd>
-              <dt className="text-slate-500">simulated_as_measured</dt>
-              <dd className={cx("font-mono", pub.data.simulated_as_measured && "text-amber-900")}>
+              <dt className="text-muted-foreground">simulated_as_measured</dt>
+              <dd className={cx("font-mono", pub.data.simulated_as_measured && "text-warning-fg")}>
                 {String(pub.data.simulated_as_measured)}
               </dd>
-              <dt className="text-slate-500">min_confidence</dt>
+              <dt className="text-muted-foreground">min_confidence</dt>
               <dd className="font-mono">{formatConfidence(pub.data.min_confidence)}</dd>
-              <dt className="text-slate-500">timing gates</dt>
+              <dt className="text-muted-foreground">timing gates</dt>
               <dd className="font-mono">
                 pulse {pub.data.timing_gates?.pulse_s ?? "—"} s · breathing{" "}
                 {pub.data.timing_gates?.breathing_s ?? "—"} s · HRV{" "}
@@ -137,71 +137,71 @@ export function HealthPanel({ bridge, saved, refreshKey = 0 }: HealthPanelProps)
               </dd>
             </dl>
           ) : (
-            !pub.error && <p className="mt-2 text-sm text-slate-500">Loading…</p>
+            !pub.error && <p className="mt-2 text-table text-muted-foreground">Loading…</p>
           )}
         </section>
 
         {/* ---- Bridge ---------------------------------------------------- */}
         <section aria-labelledby="health-bridge">
-          <h3 id="health-bridge" className="text-sm font-semibold text-slate-900">
+          <h3 id="health-bridge" className="text-table font-semibold text-foreground">
             Vitals bridge (WebSocket)
           </h3>
-          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-slate-500">Socket</dt>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-table">
+            <dt className="text-muted-foreground">Socket</dt>
             <dd className="flex items-center gap-2" data-testid="bridge-connection">
               <Dot ok={bridge.connected} />
               {bridge.connected
                 ? "Connected"
                 : `Disconnected${bridge.reconnectAttempts > 0 ? ` (retrying, attempt ${bridge.reconnectAttempts})` : ""}`}
             </dd>
-            <dt className="text-slate-500">URL</dt>
-            <dd className="font-mono text-xs">{bridge.client?.url ?? "—"}</dd>
-            <dt className="text-slate-500">Source</dt>
+            <dt className="text-muted-foreground">URL</dt>
+            <dd className="font-mono text-caption">{bridge.client?.url ?? "—"}</dd>
+            <dt className="text-muted-foreground">Source</dt>
             <dd className="flex flex-wrap items-center gap-2">
               {hello ? (
                 <>
                   <MeasuredBadge isMeasured={hello.isMeasured} source={hello.source} />
-                  <span className="text-xs text-slate-600">
+                  <span className="text-caption text-muted-foreground">
                     {bridgeSource?.label ?? hello.source}
                   </span>
                 </>
               ) : (
-                <span className="text-slate-500">
+                <span className="text-muted-foreground">
                   {bridge.connected ? "Waiting for hello…" : "—"}
                 </span>
               )}
             </dd>
-            <dt className="text-slate-500">Scenario</dt>
+            <dt className="text-muted-foreground">Scenario</dt>
             <dd className="font-mono">
               {hello?.scenario ?? "—"}
               {hello?.scenario && scenarioRow(hello.scenario) && (
-                <span className="ml-2 font-sans text-xs text-slate-600">
+                <span className="ml-2 font-sans text-caption text-muted-foreground">
                   {scenarioRow(hello.scenario)?.physiology}
                 </span>
               )}
             </dd>
-            <dt className="text-slate-500">State</dt>
+            <dt className="text-muted-foreground">State</dt>
             <dd className="font-mono">
               {bridge.state}
               {bridge.sessionId && (
-                <span className="ml-2 font-sans text-xs text-slate-600">
+                <span className="ml-2 font-sans text-caption text-muted-foreground">
                   session {bridge.sessionId}
                 </span>
               )}
             </dd>
-            <dt className="text-slate-500">Bridge version</dt>
+            <dt className="text-muted-foreground">Bridge version</dt>
             <dd className="font-mono">{hello?.version ?? "—"}</dd>
-            <dt className="text-slate-500">Bridge min conf</dt>
+            <dt className="text-muted-foreground">Bridge min conf</dt>
             <dd className="font-mono">{hello ? formatConfidence(hello.minConf) : "—"}</dd>
           </dl>
           {bridge.lastError && (
-            <p className="mt-2 text-sm text-red-800" role="status">
+            <p className="mt-2 text-table text-danger-fg" role="status">
               Last bridge error: {bridge.lastError}
             </p>
           )}
           {sourceMismatch && (
             <p
-              className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              className="mt-2 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-caption text-warning-fg"
               role="status"
             >
               The running bridge uses source <code className="font-mono">{hello?.source}</code> but
@@ -210,14 +210,14 @@ export function HealthPanel({ bridge, saved, refreshKey = 0 }: HealthPanelProps)
             </p>
           )}
           {scenarioMismatch && !sourceMismatch && (
-            <p className="mt-2 text-xs text-slate-600" role="status">
+            <p className="mt-2 text-caption text-muted-foreground" role="status">
               The bridge announced scenario <code className="font-mono">{hello?.scenario}</code>;
               the saved scenario <code className="font-mono">{String(saved?.mock_scenario)}</code>{" "}
               applies on its next start.
             </p>
           )}
           {!bridge.connected && (
-            <p className="mt-2 text-xs text-slate-600">
+            <p className="mt-2 text-caption text-muted-foreground">
               Start it with <code className="font-mono">npm run bridge -- --source mock</code> in{" "}
               <code className="font-mono">apps/vitals-bridge</code>. The check-in works without it;
               records are then flagged vitals unavailable.
@@ -242,14 +242,16 @@ function SourceValue({ source }: { source: string | null | undefined }) {
     return (
       <span className="flex flex-wrap items-center gap-2">
         <span className="font-mono">{source}</span>
-        <span className="text-xs text-slate-500">(unknown source; not an adapter slot)</span>
+        <span className="text-caption text-muted-foreground">
+          (unknown source; not an adapter slot)
+        </span>
       </span>
     );
   }
   return (
     <span className="flex flex-wrap items-center gap-2">
       <MeasuredBadge isMeasured={row.isMeasured} source={source} />
-      <span className="text-xs text-slate-600">{row.label}</span>
+      <span className="text-caption text-muted-foreground">{row.label}</span>
     </span>
   );
 }
@@ -258,7 +260,7 @@ function Dot({ ok }: { ok: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={cx("inline-block h-2.5 w-2.5 rounded-full", ok ? "bg-green-500" : "bg-slate-400")}
+      className={cx("inline-block h-2.5 w-2.5 rounded-full", ok ? "bg-success-fg" : "bg-subtle-foreground")}
     />
   );
 }
