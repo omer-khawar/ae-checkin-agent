@@ -55,6 +55,11 @@ services:
       INTERIM_LLM_MODE: ${INTERIM_LLM_MODE:-auto}
       INTERIM_GEMINI_MODEL: ${INTERIM_GEMINI_MODEL:-gemini-3.5-flash}
       INTERIM_GEMINI_TIMEOUT_S: ${INTERIM_GEMINI_TIMEOUT_S:-25}
+      # Confirmation texts (CONTRACTS.md R6). All three set = real SMS; else the mock outbox.
+      SITE_TIMEZONE: ${SITE_TIMEZONE:-America/New_York}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
     volumes:
       - interim-db:/var/lib/interim
     ports:

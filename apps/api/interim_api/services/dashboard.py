@@ -47,6 +47,7 @@ from .common import (
     session_to_dict,
     tier_name,
 )
+from .messages import session_messages
 from .notes import notes_for_participant, notes_with_context, timeline_note
 from .packet_links import clock_rows, clocks_by_session, clocks_for_note, queue_clock_fields
 from .participants import resolve_participant
@@ -396,6 +397,7 @@ def checkin_detail(db: DbSession, session: Session) -> dict[str, Any]:
         "result": result,
         "drafts": drafts,
         "escalation": escalation_to_dict(escalation) if escalation else None,
+        "messages": session_messages(db, session.id),  # R6 participant texts
         "sae_clock": sae_row,
         "aesi_clock": aesi_row,
         "clocks": clock_dicts,

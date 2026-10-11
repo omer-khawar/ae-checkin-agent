@@ -178,3 +178,8 @@ Format: date, decision, why, consequences. Newest at the bottom.
 ## 2026-10-11 — D-042: Kiosk defaults: camera off, Yes before No, bad login goes to sign-in
 **Decision:** The camera is off until the participant opts in. Yes is always listed before No. An invalid or expired login returns to the sign-in page rather than showing an error on a dead screen.
 **Why:** Playtest findings; opt-in matches the consent being covered at enrollment (D-026).
+
+## 2026-10-11 — D-043: Confirmation texts go through a notifier, with a mock outbox by default
+**Decision:** A check-in completion sends a plain-language confirmation text, and a coordinator's acknowledgment sends "Your study nurse has reviewed your check-in." Twilio sends real SMS only when all three `TWILIO_*` variables are set; otherwise texts are stored in the `messages` table and shown on Admin > Outbox. Texting consent is covered by the informed consent form signed at enrollment, like camera use (D-026). Sending happens after the check-in is committed and outside the write lock; a failure is recorded, never raised. The seed and the eval harness send nothing.
+**Why:** Participants should know their check-in arrived and how to reach the team, without the text ever carrying a grade or clinical word. A clean clone has no keys, so the mock outbox keeps the feature visible and safe, the same way the mock EDC does.
+

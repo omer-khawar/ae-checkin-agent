@@ -37,6 +37,7 @@ import { Layout } from "./components/Layout";
 import { RequireRole } from "./components/RequireRole";
 import { ToastProvider } from "./components/Toast";
 import { Admin } from "./pages/Admin";
+import { Outbox } from "./pages/admin/Outbox";
 import { Audit } from "./pages/dashboard/Audit";
 import { CheckInDetail } from "./pages/dashboard/CheckInDetail";
 import { Escalations } from "./pages/dashboard/Escalations";
@@ -210,6 +211,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<Admin />} />
+        <Route path="outbox" element={<Outbox />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

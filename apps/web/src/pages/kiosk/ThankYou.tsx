@@ -12,6 +12,8 @@ export interface ThankYouProps {
   sitePhone?: string;
   /** Return to the welcome screen automatically after this many ms (0 = never). */
   autoResetMs?: number;
+  /** R6: the masked number a confirmation text went to (e.g. "•••-4821"), if one did. */
+  textedTo?: string;
 }
 
 const TITLE = "Thank you. Your check-in is complete.";
@@ -26,6 +28,7 @@ export function ThankYou({
   onDone,
   sitePhone = FALLBACK_SITE_PHONE,
   autoResetMs = 45_000,
+  textedTo,
 }: ThankYouProps) {
   useEffect(() => {
     if (!autoResetMs) return;
@@ -34,8 +37,9 @@ export function ThankYou({
   }, [onDone, autoResetMs]);
 
   const phoneLine = `Call the study team: ${sitePhone}`;
+  const textedLine = textedTo ? `We texted a confirmation to ${textedTo}.` : "";
   const { on: readAloud } = useReadAloud();
-  useSpeakOnShow([TITLE, SAVED, NEXT_STEPS, phoneLine, URGENT], readAloud);
+  useSpeakOnShow([TITLE, SAVED, textedLine, NEXT_STEPS, phoneLine, URGENT], readAloud);
 
   return (
     <div className="mx-auto w-full max-w-k-content">
@@ -53,6 +57,11 @@ export function ThankYou({
         </span>
         <div className="flex flex-col gap-3 text-k-body">
           <p className="m-0">{SAVED}</p>
+          {textedLine && (
+            <p className="m-0" data-testid="thankyou-texted">
+              {textedLine}
+            </p>
+          )}
           <p className="m-0">{NEXT_STEPS}</p>
           <p className="m-0 font-bold" data-testid="thankyou-phone">
             {phoneLine}

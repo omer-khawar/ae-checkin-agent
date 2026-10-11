@@ -80,7 +80,14 @@ function AdminPanel() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="Admin">
+      <PageHead
+        title="Admin"
+        actions={
+          <Link to="/admin/outbox" className="text-table text-primary underline underline-offset-2">
+            Participant texts (outbox)
+          </Link>
+        }
+      >
         Operator controls for the demo. Every change here is an audited event; none of it touches a
         provisional grade. The persona evaluation (CLAUDE.md §8) runs from the{" "}
         <Link to="/dashboard/eval" className="text-primary underline underline-offset-2">

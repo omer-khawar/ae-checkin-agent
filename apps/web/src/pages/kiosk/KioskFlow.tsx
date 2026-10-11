@@ -624,7 +624,17 @@ export function KioskFlow() {
         />
       )}
 
-      {step === "thankyou" && <ThankYou onDone={reset} sitePhone={sitePhone} />}
+      {step === "thankyou" && (
+        <ThankYou
+          onDone={reset}
+          sitePhone={sitePhone}
+          textedTo={
+            complete?.confirmation && complete.confirmation.status !== "failed"
+              ? complete.confirmation.to_masked
+              : undefined
+          }
+        />
+      )}
 
       {step === "stop" && (
         <Stop

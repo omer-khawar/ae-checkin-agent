@@ -43,6 +43,7 @@ import type {
   ClockRow,
   CompleteRequest,
   CompleteResponse,
+  MessageList,
   UrgentRequest,
   CreateSessionRequest,
   CtcaeTerm,
@@ -990,6 +991,11 @@ export function getReferenceCtcae(): Promise<CtcaeTerm[]> {
 
 export function getAdminSettings(): Promise<Settings> {
   return request<Settings>("/admin/settings");
+}
+
+/** R6: the participant texts (admin only), newest first. */
+export function getMessages(): Promise<MessageList> {
+  return request<MessageList>("/admin/messages?limit=200");
 }
 
 export function putAdminSettings(body: SettingsUpdate): Promise<Settings> {

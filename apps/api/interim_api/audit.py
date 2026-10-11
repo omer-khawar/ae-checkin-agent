@@ -103,6 +103,9 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
         "clock.stopped",
         "clock.due_soon",
         "clock.breached",
+        # R6 participant texts: one event per message (sent / mock outbox, or failed)
+        "message.sent",
+        "message.failed",
     }
 )
 """Every action the API may emit. ``append_event`` refuses anything else, so the audit

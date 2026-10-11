@@ -331,6 +331,34 @@ export interface CompleteResponse {
   checkin_url: string;
   /** R5.1: set by POST /urgent to the trigger that ended the check-in early. */
   ended_early?: UrgentTrigger;
+  /** R6: the confirmation text, or null when no phone is on file. */
+  confirmation?: ParticipantMessage | null;
+}
+
+/** R6: one text to a participant (Twilio, or the mock outbox when no keys are set). */
+export interface ParticipantMessage {
+  id: Ulid;
+  created_at: IsoUtc;
+  usubjid: string;
+  session_id: Ulid | null;
+  escalation_id: Ulid | null;
+  kind: "checkin_confirmation" | "review_ack";
+  to_masked: string;
+  /** Full number; admin outbox only. */
+  to?: string;
+  body: string;
+  channel: "twilio" | "outbox";
+  status: "sent" | "outbox" | "failed";
+  error: string | null;
+}
+
+export interface MessageList {
+  items: ParticipantMessage[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** Where new texts go right now. */
+  channel: "twilio" | "outbox";
 }
 
 /** R5.1: what ended the kiosk check-in early. */
@@ -615,6 +643,8 @@ export interface Escalation {
   acked_by: string | null;
   acked_at: IsoUtc | null;
   seconds_to_ack: number | null;
+  /** R6: on the ack response only, the "reviewed" text (null when none was sent). */
+  message?: ParticipantMessage | null;
 }
 
 export interface SAEClockRow {
@@ -648,6 +678,8 @@ export interface CheckInDetail {
   result: CheckInResult;
   drafts: Draft[];
   escalation: Escalation | null;
+  /** R6: texts sent to the participant about this check-in. */
+  messages?: ParticipantMessage[];
   sae_clock: SAEClockRow | null;
   ae_links: AELink[];
   rules_fired: RuleFired[];

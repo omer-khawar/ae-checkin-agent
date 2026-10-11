@@ -10,7 +10,7 @@ from sqlmodel import select
 from ..audit import Actor
 from ..auth import require_clinical, require_role
 from ..db import Database
-from ..deps import Pagination, get_database
+from ..deps import Pagination, get_database, get_settings
 from ..models import Participant
 from ..problems import problem
 from ..schemas import AckRequest, StopSaeClockRequest
@@ -32,7 +32,9 @@ from ..services.dashboard import (
     stop_sae_clock,
     timeline,
 )
+from ..services.messages import send_review_ack
 from ..services.participants import require_participant
+from ..settings import Settings
 
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(require_role())])
 
@@ -125,10 +127,14 @@ def post_ack(
     body: AckRequest | None = None,
     actor: Actor = Depends(require_clinical()),
     database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     with database.write_scope() as db:
         row = ack_escalation(db, actor, escalation_id, note=body.note if body else None)
-        return escalation_to_dict(row)
+        out = escalation_to_dict(row)
+    # R6: "Your study nurse has reviewed your check-in." (check-in escalations only)
+    out["message"] = send_review_ack(database, settings, actor, escalation_id)
+    return out
 
 
 _ACTIVE_VALUES: dict[str, bool | None] = {

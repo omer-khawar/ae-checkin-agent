@@ -602,3 +602,13 @@ Source: the playtest report (patient, coordinator, judge) and the team's final-h
 
 ## R5.6 Kiosk polish
 Camera off by default (the participant opts in; "Camera off" status), Yes always before No, "Add another medication" (sends `conmeds`), "Larger text" is a real step up (at least 1.25x on prompts, options and hints), and both halves of a two-part question fit above the action bar at 1280x800 (compact spacing; the second question visible without scrolling).
+
+# Revision R6 (2026-10-11): participant confirmation texts
+
+Small and additive; no existing behavior changes.
+- **Phone.** `Participant.phone` (optional, E.164). The seed gives each demo participant a synthetic number in the fictional 555-01xx range (P-007 is `+17325550167`). Texting consent is covered by the informed consent form signed at enrollment (D-043); every message event records `consent_basis: "enrollment_icf"`.
+- **Texts.** `POST /sessions/{id}/complete` and `/urgent` send one confirmation per session after the check-in is committed. Plain-language templates only (no grade, tier or clinical word): every tier states the received time (in `SITE_TIMEZONE`), the site phone and the 911 line; tier 3 adds "The study team will call you today." `POST /escalations/{id}/ack` on a check-in's escalation sends "Your study nurse has reviewed your check-in." Chart-note escalations, participants with no phone, the seed and the eval harness send nothing.
+- **Sender.** `interim_api.notifier`: `Notifier.send(to, body) -> SendResult(channel, status, provider_id?, error?)`, never raises. Twilio when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM` are all set, else the mock outbox. Every text is a `messages` row (`kind` checkin_confirmation | review_ack, `channel` twilio | outbox, `status` sent | outbox | failed) and one audit event (`message.sent`, or `message.failed` with the reason). A failed send never fails the check-in.
+- **API.** `/complete` and `/urgent` add `confirmation` (the message, with `to_masked` such as `•••-4821`, or null). The ack response adds `message`. `GET /checkins/{id}` adds `messages[]`. `GET /admin/messages` (admin) lists every text newest first with the full number and `channel` (where new texts go now).
+- **UI.** The kiosk thank-you screen says "We texted a confirmation to •••-4821." The check-in detail shows "Confirmation texted ✓" with the message. Admin > Outbox (`/admin/outbox`) lists every text.
+

@@ -64,6 +64,14 @@ class Settings(BaseSettings):
         "thank-you screen and the stop screen. A fictional 555-01xx number by default.",
     )
     site_name: str = Field(default="Study team", description="R5.1: the site's display name.")
+    site_timezone: str = Field(
+        default="America/New_York",
+        description="R6: the time zone confirmation texts show the received time in.",
+    )
+    # R6 confirmation texts: all three set = real SMS via Twilio; otherwise the mock outbox.
+    twilio_account_sid: str = Field(default="")
+    twilio_auth_token: str = Field(default="")
+    twilio_from: str = Field(default="", description="Twilio sender number, E.164.")
     public_data_dir: Path = Field(default=REPO_ROOT / "data" / "public")
     log_level: str = Field(default="info")
     # [packets agent] Optional LLM writer (CLAUDE.md §00 "Generated text works with no API key").

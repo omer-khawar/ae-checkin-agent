@@ -18,6 +18,7 @@ import {
   Phone,
   Printer,
   Search,
+  Send,
   ShieldAlert,
   ShieldCheck,
   StickyNote,
@@ -177,7 +178,10 @@ export function Layout() {
       go("Evaluation", "/dashboard/eval", <FlaskConical className={iconCls} />),
       go("Participant kiosk", "/kiosk", <MonitorPlay className={iconCls} />),
     ];
-    if (role === "admin") base.push(go("Admin", "/admin", <Cog className={iconCls} />));
+    if (role === "admin") {
+      base.push(go("Admin", "/admin", <Cog className={iconCls} />));
+      base.push(go("Outbox (participant texts)", "/admin/outbox", <Send className={iconCls} />));
+    }
     base.push(
       {
         id: "act-next-urgent",
