@@ -1,5 +1,7 @@
 # Interim web palette and typography
 
+> **Superseded by the UI revamp design system:** tokens now live in `tokens.css` (CSS variables, console + kiosk surfaces), fonts are self-hosted Inter (console) and Atkinson Hyperlegible (kiosk), and the rules plus contrast table are in `src/ui/README.md`. This file describes the legacy palette the existing pages still use until they migrate.
+
 Light theme only (DECISIONS.md D-006): the kiosk runs on a laptop in a clinic corridor
 and the dashboard is read on office monitors. One theme means one set of contrast
 checks and nothing to toggle during a demo.

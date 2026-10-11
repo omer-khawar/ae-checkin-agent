@@ -20,7 +20,7 @@ export function RequireRole({ roles, children }: RequireRoleProps) {
   const location = useLocation();
 
   if (!auth || !role) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   if (roles && !roles.includes(role)) {
     return (

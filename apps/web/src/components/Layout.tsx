@@ -129,7 +129,7 @@ export function Layout() {
               variant="secondary"
               onClick={() => {
                 logout();
-                navigate("/");
+                navigate("/login");
               }}
             >
               Sign out

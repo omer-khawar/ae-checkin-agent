@@ -1,0 +1,28 @@
+/*
+ * Landing-page-only styles, scoped under .landing so nothing leaks into the
+ * console or the kiosk. Colours, fonts, glass and focus come from the design
+ * system (src/styles/tokens.css, src/styles/index.css; rules in src/ui/README.md).
+ *
+ * Direction (user-approved): Apple liquid glass x healthcare, not techno. No
+ * gradient text, glows, animated blobs, video, parallax or scroll animations.
+ */
+
+/*
+ * A still, very faint vertical tint behind the hero (accent-subtle fading into
+ * the canvas; no animation, no glow): gives the glass header and hero frame
+ * something to frost against.
+ */
+.landing-wash {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(var(--accent-subtle)) 0,
+    rgb(var(--background)) 36rem
+  );
+}
+
+/* Smooth in-page jumps only for people who have not asked for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+}

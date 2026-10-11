@@ -1,6 +1,7 @@
 /**
  * Route table, exactly as CONTRACTS.md §4:
- *   /                                   login / role picker + link to kiosk
+ *   /                                   public landing page (pages/landing)
+ *   /login                              login / role picker + link to kiosk
  *   /kiosk                              participant flow (no auth)
  *   /dashboard                          queue
  *   /dashboard/checkins/:sessionId      check-in detail
@@ -14,6 +15,8 @@
  *   /dashboard/participants/:usubjid/brief   visit-prep brief (R3.3)
  *   /dashboard/queries                  sponsor queries (R4.4)
  *   /admin                              admin only
+ *   /ui-preview                         design-system preview (UI revamp phase 1;
+ *                                       synthetic data only, no API calls, no auth)
  *
  * `AppRoutes` is router-agnostic so tests can mount it in a MemoryRouter.
  *
@@ -40,6 +43,7 @@ import { Notes } from "./pages/dashboard/Notes";
 import { ParticipantTimeline } from "./pages/dashboard/ParticipantTimeline";
 import { Queue } from "./pages/dashboard/Queue";
 import { KioskFlow } from "./pages/kiosk/KioskFlow";
+import { LandingPage } from "./pages/landing/LandingPage";
 import { Login } from "./pages/Login";
 import { NotFound } from "./pages/NotFound";
 
@@ -106,6 +110,9 @@ const BriefPage = lazyPage(
   "BriefPage",
   "The visit brief page",
 );
+/** Design-system preview: code-split so TanStack Table, cmdk and sonner stay out of the main chunk. */
+const UiPreview = lazy(() => import("./pages/UiPreview"));
+
 const QueriesPage = lazyPage(
   "./pages/dashboard/queries/QueriesPage.tsx",
   "QueriesPage",
@@ -134,8 +141,17 @@ function Lazy({ children }: { children: ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/kiosk" element={<KioskFlow />} />
+      <Route
+        path="/ui-preview"
+        element={
+          <Lazy>
+            <UiPreview />
+          </Lazy>
+        }
+      />
 
       <Route
         path="/dashboard"

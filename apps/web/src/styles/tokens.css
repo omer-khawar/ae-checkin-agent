@@ -1,0 +1,242 @@
+/*
+ * Interim design tokens (UI revamp, phase 1).
+ *
+ * Starting palette: "Sea Glass" theme by serafimcloud
+ * (https://21st.dev/community/themes/sea-glass). We kept its structure (cool
+ * off-white canvas, white cards, one accent, hairline borders) and its shadcn
+ * variable roles, and replaced every value with the contrast-checked values
+ * from docs/ui-audit/UI_AUDIT.md ("Design system proposal"): the sage primary
+ * became teal #0F766E, the 0.15rem radius became our larger radii, and the
+ * Tomorrow/BioRhyme/JetBrains fonts became Inter (console) and Atkinson
+ * Hyperlegible (kiosk). The theme's dark block is not carried over: light only
+ * (DECISIONS.md D-006). Contrast for every text pair: src/ui/README.md.
+ *
+ * Colour tokens are space-separated RGB channels so Tailwind can add alpha:
+ *   colors.background = "rgb(var(--background) / <alpha-value>)".
+ *
+ * Two scopes share one set of names; components never branch on the surface:
+ *   :root, [data-surface="console"]  dense staff console (dashboard, admin, landing)
+ *   [data-surface="kiosk"]           calm participant kiosk (large type, 20px root)
+ * Status colours are global. The kiosk must not render tier/SAE/AESI colours
+ * (the participant never sees clinical status); only measured/simulated.
+ */
+
+:root,
+[data-surface="console"] {
+  /* Fonts */
+  --font-sans:
+    "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Canvas and opaque surfaces */
+  --background: 243 247 247; /* #F3F7F7 cool off-white, faint teal tint */
+  --foreground: 17 24 39; /* #111827 */
+  --surface: 255 255 255; /* #FFFFFF panels, tables, forms (opaque) */
+  --surface-subtle: 238 243 244; /* #EEF3F4 table head, row hover */
+  --surface-selected: 227 241 239; /* #E3F1EF focused / selected row */
+
+  /* Text */
+  --text: 17 24 39; /* #111827 17.74:1 on surface */
+  --text-muted: 75 85 99; /* #4B5563 7.56:1 on surface */
+  --text-subtle: 95 107 122; /* #5F6B7A lightest text allowed, 5.43:1 */
+
+  /* Lines */
+  --border: 213 219 225; /* #D5DBE1 dividers (decorative) */
+  --border-strong: 123 135 148; /* #7B8794 inputs, switches (3.66:1, WCAG 1.4.11) */
+
+  /* Accent: one teal */
+  --accent: 15 118 110; /* #0F766E primary buttons, links, active nav (5.47:1) */
+  --accent-strong: 17 94 89; /* #115E59 hover/pressed, selected fill (7.58:1 white on it) */
+  --accent-fg: 255 255 255;
+  --accent-subtle: 230 242 241; /* #E6F2F1 hover / highlighted item fill */
+  --accent-subtle-fg: 17 94 89; /* #115E59 6.62:1 on accent-subtle */
+
+  /* Focus ring */
+  --focus: 15 118 110; /* #0F766E */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* Destructive action (buttons, overdue clock) */
+  --destructive: 185 28 28; /* #B91C1C 6.47:1 white on it */
+  --destructive-fg: 255 255 255;
+
+  /* Glass (chrome only: header, command palette, sheets, toasts) */
+  --glass-fill: 255 255 255;
+  --glass-alpha: 0.78; /* text + text-muted >= 4.5:1 even over #111827 beneath */
+  --glass-alpha-strong: 0.92; /* accent text also >= 4.5:1 over anything beneath */
+  --glass-alpha-fallback: 0.96; /* no backdrop-filter support */
+  --glass-blur: 20px;
+  --glass-saturate: 170%;
+  --glass-border: 255 255 255; /* hairline light edge, used at 70% */
+  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.85);
+  --glass-shadow:
+    0 0 0 1px rgb(15 23 42 / 0.06), 0 2px 6px -1px rgb(15 23 42 / 0.06),
+    0 16px 40px -12px rgb(15 23 42 / 0.18);
+
+  /* Elevation (audit console scale; data panels stay flat) */
+  --elev-1: 0 1px 0 rgb(213 219 225);
+  --elev-2: 0 4px 12px rgb(17 24 39 / 0.12);
+  --elev-3: 0 12px 32px rgb(17 24 39 / 0.2);
+
+  /* Radius: console 6 / 8 / 12 */
+  --radius-sm: 6px; /* buttons, inputs, chips */
+  --radius-md: 8px; /* panels, popovers */
+  --radius-lg: 12px; /* sheets, command palette, glass header */
+
+  /* Type scale: console 12 / 13 / 14 / 16 / 20 / 24 (never below 12) */
+  --fs-caption: 12px;
+  --fs-table: 13px;
+  --fs-body: 14px;
+  --fs-title: 16px;
+  --fs-page: 20px;
+  --fs-display: 24px;
+
+  /* Spacing: 4px base */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Sizes */
+  --row-h: 36px; /* table row, cell padding 6x10 */
+  --row-h-comfy: 44px;
+  --appbar-h: 48px;
+
+  /* Motion: colour/opacity only, never above 200ms */
+  --motion-fast: 120ms;
+  --motion-base: 150ms;
+  --motion-max: 200ms;
+}
+
+[data-surface="kiosk"] {
+  --font-sans:
+    "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+
+  --background: 245 249 249; /* #F5F9F9 */
+  --foreground: 15 23 42; /* #0F172A */
+  --surface: 255 255 255;
+  --surface-subtle: 238 244 244; /* #EEF4F4 */
+  --surface-selected: 230 242 241; /* #E6F2F1 */
+
+  --text: 15 23 42; /* #0F172A 17.85:1 */
+  --text-muted: 51 65 85; /* #334155 lightest kiosk text, 10.35:1 */
+  --text-subtle: 51 65 85; /* same: the kiosk has no lighter text */
+
+  --border: 226 232 240; /* #E2E8F0 decorative only */
+  --border-strong: 100 116 139; /* #64748B option / input boundary, 4.76:1 */
+
+  --accent: 17 94 89; /* #115E59 Next + selected option fill, 7.58:1 white on it */
+  --accent-strong: 19 78 74; /* #134E4A hover, 9.48:1 white on it */
+  --accent-fg: 255 255 255;
+  --accent-subtle: 230 242 241;
+  --accent-subtle-fg: 17 94 89;
+
+  /* Blue so focus never reads as "selected" (selected = solid teal). The ring sits
+     outside the option (offset 3px), on the canvas: 10.4:1. */
+  --focus: 30 58 138; /* #1E3A8A */
+  --focus-width: 3px;
+  --focus-offset: 3px;
+
+  --destructive: 153 27 27; /* #991B1B, inline validation text only */
+  --destructive-fg: 255 255 255;
+
+  --glass-blur: 24px;
+
+  /* Kiosk: flat, with one soft elevation */
+  --elev-1: 0 1px 3px rgb(17 24 39 / 0.08);
+  --elev-2: 0 1px 3px rgb(17 24 39 / 0.08);
+  --elev-3: 0 1px 3px rgb(17 24 39 / 0.08);
+
+  /* Radius: kiosk 16 / 20 / 28 */
+  --radius-sm: 16px; /* answer options, inputs */
+  --radius-md: 20px; /* cards */
+  --radius-lg: 28px; /* glass question / welcome / login cards */
+
+  /* Type scale. Root 20px; data-text-size="large" raises it to 24px and every
+     kiosk size scales with it: 16 disclaimer / 18 helper / 20 body / 22 answer /
+     24 lead / 30 question / 36 screen title. */
+  --k-root: 20px;
+  --fs-k-disclaimer: calc(var(--k-root) * 0.8);
+  --fs-k-helper: calc(var(--k-root) * 0.9);
+  --fs-k-body: var(--k-root);
+  --fs-k-answer: calc(var(--k-root) * 1.1);
+  --fs-k-lead: calc(var(--k-root) * 1.2);
+  --fs-k-question: calc(var(--k-root) * 1.5);
+  --fs-k-title: calc(var(--k-root) * 1.8);
+
+  /* Spacing: 8px base */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+
+  --k-option-h: 64px;
+  --k-option-gap: 12px;
+  --k-actionbar-h: 88px;
+
+  --motion-fast: 150ms;
+  --motion-base: 150ms;
+}
+
+[data-surface="kiosk"][data-text-size="large"],
+[data-surface="kiosk"] [data-text-size="large"] {
+  --k-root: 24px;
+}
+
+/* Status colours (global). Every chip pairs the colour with an icon and a word. */
+:root {
+  /* Generic UI feedback (toasts, banners). Not a clinical meaning. */
+  --info-fg: 30 64 175; /* #1E40AF */
+  --info-bg: 239 246 255; /* #EFF6FF */
+  --info-border: 59 130 246; /* #3B82F6 */
+  --success-fg: 20 83 45; /* #14532D */
+  --success-bg: 220 252 231; /* #DCFCE7 */
+  --success-border: 22 163 74; /* #16A34A */
+  --warning-fg: 113 63 18; /* #713F12 */
+  --warning-bg: 254 243 199; /* #FEF3C7 */
+  --warning-border: 217 119 6; /* #D97706 */
+  --danger-fg: 153 27 27; /* #991B1B */
+  --danger-bg: 254 242 242; /* #FEF2F2 */
+  --danger-border: 220 38 38; /* #DC2626 */
+
+  /* Escalation tiers: neutral / amber / orange / red (console only) */
+  --tier-0-fg: 55 65 81; /* #374151  T0 Log (outline chip) */
+  --tier-0-bg: 243 244 246; /* #F3F4F6 */
+  --tier-0-border: 107 114 128; /* #6B7280 (audit #9CA3AF darkened: outline is T0's shape cue) */
+  --tier-1-fg: 113 63 18; /* #713F12  T1 Review within 1 business day */
+  --tier-1-bg: 254 243 199; /* #FEF3C7 */
+  --tier-1-border: 217 119 6; /* #D97706 */
+  --tier-2-fg: 124 45 18; /* #7C2D12  T2 Nurse call today (2px border) */
+  --tier-2-bg: 255 237 213; /* #FFEDD5 */
+  --tier-2-border: 234 88 12; /* #EA580C */
+  --tier-3-fg: 255 255 255; /* #FFFFFF  T3 Urgent (solid) */
+  --tier-3-bg: 185 28 28; /* #B91C1C */
+  --tier-3-border: 185 28 28; /* #B91C1C */
+
+  /* Data provenance (allowed on the kiosk) */
+  --measured-fg: 20 83 45; /* #14532D */
+  --measured-bg: 220 252 231; /* #DCFCE7 */
+  --measured-border: 22 163 74; /* #16A34A */
+  --simulated-fg: 76 29 149; /* #4C1D95 */
+  --simulated-bg: 237 233 254; /* #EDE9FE */
+  --simulated-border: 124 58 237; /* #7C3AED */
+
+  /* Safety signals (console only) */
+  --sae-fg: 153 27 27; /* #991B1B  SAE suspected / 24h clock running */
+  --sae-bg: 254 242 242; /* #FEF2F2 */
+  --sae-border: 220 38 38; /* #DC2626 */
+  --aesi-fg: 7 89 133; /* #075985  AESI (possible) */
+  --aesi-bg: 224 242 254; /* #E0F2FE */
+  --aesi-border: 2 132 199; /* #0284C7 */
+
+  /* Draft, rule, reference, open, acknowledged, clock stopped */
+  --neutral-fg: 55 65 81; /* #374151 */
+  --neutral-bg: 243 244 246; /* #F3F4F6 */
+  --neutral-border: 213 219 225; /* #D5DBE1 */
+}

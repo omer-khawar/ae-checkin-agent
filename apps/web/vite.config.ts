@@ -8,6 +8,8 @@
  *   so a second API on another port can sit behind a second dev server:
  *   `VITE_API_PROXY_TARGET=http://localhost:8010 npm run dev -- --port 5180`.
  *   In Docker, nginx.conf plays the same role.
+ * - `@/` is an alias for `src/` (matches tsconfig "paths" and components.json).
+ *   The replacement is root-relative ("/src/") so no Node path helpers are needed.
  * - Vitest runs in jsdom with a setup file that registers jest-dom matchers and
  *   a deterministic `sessionStorage` / `WebSocket` environment.
  */
@@ -21,6 +23,9 @@ const apiProxyTarget = env.VITE_API_PROXY_TARGET || "http://localhost:8000";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: [{ find: /^@\//, replacement: "/src/" }],
+  },
   server: {
     port: 5173,
     strictPort: true,

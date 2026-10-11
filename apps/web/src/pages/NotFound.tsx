@@ -8,7 +8,7 @@ export function NotFound() {
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-12 text-center">
         <h1 className="text-2xl font-bold text-slate-900">Page not found</h1>
         <p className="mt-2 text-slate-600">
-          <Link to="/" className="text-brand-700 underline">
+          <Link to="/login" className="text-brand-700 underline">
             Sign in
           </Link>{" "}
           or{" "}
