@@ -42,6 +42,7 @@ from ..models import (
 from ..util import dump_json, load_json, new_id, normalize_iso, now_iso, seconds_between
 from .common import stop_screen_text, tier_name
 
+GATE_URGENT_NOW = "gate_urgent_now"
 GATE_HOSPITALIZATION = "gate_hospitalization"
 GATE_CONMED = "gate_conmed"
 GATE_CONMED_TEXT = "gate_conmed_text"
@@ -49,7 +50,12 @@ GATE_CONMED_DIRECTION = "gate_conmed_direction"
 GATE_OTHER = "gate_other"
 GATE_TEMP_C = "gate_temp_c"
 GATE_ATTRIBUTE = "gate"
+EXTRA_CONMED_TEXT_PREFIX = f"{GATE_CONMED_TEXT}_"
+EXTRA_CONMED_DIRECTION_PREFIX = f"{GATE_CONMED_DIRECTION}_"
+"""R5.2: the 2nd, 3rd, ... medication of the kiosk's list are ``gate_conmed_text_2``,
+``gate_conmed_text_3`` ... (and ``gate_conmed_direction_N``); the first keeps the legacy ids."""
 GATE_ITEM_IDS: tuple[str, ...] = (
+    GATE_URGENT_NOW,
     GATE_HOSPITALIZATION,
     GATE_CONMED,
     GATE_CONMED_TEXT,
@@ -106,6 +112,7 @@ def gates_from_rows(rows: Sequence[Answer]) -> dict[str, Any]:
         if a.attribute == GATE_ATTRIBUTE and not (a.value_int is None and a.value_text is None)
     }
     hosp = by_item.get(GATE_HOSPITALIZATION)
+    urgent = by_item.get(GATE_URGENT_NOW)
     conmed = by_item.get(GATE_CONMED)
     text = by_item.get(GATE_CONMED_TEXT)
     direction = by_item.get(GATE_CONMED_DIRECTION)
@@ -116,7 +123,11 @@ def gates_from_rows(rows: Sequence[Answer]) -> dict[str, Any]:
     temp_value: float | None = None
     if temp is not None and temp.value_text not in (None, ""):
         temp_value = float(temp.value_text)
+    extra_conmeds = _extra_conmeds(by_item, text, direction)
     return {
+        "urgent_now": bool(urgent.value_int) if urgent is not None else False,
+        "urgent_now_answer_id": urgent.id if urgent is not None else None,
+        "conmeds": extra_conmeds,
         "hospitalization": bool(hosp.value_int) if hosp is not None else False,
         "hospitalization_answer_id": hosp.id if hosp is not None else None,
         "conmed_changed": conmed_changed,
@@ -128,6 +139,41 @@ def gates_from_rows(rows: Sequence[Answer]) -> dict[str, Any]:
         "temp_c": temp_value,
         "temp_answer_id": temp.id if temp is not None else None,
     }
+
+
+def _extra_conmeds(
+    by_item: Mapping[str, Answer], first_text: Answer | None, first_direction: Answer | None
+) -> list[dict[str, Any]]:
+    """The kiosk's several-medication list as engine entries, or ``[]`` when it was just one.
+
+    Only when ``gate_conmed_text_2`` ... exist is the list the source of truth; a single
+    ``gate_conmed_text`` goes to the engine as plain text (which splits it, R5.2).
+    """
+    extras: list[tuple[int, Answer]] = []
+    for item_id, row in by_item.items():
+        if item_id.startswith(EXTRA_CONMED_TEXT_PREFIX):
+            suffix = item_id[len(EXTRA_CONMED_TEXT_PREFIX) :]
+            if suffix.isdigit():
+                extras.append((int(suffix), row))
+    if not extras or first_text is None:
+        return []
+    entries: list[dict[str, Any]] = [
+        {
+            "text": first_text.value_text or "",
+            "direction": first_direction.value_text if first_direction is not None else None,
+            "answer_id": first_text.id,
+        }
+    ]
+    for number, row in sorted(extras, key=lambda pair: pair[0]):
+        direction_row = by_item.get(f"{EXTRA_CONMED_DIRECTION_PREFIX}{number}")
+        entries.append(
+            {
+                "text": row.value_text or "",
+                "direction": direction_row.value_text if direction_row is not None else None,
+                "answer_id": row.id,
+            }
+        )
+    return entries
 
 
 def sample_row_to_engine(v: VitalsSample) -> dict[str, Any]:
@@ -153,6 +199,7 @@ def build_engine_input(
     session: Session,
     completed_at: str,
     rule_settings: Mapping[str, Any],
+    ended_early: str | None = None,
 ) -> CheckInInput:
     """Assemble the engine input for ``session`` as of ``completed_at``.
 
@@ -202,6 +249,7 @@ def build_engine_input(
         next_aeseq=next_aeseq_for(db, session.usubjid),
         started_at=session.started_at,
         protocol_context=_protocol_context(db, session.usubjid),
+        ended_early=ended_early,
     )
 
 

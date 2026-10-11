@@ -154,5 +154,155 @@
       },
       "note": null
     }
+  ],
+  "reader_terms_about": "Immune-related terms added for the second reader (CONTRACTS.md R5.3). The 'terms' list above is the kiosk's ten items and is unchanged; these rows only extend the reader's closed vocabulary (interim_rules.llm_verify.closed_vocabulary = scanner lexicon terms + the ten kiosk terms + these). They carry no grade definitions: the reader never grades, the scanner's own rules do. meddra_code is deliberately absent (MedDRA is licensed and not shipped).",
+  "reader_terms": [
+    {
+      "aedecod": "Hypothyroidism",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Endocrine disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Hyperthyroidism",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Endocrine disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Thyroiditis",
+      "in_ctcae_v5": false,
+      "meddra_soc": "Endocrine disorders",
+      "source": "No dedicated CTCAE v5.0 term: CTCAE v5.0 reports it under 'Endocrine disorders - Other, specify'. Immune-related name used in PD-1 inhibitor labels and irAE guidance; it is in the reader's closed vocabulary only so a word-for-word quote can be accepted. Investigator maps it to a CTCAE term.",
+      "note": null
+    },
+    {
+      "aedecod": "Adrenal insufficiency",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Endocrine disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Hypophysitis",
+      "in_ctcae_v5": false,
+      "meddra_soc": "Endocrine disorders",
+      "source": "No dedicated CTCAE v5.0 term: CTCAE v5.0 reports it under 'Endocrine disorders - Other, specify'. Immune-related name used in PD-1 inhibitor labels and irAE guidance; it is in the reader's closed vocabulary only so a word-for-word quote can be accepted. Investigator maps it to a CTCAE term.",
+      "note": null
+    },
+    {
+      "aedecod": "Hyperglycemia",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Metabolism and nutrition disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": "A checkpoint-inhibitor type 1 diabetes presents as new hyperglycemia."
+    },
+    {
+      "aedecod": "Colitis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Gastrointestinal disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Hepatitis",
+      "in_ctcae_v5": false,
+      "meddra_soc": "Hepatobiliary disorders",
+      "source": "No dedicated CTCAE v5.0 term: CTCAE v5.0 grades immune hepatitis through ALT/AST increased; 'Hepatitis viral' and 'Hepatic failure' are the nearest terms. Immune-related name used in PD-1 inhibitor labels and irAE guidance; it is in the reader's closed vocabulary only so a word-for-word quote can be accepted. Investigator maps it to a CTCAE term.",
+      "note": null
+    },
+    {
+      "aedecod": "Alanine aminotransferase increased",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Investigations",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Aspartate aminotransferase increased",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Investigations",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Pneumonitis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Respiratory, thoracic and mediastinal disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Acute kidney injury",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Renal and urinary disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Creatinine increased",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Investigations",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Myocarditis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Cardiac disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Myositis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Musculoskeletal and connective tissue disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Arthritis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Musculoskeletal and connective tissue disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Uveitis",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Eye disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Peripheral sensory neuropathy",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Nervous system disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Peripheral motor neuropathy",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Nervous system disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Guillain-Barre syndrome",
+      "in_ctcae_v5": true,
+      "meddra_soc": "Nervous system disorders",
+      "source": "NCI CTCAE v5.0 term name (NCI EVS, CTCAE_v5.0_2017-11-27.xlsx); immune-related class named in the PD-1 inhibitor labels. Name entered by the Interim team for the reader's closed vocabulary; check it against the NCI file before production.",
+      "note": null
+    },
+    {
+      "aedecod": "Encephalitis",
+      "in_ctcae_v5": false,
+      "meddra_soc": "Nervous system disorders",
+      "source": "No dedicated CTCAE v5.0 term: CTCAE v5.0 lists 'Encephalitis infection' (Infections and infestations) and 'Encephalopathy'. Immune-related name used in PD-1 inhibitor labels and irAE guidance; it is in the reader's closed vocabulary only so a word-for-word quote can be accepted. Investigator maps it to a CTCAE term.",
+      "note": null
+    }
   ]
 }

@@ -32,6 +32,13 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 26 | Web: investigator "Record seriousness decision" control for clocks with no AE draft (calls PATCH /sae-clocks/{id}/stop) | done | web | `pages/dashboard/detail/ClockActions.tsx` (used on check-in detail, note detail and `escalations/SaeClocksTable.tsx`), wrapper `detail/r34Api.ts#stopClock`, tests in `detail/__tests__/r34.test.tsx`; to be confirmed against the live API in the browser test |
 | 27 | render.yaml still deploys the legacy backend/ | done | infra | Fix with the legacy/ move |
 | 28 | Deployment path in the judges' terms (Jenkins → Argo CD → Kubernetes); Render CORS was `*` | done | infra | `deploy/k8s` (Kustomize: namespace, ConfigMap, API Deployment + PVC + Service, web Deployment + Service; Secret by reference only), `deploy/argocd/application.yaml`, root `Jenkinsfile`, `deploy/README.md`; CI renders the manifests. `render.yaml` CORS now the web URL. Not yet applied to a live cluster |
+| 29 | Playtest: urgent symptoms waited behind 12 questions; kiosk free text and medication text never read; "cefalexin ... and hydrocortisone" lost a drug; "6 or 7 watery stools" under-graded; hypothyroidism in a note missed | done | rules/api/web | Fixed by CONTRACTS R5: urgent first question and early stop (D-033), free text read (D-034), medication splitting (D-035), stool ranges (D-039), Gemini second reader with quote check and committed cache for the hypothyroidism case (D-036, D-037). Caregiver message from the playtest is addressed by the fixed stop-screen text and site phone line |
+| 30 | Caregiver mode: someone answering on the participant's behalf is not modelled | open | product | The kiosk assumes the participant answers; the stop screen helps a caregiver but the record does not say who answered |
+| 31 | Urgent-care visit question: the hospital gate asks about the ER and admission, not urgent care | open | rules/web | Free-text reading (D-034) catches some mentions, but the structured gate does not ask |
+| 32 | Route packets to the principal investigator automatically | open | api | Packets wait in the queue; nothing assigns or notifies the PI beyond the mock pager |
+| 33 | "Who was alerted" view for a page or escalation | open | web | The page event exists in the audit log; no screen shows recipients and times |
+| 34 | Spanish red-flag table | open | rules | The urgent path and the free-text phrases are English only; multilingual stays in NOT_BUILT |
+| 35 | ElevenLabs MP3s for read-aloud | open | web/infra | `scripts/build_kiosk_audio.py` is ready; waiting on an ELEVENLABS key. Browser voice is the fallback (D-040) |
 
 ## #28 Worklist bulk-confirm test failed on the CI runner only (done)
 

@@ -1,7 +1,7 @@
 /**
  * The worklist table: ui/data-table (opaque, 36px rows, 13px cells, sticky header).
  *
- * Eight columns: participant, source, received, tier, deadline, vitals, drafts, status.
+ * Seven columns: participant, source, received, tier, deadline, drafts, status (no vitals column, R5.5).
  * Rows arrive in server order (tier desc, completed_at desc); with no sort chosen they
  * are never re-ranked. Clicking a header sorts the rows on this page only (the caption
  * says so). The whole row opens the item (click or Enter); j/k move, x or Space selects,
@@ -17,12 +17,12 @@ import { cn } from "@/lib/cn";
 import { Badge } from "@/ui/badge";
 import { DataTable, type DataTableBulkContext, type DataTableColumnMeta } from "@/ui/data-table";
 
-import { Time, formatUtc, vitalsStatusLabel } from "../../../lib/format";
+import { Time, formatUtc } from "../../../lib/format";
 import type { QueueSource } from "../../../lib/types";
 import { callSummary, noteTypeWords } from "../notes/phoneCallLabels";
 import { bulkLockReason, canBulkSelect, draftTotal } from "./bulk";
 import { compactRemaining, plainRemaining, saeState } from "./countdown";
-import { hasVitalsSamples, isNoteSource, packetHref } from "./normalize";
+import { packetHref } from "./normalize";
 import { countLabel } from "./summary";
 import type { QueueClock, QueueRow } from "./types";
 
@@ -45,13 +45,14 @@ const SOURCE_LABEL: Record<QueueSource, { word: string; title: string; Icon: typ
   },
   chart_note: {
     word: "Chart note",
-    title: "A clinic, urgent-care or ER note the site read; scanned by fixed rules (no LLM)",
+    title:
+      "A clinic, urgent-care or ER note the site read; read by fixed rules or Gemini; every finding needs a word-for-word quote",
     Icon: FileText,
   },
   phone_call: {
     word: "Phone call",
     title:
-      "The coordinator's summary of a phone call, scanned by the same fixed rules as a chart note (no LLM)",
+      "The coordinator's summary of a phone call, read the same way as a chart note, with a word-for-word quote for every finding",
     Icon: Phone,
   },
 };
@@ -213,39 +214,6 @@ function DeadlineCell({ row }: { row: QueueRow }) {
   );
 }
 
-function VitalsCell({ row }: { row: QueueRow }) {
-  if (isNoteSource(row.source)) {
-    return (
-      <span className="text-subtle-foreground" title="Notes and calls carry no camera vitals">
-        —
-      </span>
-    );
-  }
-  const label = vitalsStatusLabel(row.vitals_status);
-  if (!hasVitalsSamples(row)) {
-    return (
-      <span
-        className="text-muted-foreground"
-        title="Vitals status from the rules engine (vitals never change a grade)"
-      >
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <Badge
-        kind={row.is_measured ? "measured" : "simulated"}
-        label={row.is_measured ? "MEASURED" : "SIMULATED"}
-        size="sm"
-        className="uppercase"
-        title={`${label}. Vitals never change a grade.`}
-      />
-      <span className="sr-only">{label}</span>
-    </span>
-  );
-}
-
 function DraftsCell({ row }: { row: QueueRow }) {
   const c = row.draft_counts;
   if (draftTotal(row) === 0) {
@@ -318,7 +286,7 @@ export function QueueTable({
         header: "Participant",
         accessorFn: (r) => r.display_label,
         sortingFn: "alphanumeric",
-        meta: { rowHeader: true, width: "9rem" } satisfies DataTableColumnMeta,
+        meta: { rowHeader: true, width: "10rem" } satisfies DataTableColumnMeta,
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -381,7 +349,7 @@ export function QueueTable({
         id: "received",
         header: "Received",
         accessorFn: (r) => r.completed_at ?? "",
-        meta: { tabular: true, width: "9rem" } satisfies DataTableColumnMeta,
+        meta: { tabular: true, width: "10rem" } satisfies DataTableColumnMeta,
         cell: ({ row }) => (
           <span className="whitespace-nowrap">
             <Time iso={row.original.completed_at} style="short" />
@@ -406,15 +374,8 @@ export function QueueTable({
         id: "deadline",
         header: "Deadline",
         accessorFn: (r) => nextDue(r),
-        meta: { tabular: true, width: "9rem" } satisfies DataTableColumnMeta,
+        meta: { tabular: true, width: "10rem" } satisfies DataTableColumnMeta,
         cell: ({ row }) => <DeadlineCell row={row.original} />,
-      },
-      {
-        id: "vitals",
-        header: "Vitals",
-        accessorFn: (r) => (isNoteSource(r.source) ? "" : String(r.vitals_status ?? "")),
-        meta: { width: "9rem" } satisfies DataTableColumnMeta,
-        cell: ({ row }) => <VitalsCell row={row.original} />,
       },
       {
         id: "drafts",
@@ -426,7 +387,7 @@ export function QueueTable({
         id: "status",
         header: "Status",
         accessorFn: (r) => (r.escalation_acked === false ? 0 : r.needs_action ? 1 : 2),
-        meta: { width: "9rem" } satisfies DataTableColumnMeta,
+        meta: { width: "10rem" } satisfies DataTableColumnMeta,
         cell: ({ row }) => <StatusCell row={row.original} />,
       },
     ],

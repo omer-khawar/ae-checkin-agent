@@ -431,7 +431,7 @@
     "rationale": "A mentioned symptom with no severity cue is hinted at grade 1 so the AE draft has a provisional value the investigator must confirm or change."
   },
   "stool_count": {
-    "pattern": "(\\d+)\\s*(?:x|times|episodes|stools|loose stools|(?-i:BMs?)|bowel movements)\\s*(?:a|per|/)?\\s*(?:day|d)\\b",
+    "pattern": "(?:(\\d+)\\s*(?:-|to|or)\\s*)?(\\d+)\\s*(?:x|times|episodes|(?:(?:watery|loose|liquid)\\s+)?(?:stools?|bowel movements)|(?:(?:watery|loose|liquid)\\s+)?(?-i:BMs?))\\s*(?:(?:a|per|each|/)?\\s*(?:day|d)\\b|daily)",
     "term": "Diarrhea",
     "bands": [
       {
@@ -451,8 +451,10 @@
       }
     ],
     "basis": "{n} stools/day -> CTCAE v5 diarrhea grade {grade} (assumes baseline ~0 over usual)",
+    "reader_basis": "{n} stools/day (the count the second reader gave, found as digits inside its quote) -> CTCAE v5 diarrhea grade {grade} (assumes baseline ~0 over usual)",
+    "range_basis":"stools/day written as a range ({lo} to {hi}); the larger number ({n}) is used -> CTCAE v5 diarrhea grade {grade} (assumes baseline ~0 over usual)",
     "source": "NCI CTCAE v5.0 Diarrhea: grade 1 increase of <4 stools per day over baseline; grade 2 increase of 4-6; grade 3 increase of >=7.",
-    "rationale": "Applies to Diarrhea only. The count in the note is read as the increase over baseline (baseline assumed ~0), which the basis text says explicitly."
+    "rationale": "Applies to Diarrhea only. The count in the note is read as the increase over baseline (baseline assumed ~0), which the basis text says explicitly. Counts are read next to stools, loose/watery/liquid stools, bowel movements, BMs, episodes or times, followed by a day, per day, /day or daily. A written range ('6 or 7', '6-7', '6 to 7') takes the larger number so the grade is never understated; range_basis says so (playtest 2026-10-11: '6 or 7 watery stools a day' was graded 1)."
   },
   "bsa": {
     "pattern": "(\\d+(?:\\.\\d+)?)\\s*%\\s*(?:of\\s+)?(?:(?-i:BSA)|body surface area)",

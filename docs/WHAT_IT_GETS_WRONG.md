@@ -110,15 +110,15 @@ What the shipped list happens to get right is also luck of the list: `vitamin c`
 
 **How we would measure it.** A threat-model checklist mapped to 21 CFR Part 11 §11.10 controls and an external penetration test before any non-synthetic use.
 
-## 8. Everything depends on honest, understood self-report, and the kiosk's free text is never read by the system
+## 8. Everything depends on honest, understood self-report, and the kiosk's free text is read only by a lexicon
 
-**What we do.** Grades and red flags come only from the structured answers. The "anything else" field is stored verbatim and never parsed; it raises a tier floor (`redflag.other_text_with_severe`) **only** when it is non-empty **and** some item is severe, and then only as "human read".
+**What we do.** Grades come only from the structured answers. The "anything else" box and the medication box are now read (D-034, D-035) by the deterministic scanner in utterance mode. A red-flag phrase raises the tier floor to 3 with the participant's quote as evidence, a request for a person raises it to 2, and a hospital mention against a "No" answer adds a conflict reason and suspects seriousness. Free text never lowers anything and never sets a grade.
 
-**Where it breaks.** A participant who answers **No** to "were you admitted to a hospital or seen in an emergency room?" but types "went to the ER Tuesday for my breathing" in the free-text box, with no item marked severe, gets **Tier 0, no SAE clock**. The text is in the record and visible on the detail page, but nothing escalates it. Likewise a participant who does not understand "interference" answers "Not at all" and under-grades a real problem.
+**Where it breaks.** The lexicon knows the phrasings in our 34-utterance answer key and little else. "It's hard to get air" or a misspelled "emergancy room" is not matched, so such a participant still gets whatever the structured answers give, possibly Tier 0. A participant who does not understand "interference" and answers "Not at all" still under-grades a real problem. A lexicon built from a small playtest will also over-flag some harmless sentences, which costs a coordinator a look, not a missed event.
 
-**Why we accepted it.** Parsing free text is where an LLM would enter the product. The alternative, escalating every non-empty free text, would make the field useless. Interim now *does* scan clinician chart notes with a deterministic lexicon (§15), and that scanner would flag the sentence above ("Went to the ER Tuesday for breathing." → hospitalization, seriousness suspected). We still do not run it on the kiosk field, on purpose: a participant's own words at the kiosk would then drive escalation through a lexicon nobody validated on participant language, and the structured hospitalization question is the instrument's own seriousness trigger. A coordinator who reads the free text can paste it into the Notes page's dry-run scan.
+**Why we accepted it.** Every hit shows its quote, so a false alarm costs one glance, and the field can only raise attention. The first-question urgent path (D-033) means the most dangerous cases do not depend on free text at all.
 
-**How we would measure it.** Audit a random sample of free-text entries per month for missed escalation triggers; track how often a coordinator's confirmed grade or seriousness differs from the provisional one in sessions with non-empty free text versus without.
+**How we would measure it.** Audit a random sample of free-text entries per month for missed triggers, and track how often a coordinator's confirmed grade or seriousness differs from the provisional one when free text is present.
 
 ## 9. The 7-day recall window does not cover a 21-day dosing interval
 
@@ -308,19 +308,28 @@ Covered in §4 (the Synthea rows in its table). The short version: the per-token
 
 **How we would measure it.** Run the live checklist and record whether any Presage pulse above 105 ever arrives with confidence above the threshold; then either lower the rule's threshold for camera sources with a cited rationale or mark the rule "contact sensors only".
 
-## 25. Discharge advice is read as a hospital visit and starts a false serious-event clock
+## 25. Discharge advice was read as a hospital visit (fixed, with a remaining edge)
 
-**What we do.** The scanner's hospitalization red flag looks for phrases such as "to the ER", "in the ED", "admitted". A hit sets seriousness suspected and starts the 24-hour SAE clock at ingestion.
+**What went wrong.** The scanner's hospitalization red flag matched "to the ER", "in the ED", "admitted" even in advice about a future visit. `Discharged home. If symptoms worsen, go to the ER.` started a false 24-hour SAE clock, and `Return to the ER if fever or shortness of breath.` raised Tier 2.
 
-**Where it breaks** (re-run on 2026-10-10 with `interim_rules.chartscan.scan_text`):
+**What is fixed.** D-032: the hypothetical cues now cover return precautions ("call 911 if", "seek emergency care if", "if you feel worse, go to the ER"), these sentences are negative cases in the answer key (42 cases, all passing), and an actual ER visit is still flagged (ISSUES #25).
 
-| Note text | What the scanner did |
-|---|---|
-| `Discharged home. If symptoms worsen, go to the ER.` | Red flag `hospitalization` on "to the ER" → seriousness suspected, SAE clock |
-| `Return to the ER if fever or shortness of breath.` | Red flags `fever` and `hospitalization` → Tier 2, SAE clock |
+**What remains.** Return-precaution wording we have not seen, such as unusual phrasing in outside discharge summaries, can still start a false clock. A false clock is visible and cheap to stop: the investigator records a seriousness decision ("Record seriousness decision", audited). A missed real hospitalization would be worse, so we keep the bias.
 
-Advice about a *future* ER visit is not a visit. The symptom exclusions already treat "if …" and "call if …" as hypothetical, but the red-flag detection does not apply those cues (`docs/ISSUES.md` #25). Standard discharge instructions appear in many outside records, so this would start false 24-hour clocks regularly.
+**How we would measure it.** Report false-clock and missed-clock counts separately on the answer key and on any real-note set.
 
-**Why we accepted it (for now).** A false clock is visible and cheap to stop: the investigator records a seriousness decision on it ("Record seriousness decision", `PATCH /sae-clocks/{id}/stop`), audited. A missed real hospitalization would be worse.
+## 26. The Gemini reader can miss things, only adds, and what judges see is a recording
 
-**How we would measure it.** Add these sentences to the scanner's answer key as negative cases, apply the hypothetical cues to red flags, and report false-clock and missed-clock counts separately on the answer key and on any real-note set.
+**What we do.** A Gemini second reader proposes symptoms and medication changes in chart notes and call summaries (D-036). Code keeps a finding only if its quote appears word for word in the source (offsets mapped back to the original text), the term is in the closed CTCAE list plus about 20 immune-related terms, and any count or drug name appears in the quote. Rules grade what is kept; the model never grades, sets a tier, seriousness or causality.
+
+**Where it breaks.**
+- **It can miss.** The reader is a second pair of eyes, not a guarantee. A symptom it fails to propose is caught only if the scanner has it. Nothing in the product measures how often it misses on real notes.
+- **It only adds.** It never removes or lowers a scanner finding, so it cannot fix a scanner false positive such as an over-flagged "chest pain" (ISSUES #24).
+- **The quote check stops invented quotes, not a wrong term on a real quote.** If the note says "TSH elevated" and the model attaches a term the investigator would not choose, the quote is real and the finding is kept. The coordinator and investigator see the quote and the term side by side and decide; that is the safeguard.
+- **Status can be misjudged.** A model may call a historical or negated mention "current". The quote is shown so a person can see the context, but the check is not a language-understanding test.
+- **What judges see is the recorded cache.** The committed cache (`data/llm_cache/gemini_reader.json`, D-037) holds responses recorded from our own runs on our synthetic notes. A judge's clone with no key replays those; a note the cache has not seen gets scanner-only results and a visible "reader off" status. We have not measured the live model on unseen text, and the data is synthetic only. Real participant text would need Vertex AI under a BAA (D-038).
+- **A model update behind the same model name is not detected.** A changed prompt changes the cache key, so old responses are not reused silently, but a silent model change is invisible to the cache.
+
+**Why we accepted it.** The model does the one thing it is good at (noticing a phrase a lexicon lacks) and nothing it could get wrong silently. Every accepted finding is a real quote that a person confirms.
+
+**How we would measure it.** Run scanner-only and scanner+reader side by side on a de-identified real-note set with clinician-labeled terms; report recall gain, wrong-term rate on kept quotes, and rejected-quote rate by reason (the API already returns `reader_rejected`).

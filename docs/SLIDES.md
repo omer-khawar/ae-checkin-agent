@@ -79,11 +79,11 @@ Screenshot checklist (1920×1080, light theme, zoom 110%, after `make demo-reset
 | **Rules** (JSON tables, each with source and rationale) | Every decision | Grade 3 + immune-related → 24-hour AESI clock (protocol p. 92) |
 | **Templates** | Every sentence of generated text, each citing its evidence | Each narrative sentence ends in chips that open its sources |
 | **People** | Every confirmation and signature | Only the investigator signs a report |
-- No language model runs in the demo or the evaluation. Every decision is a table lookup you can read; every sentence is a template that cites its evidence.
+- Gemini reads, rules decide, people confirm. Nothing is accepted without a word-for-word quote. Every decision is a table lookup you can read; every report sentence is a template that cites its evidence. Gemini is an optional second reader that can only add findings; results are measured in `docs/eval/reader_results.md`.
 
 **Screenshot:** S-packet narrative with evidence chips.
 
-**Speaker notes:** No decision depends on generated text. Rules make every decision, from tables anyone can read. Templates write the narratives, and every sentence points to its source. No language model runs anywhere in what you are seeing. And nothing leaves without a person confirming or signing it.
+**Speaker notes:** No decision depends on generated text. Rules make every decision, from tables anyone can read. Templates write the narratives, and every sentence points to its source. Gemini only reads: it can add a finding if it brings a word-for-word quote that our code finds in the note, and it never decides anything. Without a key, recorded answers replay; with neither, rules alone run. And nothing leaves without a person confirming or signing it.
 
 ## Slide 6 — It reads the real protocol
 

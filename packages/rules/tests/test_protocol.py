@@ -391,7 +391,12 @@ def test_two_drugs_most_restrictive_first() -> None:
     assert result.protocol is not None
     assert [f.level for f in result.protocol.conmed_flags] == ["prohibited", "permitted"]
     assert result.protocol.conmed_flag == "prohibited"
-    assert cm(result)["INTERIM_PROTOCOL_FLAG"] == "prohibited"
+    # R5.2: "and" splits the box, so there is one CM draft per medicine, each flagged on its own.
+    first, second = drafts(result, "CM")
+    assert {f.name: f.value for f in first.fields}["INTERIM_PROTOCOL_FLAG"] == "permitted"
+    assert {f.name: f.value for f in second.fields}["INTERIM_PROTOCOL_FLAG"] == "prohibited"
+    assert [f.value for f in first.fields if f.name == "CMSEQ"] == [1]
+    assert [f.value for f in second.fields if f.name == "CMSEQ"] == [2]
 
 
 def test_stopped_prohibited_drug_still_floors() -> None:

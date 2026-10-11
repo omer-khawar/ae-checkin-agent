@@ -34,10 +34,10 @@ Nothing here depends on the clock or a git commit. The document changes only whe
 | sha256 `data/synthetic/synthea/notes.json` | `70a22b71723523e13ddd9544cb8f84523d2548df4ed7430ad860dc7d5e4e0ac2` |
 | sha256 `data/synthetic/synthea/participants.json` | `28032483e015cc76f3d3f6b7cdc39f7b515ff116a3beea979060bed9f8e35054` |
 | sha256 `scripts/synthea/complaint_map.json` | `93081483b7ccbb210dc71dd7858218fcfaa0ac99f763bff5edc8cc20f44a51dc` |
-| sha256 `packages/rules/data/chartscan_lexicon.json` | `2eb21a3a3da1af074368d53b7cdcff61f44e298d7058a1f1729dc776057a3da1` |
-| sha256 `packages/rules/data/chartscan_red_flags.json` | `cea8d544f4f23f1c8cf7e372aad723009145c8eb1873ea952aad65056dfadab3` |
+| sha256 `packages/rules/data/chartscan_lexicon.json` | `7b55704c4ac8885be5d4e1636cf10c15762915d2ee260246d2c1b975b9aa14c6` |
+| sha256 `packages/rules/data/chartscan_red_flags.json` | `af3d0c112d847f696f3e1eaca2e19b17685d0f678f5524dc6162f36343fc5226` |
 | sha256 `packages/rules/data/medlist.json` | `abf9c8159ece2ff6d14dded8dd752e3ac3b119288937d286f8cac927e9c7688e` |
-| sha256 `packages/rules/data/conmed_matching.json` | `66a212aed2896b8f26530ce6a26317e6c37d784d90e3ebc493b67bd647d2c46d` |
+| sha256 `packages/rules/data/conmed_matching.json` | `9de398a02b3aa915062f17d15f62a7db9b1a27001f1b25e6d1c38c9c00b386ca` |
 | sha256 `packages/rules/data/vitals_corroboration.json` | `0eb29da897ac3b85e42768f72c97d68dcfe14243284b00f268d347b09711a890` |
 
 ## Method

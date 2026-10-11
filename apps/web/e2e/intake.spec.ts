@@ -55,20 +55,27 @@ test("1-2 kiosk check-in as P-007 (diarrhea almost constantly, prednisone starte
 }) => {
   await page.goto("/kiosk");
   await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
-  // No consent screen: the camera opt-out is a toggle on Welcome.
+  // No consent screen: the camera is an optional box on Welcome, OFF by default (R5.6).
   await expect(page.getByText(/consent/i)).toHaveCount(0);
-  const optOut = page.getByLabel("I'd rather not use the camera");
-  await expect(optOut).toBeVisible();
-  await expect(optOut).not.toBeChecked();
-  await optOut.check();
+  const cameraBox = page.getByLabel("Use the camera to read my pulse and breathing (optional)");
+  await expect(cameraBox).toBeVisible();
+  await expect(cameraBox).not.toBeChecked();
   await expect(page.getByText("The camera will stay off.")).toBeVisible();
   await page.getByLabel("Your study ID").fill("P-007");
   await shot(page, "01-kiosk-welcome");
   await page.getByRole("button", { name: "Start check-in" }).click();
 
+  // Screen 1 (R5.1): "Right now, are you having trouble breathing...?" Yes is listed first; No here.
+  await expect(page.getByText(/Question 1 of 14/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /trouble breathing/ })).toBeVisible();
+  const urgentOptions = page.getByTestId("yesno-urgent-now").getByRole("radio");
+  await expect(urgentOptions.first()).toHaveAccessibleName("Yes");
+  await choose(page.getByTestId("yesno-urgent-now").getByRole("radio", { name: "No" }));
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
   // Ten symptom screens: everything "none" except diarrhea "Almost constantly".
   for (let i = 0; i < 10; i++) {
-    await expect(page.getByText(new RegExp(`Question ${i + 1} of 13`))).toBeVisible();
+    await expect(page.getByText(new RegExp(`Question ${i + 2} of 14`))).toBeVisible();
     const heading = (await page.locator("h1").first().innerText()).trim();
     const groups = page.locator("fieldset");
     const n = await groups.count();
@@ -92,7 +99,7 @@ test("1-2 kiosk check-in as P-007 (diarrhea almost constantly, prednisone starte
   }
 
   // Gates: no hospitalization; con-med prednisone started; nothing else.
-  await expect(page.getByText(/Question 11 of 13/)).toBeVisible();
+  await expect(page.getByText(/Question 12 of 14/)).toBeVisible();
   await choose(page.getByTestId("yesno-hospitalization").getByRole("radio", { name: "No" }));
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await choose(page.getByTestId("yesno-conmed").getByRole("radio", { name: "Yes" }));

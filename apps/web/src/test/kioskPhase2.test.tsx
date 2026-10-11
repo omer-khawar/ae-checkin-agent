@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { KioskFlow } from "../pages/kiosk/KioskFlow";
 import { IdlePrompt } from "../pages/kiosk/IdlePrompt";
 import { HELP_TEXT } from "../pages/kiosk/KioskShell";
+import { CAMERA_OPT_IN_LABEL } from "../pages/kiosk/Welcome";
 import { useIdleTimeout } from "../pages/kiosk/useIdleTimeout";
 import { DISCLAIMER_TEXT } from "../components/Disclaimer";
 import { completeResponse, ITEMS, SESSION_ID, session, STUDY } from "./fixtures";
@@ -64,9 +65,14 @@ function renderKiosk(path = "/kiosk") {
   );
 }
 
-async function begin(user: ReturnType<typeof userEvent.setup>) {
+/** Welcome → (optional camera box) → urgent question answered No → first symptom screen. */
+async function begin(user: ReturnType<typeof userEvent.setup>, camera = false) {
   await user.type(await screen.findByLabelText("Your study ID"), "P-007");
+  if (camera) await user.click(screen.getByRole("checkbox", { name: CAMERA_OPT_IN_LABEL }));
   await user.click(screen.getByRole("button", { name: "Start check-in" }));
+  await screen.findByRole("heading", { name: /trouble breathing/ });
+  await user.click(screen.getByRole("radio", { name: "No" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { name: ITEMS.items[0].label });
 }
 
@@ -83,10 +89,11 @@ describe("kiosk phase 2", () => {
     const user = userEvent.setup();
     installMockFetch(routes);
     renderKiosk();
-    await begin(user);
+    await begin(user, true);
     expect(screen.queryByTestId("vitals-panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("kiosk-side")).not.toBeInTheDocument();
-    expect(screen.getByTestId("kiosk-camera-status")).toHaveTextContent("Camera on · simulated");
+    // "simulated" belongs next to vitals numbers only; patients see a quiet line without it.
+    expect(screen.getByTestId("kiosk-camera-status")).toHaveTextContent(/^Camera on$/);
     // The footer sentence rides in the action bar, exactly once.
     expect(screen.getAllByText(DISCLAIMER_TEXT)).toHaveLength(1);
   });
@@ -95,15 +102,16 @@ describe("kiosk phase 2", () => {
     const user = userEvent.setup();
     installMockFetch(routes);
     renderKiosk("/kiosk?presenter=1");
-    await begin(user);
+    await begin(user, true);
     expect(await screen.findByTestId("vitals-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("kiosk-camera-status")).toHaveTextContent("Camera on · simulated");
   });
 
-  it("says Camera off when the participant opts out", async () => {
+  it("says Camera off by default (the camera is opt-in)", async () => {
     const user = userEvent.setup();
     installMockFetch(routes);
     renderKiosk();
-    await user.click(await screen.findByRole("checkbox", { name: /rather not use the camera/ }));
+    expect(await screen.findByRole("checkbox", { name: CAMERA_OPT_IN_LABEL })).not.toBeChecked();
     await begin(user);
     expect(screen.getByTestId("kiosk-camera-status")).toHaveTextContent("Camera off");
   });
@@ -145,11 +153,11 @@ describe("kiosk phase 2", () => {
 
     await user.click(within(review).getByRole("button", { name: `Edit: ${ITEMS.items[0].label}` }));
     expect(await screen.findByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
-    await pick(user, "Severe");
+    await pick(user, "Moderate");
     await user.click(screen.getByRole("button", { name: "Back to my answers" }));
 
     const again = await screen.findByTestId("review-screen");
-    await waitFor(() => expect(within(again).getByText(/^Severe · /)).toBeInTheDocument());
+    await waitFor(() => expect(within(again).getByText(/^Moderate · /)).toBeInTheDocument());
   });
 });
 

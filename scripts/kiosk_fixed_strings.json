@@ -1,0 +1,10 @@
+{
+  "note": "Fixed kiosk strings that live in the web app rather than in packages/rules/data. If wording drifts the app falls back to browser speech synthesis.",
+  "strings": [
+    "Your answers have been saved for the study team to review.",
+    "If anything changes before your next visit, you can do another check-in or contact the study team.",
+    "If you feel you need urgent help at any time, call 911 or go to the nearest emergency room.",
+    "Please ask the study team member nearby. They are happy to help you with this screen.",
+    "While you answer, the camera can read your pulse and breathing rate."
+  ]
+}

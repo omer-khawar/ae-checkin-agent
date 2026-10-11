@@ -1,7 +1,7 @@
 /**
  * Queue filter bar, one dense line: view tabs (All · Needs action · Serious &
  * special-interest · Notes & calls), participant (free text with a datalist
- * from GET /participants), minimum tier, open|all, include-eval toggle.
+ * from GET /participants), minimum tier, open|all, (the include_eval URL param still works, no checkbox).
  * Controlled by the page; the participant text is debounced before it reaches
  * the URL. The view tabs filter the loaded page in the browser; the other
  * controls go to GET /queue.
@@ -143,22 +143,6 @@ export function QueueFilters({
           <option value="all">All</option>
         </select>
       </div>
-
-      <label className="flex h-8 items-center gap-1.5 text-body text-foreground">
-        <input
-          type="checkbox"
-          className="focus-ring size-4 accent-primary"
-          checked={value.includeEval}
-          onChange={(e) => onChange({ includeEval: e.target.checked, offset: 0 })}
-        />
-        Include eval runs
-        <span
-          className="text-caption text-muted-foreground"
-          title="Sessions created by the evaluation harness, not by a participant at the kiosk"
-        >
-          (harness sessions)
-        </span>
-      </label>
 
       <Button
         type="button"

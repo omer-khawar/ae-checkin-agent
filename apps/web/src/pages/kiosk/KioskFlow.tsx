@@ -1,14 +1,16 @@
 /**
  * The kiosk state machine (CLAUDE.md §3.8 as amended by §00, CONTRACTS.md §4 + R3.3):
  *
- *   welcome ─▶ items (×N) ─▶ gates (×3) ─▶ review ─▶ submitting ─▶ thankyou
- *                                                     └─▶ stop (Tier 3)
+ *   welcome ─▶ urgent ─▶ items (×N) ─▶ gates (×3) ─▶ review ─▶ submitting ─▶ thankyou
+ *                 │         │                                          └─▶ stop (Tier 3)
+ *                 └─────────┴─▶ stop at once (R5.1: urgent_now = Yes, or a Severe /
+ *                                Very severe shortness-of-breath answer; POST /urgent)
  *
  * There is no per-session camera consent screen any more (D-026): camera use
  * is covered by the informed consent form signed at enrollment, and the API
  * records `consent_basis: "enrollment_icf"`. The Welcome screen keeps the
- * "no video is stored" sentence and an "I'd rather not use the camera" opt-out
- * (camera on by default), whose value is sent as `consent_camera`.
+ * "no video is stored" sentence and an optional "Use the camera" box
+ * (camera OFF by default, R5.6), whose value is sent as `consent_camera`.
  *
  * API calls, in order:
  *   GET /items, GET /study             on mount
@@ -19,17 +21,20 @@
  *   POST /sessions/{id}/answers        on every option tap (idempotent per item+attribute);
  *                                      failures are tracked per (item, attribute) and
  *                                      "Try again" resends every one of them
+ *   POST /sessions/{id}/urgent         at once when urgent_now = Yes or the shortness-of-breath
+ *                                      severity answer is Severe / Very severe (no more questions)
  *   POST /sessions/{id}/gates          once, when "Send my answers" is pressed on the
- *                                      review screen (verbatim text)
+ *                                      review screen (verbatim text; urgent_now:false, conmeds[])
  *   POST /sessions/{id}/answers        again for any answer the API never acknowledged
  *   POST /sessions/{id}/complete       after the bridge's post-flush idle (≤ 2.5 s)
  *
- * Bridge: `start` right after the session exists (camera left on; re-sent by the
+ * Bridge: `start` right after the session exists when the camera box was ticked (re-sent by the
  * client on reconnect), `stop` before `/complete`. The participant never sees a
  * tier, a grade, or any rule output.
  *
  * UI phase 2: the numbers card shows only with `?presenter=1`; patients see a quiet
- * "Camera on · simulated" line. After 60 s of no input an "Are you still there?"
+ * "Camera on" / "Camera off" line ("simulated" appears only in presenter mode, where
+ * the numbers are shown). After 60 s of no input an "Are you still there?"
  * prompt appears for 30 s, then the unsent check-in is discarded and the kiosk
  * returns to Welcome (the API session simply stays incomplete).
  */
@@ -42,15 +47,25 @@ import {
   completeSession,
   createSession,
   getItems,
+  getPublicSettings,
   getStudy,
   isApiError,
   nowIso,
   postAnswer,
   postGates,
+  postUrgent,
 } from "../../lib/api";
 import { useBridge } from "../../lib/bridge";
 import { parseTemperature, temperatureField } from "../../lib/format";
-import { buildGatesBody, GATE_ORDER, INITIAL_GATE_STATE, type GateState } from "../../lib/gates";
+import {
+  buildGatesBody,
+  FALLBACK_SITE_PHONE,
+  GATE_ORDER,
+  INITIAL_GATE_STATE,
+  isSevereDyspnea,
+  urgentLabel,
+  type GateState,
+} from "../../lib/gates";
 import { resolveUsubjid } from "../../lib/participant";
 import type {
   AnswerRequest,
@@ -59,6 +74,7 @@ import type {
   ItemsResponse,
   Session,
   Study,
+  UrgentTrigger,
 } from "../../lib/types";
 import { GateScreen } from "./GateScreen";
 import { ItemScreen } from "./ItemScreen";
@@ -68,10 +84,19 @@ import { ReviewScreen } from "./ReviewScreen";
 import { Stop } from "./Stop";
 import { Submitting } from "./Submitting";
 import { ThankYou } from "./ThankYou";
+import { UrgentScreen } from "./UrgentScreen";
 import { useIdleTimeout } from "./useIdleTimeout";
 import { Welcome } from "./Welcome";
 
-type Step = "welcome" | "items" | "gates" | "review" | "submitting" | "thankyou" | "stop";
+type Step =
+  | "welcome"
+  | "urgent"
+  | "items"
+  | "gates"
+  | "review"
+  | "submitting"
+  | "thankyou"
+  | "stop";
 
 /** How long we give the bridge to flush its buffer after `stop` (CONTRACTS.md §4). */
 export const BRIDGE_FLUSH_TIMEOUT_MS = 2500;
@@ -101,16 +126,19 @@ export function KioskFlow() {
   // ---- reference data ------------------------------------------------------
   const [catalog, setCatalog] = useState<ItemsResponse | null>(null);
   const [study, setStudy] = useState<Study | null>(null);
+  /** The study team's phone line; falls back to the fictional default if settings are unreachable. */
+  const [sitePhone, setSitePhone] = useState(FALLBACK_SITE_PHONE);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
     setLoadError(null);
-    Promise.all([getItems(), getStudy().catch(() => null)])
-      .then(([items, s]) => {
+    Promise.all([getItems(), getStudy().catch(() => null), getPublicSettings().catch(() => null)])
+      .then(([items, s, settings]) => {
         setCatalog({ ...items, items: [...items.items].sort((a, b) => a.order - b.order) });
         setStudy(s);
+        if (settings?.site_phone) setSitePhone(settings.site_phone);
       })
       .catch((e: unknown) => setLoadError(e))
       .finally(() => setLoading(false));
@@ -122,6 +150,7 @@ export function KioskFlow() {
 
   const items = useMemo(() => catalog?.items ?? [], [catalog]);
   const gateQuestions = useMemo(() => catalog?.gates ?? [], [catalog]);
+  const urgentQuestion = useMemo(() => urgentLabel(gateQuestions), [gateQuestions]);
   const recallWindow = catalog?.recall_window ?? "the last 7 days";
   /** The item carrying the optional typed temperature (fever_or_chills), if any. */
   const tempItem = useMemo(() => items.find((i) => temperatureField(i) !== null) ?? null, [items]);
@@ -129,11 +158,13 @@ export function KioskFlow() {
 
   // ---- flow state ----------------------------------------------------------
   const [step, setStep] = useState<Step>("welcome");
+  /** Bumped by every reset so UI that must not carry over to the next person (help line) clears. */
+  const [runId, setRunId] = useState(0);
   /** The label the participant typed (e.g. "P-007"); the USUBJID is composed on start. */
   const [typedId, setTypedId] = useState("");
   const [session, setSession] = useState<Session | null>(null);
-  /** Camera on for this session (Welcome opt-out not ticked). Sent as `consent_camera`. */
-  const [cameraOn, setCameraOn] = useState(true);
+  /** Camera on for this session (the participant ticked the Welcome box). Sent as `consent_camera`. */
+  const [cameraOn, setCameraOn] = useState(false);
   /** Unknown study ID (404 / 422): a "check your ID" message, no retry. */
   const [startError, setStartError] = useState<unknown>(null);
   /** Anything else (network, 5xx): a generic message with "Try again". */
@@ -160,6 +191,11 @@ export function KioskFlow() {
   const [editing, setEditing] = useState(false);
   const [gateIndex, setGateIndex] = useState(0);
   const [gates, setGates] = useState<GateState>(INITIAL_GATE_STATE);
+  /** The urgent_now answer on screen: only "no" can be shown again (Yes ends the check-in). */
+  const [urgentAnswer, setUrgentAnswer] = useState<"yes" | "no" | null>(null);
+  /** Set once the check-in was ended early; the stop screen shows while /urgent is in flight. */
+  const endingRef = useRef(false);
+  const [urgentFailed, setUrgentFailed] = useState(false);
   const [gatesBusy, setGatesBusy] = useState(false);
   const [gatesError, setGatesError] = useState<unknown>(null);
 
@@ -172,16 +208,18 @@ export function KioskFlow() {
   // participant presses Start. `start` is only sent when the camera is left on.
   // The card is hidden once capture has been stopped (submitting onward).
   const bridge = useBridge();
-  const showVitals = cameraOn && session !== null && (step === "items" || step === "gates");
+  const showVitals =
+    cameraOn && session !== null && (step === "urgent" || step === "items" || step === "gates");
 
   const bridgeStop = bridge.stop;
   const reset = useCallback(() => {
     // A session abandoned mid-flow must not keep the bridge capturing.
     bridgeStop();
+    setRunId((n) => n + 1);
     setStep("welcome");
     setTypedId("");
     setSession(null);
-    setCameraOn(true);
+    setCameraOn(false);
     setStartError(null);
     setStartFailure(null);
     setStartBusy(false);
@@ -198,6 +236,9 @@ export function KioskFlow() {
     setEditing(false);
     setGateIndex(0);
     setGates(INITIAL_GATE_STATE);
+    setUrgentAnswer(null);
+    setUrgentFailed(false);
+    endingRef.current = false;
     setGatesBusy(false);
     setGatesError(null);
     setCompleteError(null);
@@ -232,7 +273,8 @@ export function KioskFlow() {
         setSession(s);
         if (useCamera) bridge.start(s.id, scenarioOverride);
         setItemIndex(0);
-        setStep("items");
+        setUrgentAnswer(null);
+        setStep("urgent");
       } catch (e) {
         // Unknown study ID → stay on Welcome with a friendly "check your ID" message;
         // anything else → a generic message with "Try again".
@@ -290,13 +332,46 @@ export function KioskFlow() {
     [session],
   );
 
+  /**
+   * R5.1: stop the check-in now. The stop screen shows immediately (the safety text must not
+   * wait on the network); the API call follows, after any answer still in flight so the
+   * severity the participant just gave is on the record. A failed call is shown honestly:
+   * the text stops claiming the answers were saved.
+   */
+  const endEarly = useCallback(
+    async (trigger: UrgentTrigger, afterAnswer?: Promise<unknown>) => {
+      if (!session || endingRef.current) return;
+      endingRef.current = true;
+      if (cameraOn) bridgeStop();
+      setUrgentFailed(false);
+      setComplete(null);
+      setStep("stop");
+      try {
+        await afterAnswer;
+        const res = await postUrgent(session.id, { trigger, ts_client: nowIso() });
+        setComplete(res);
+      } catch {
+        setUrgentFailed(true);
+      }
+    },
+    [session, cameraOn, bridgeStop],
+  );
+
   function onSelect(itemId: string, attribute: Attribute, value: number) {
     setAnswers((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [attribute]: value } }));
     // Fever answered "No": a previously typed temperature no longer belongs to the record.
     if (tempItem && itemId === tempItem.id && attribute === "presence" && value === 0) {
       setTempC("");
     }
-    void sendAnswer({ item_id: itemId, attribute, value, ts_client: nowIso() });
+    const sent = sendAnswer({ item_id: itemId, attribute, value, ts_client: nowIso() });
+    // R5.1: Severe / Very severe shortness of breath ends the check-in right here.
+    if (isSevereDyspnea(itemId, attribute, value)) void endEarly("severe_dyspnea", sent);
+  }
+
+  function onUrgentAnswer(v: "yes" | "no") {
+    setUrgentAnswer(v);
+    // Yes: no more questions. The screen changes at once; there is no Next to press.
+    if (v === "yes") void endEarly("urgent_now");
   }
 
   /** Resend every failed answer (with a fresh client timestamp). */
@@ -340,6 +415,7 @@ export function KioskFlow() {
   function backItem() {
     setEditing(false);
     if (itemIndex > 0) setItemIndex(itemIndex - 1);
+    else setStep("urgent");
   }
 
   // ---- gates ---------------------------------------------------------------
@@ -388,7 +464,7 @@ export function KioskFlow() {
 
   // ---- idle ----------------------------------------------------------------
   const idle = useIdleTimeout({
-    enabled: step === "items" || step === "gates" || step === "review",
+    enabled: step === "urgent" || step === "items" || step === "gates" || step === "review",
     onTimeout: reset,
   });
 
@@ -428,11 +504,14 @@ export function KioskFlow() {
   }, [step]);
 
   // ---- render --------------------------------------------------------------
-  const totalScreens = items.length + GATE_ORDER.length;
+  // One counter over the whole check-in: the urgent question, every symptom, then the gates.
+  const totalScreens = 1 + items.length + GATE_ORDER.length;
   const measured = bridge.sample?.isMeasured ?? bridge.hello?.isMeasured ?? false;
   const statusLine = session
     ? cameraOn
-      ? `Camera on · ${measured ? "measured" : "simulated"}`
+      ? presenter
+        ? `Camera on · ${measured ? "measured" : "simulated"}`
+        : "Camera on"
       : "Camera off"
     : undefined;
 
@@ -442,7 +521,9 @@ export function KioskFlow() {
     <KioskShell
       statusLine={statusLine}
       side={side}
-      hasActionBar={step === "items" || step === "gates" || step === "review"}
+      hasActionBar={step === "urgent" || step === "items" || step === "gates" || step === "review"}
+      sitePhone={sitePhone}
+      helpResetKey={`${runId}-${step === "welcome" || step === "thankyou" || step === "stop" ? step : "active"}`}
     >
       {step === "welcome" && (
         <Welcome
@@ -457,6 +538,19 @@ export function KioskFlow() {
         />
       )}
 
+      {step === "urgent" && (
+        <UrgentScreen
+          label={urgentQuestion}
+          screenTotal={totalScreens}
+          value={urgentAnswer}
+          onAnswer={onUrgentAnswer}
+          onNext={() => {
+            setItemIndex(0);
+            setStep("items");
+          }}
+        />
+      )}
+
       {step === "items" && currentItem && (
         <ItemScreen
           key={currentItem.id}
@@ -464,6 +558,7 @@ export function KioskFlow() {
           index={itemIndex}
           total={items.length}
           screenTotal={totalScreens}
+          progressOffset={1}
           recallWindow={recallWindow}
           values={currentValues}
           onSelect={(attr, value) => onSelect(currentItem.id, attr, value)}
@@ -491,7 +586,7 @@ export function KioskFlow() {
           key={gateIndex}
           index={gateIndex}
           questions={gateQuestions}
-          itemCount={items.length}
+          itemCount={items.length + 1}
           state={gates}
           onChange={(patch) => setGates((g) => ({ ...g, ...patch }))}
           onBack={backGate}
@@ -529,9 +624,16 @@ export function KioskFlow() {
         />
       )}
 
-      {step === "thankyou" && <ThankYou onDone={reset} />}
+      {step === "thankyou" && <ThankYou onDone={reset} sitePhone={sitePhone} />}
 
-      {step === "stop" && <Stop text={complete?.stop_screen_text} onDone={reset} />}
+      {step === "stop" && (
+        <Stop
+          text={complete?.stop_screen_text}
+          sitePhone={sitePhone}
+          unsaved={urgentFailed}
+          onDone={reset}
+        />
+      )}
 
       {idle.warning && <IdlePrompt secondsLeft={idle.secondsLeft} onStay={idle.dismiss} />}
     </KioskShell>

@@ -3,25 +3,82 @@
  * screens (CLAUDE.md §3.2). Kept out of the component file so they can be unit
  * tested and reused by the eval "build your own persona" form later.
  */
-import type { ConmedDirection, GateQuestion, GatesRequest } from "./types";
+import type { ConmedDirection, ConmedEntry, GateQuestion, GatesRequest } from "./types";
+
+/** One "Add another medication" row. `text` is verbatim; never normalised on the client. */
+export interface ConmedRow {
+  text: string;
+  direction: ConmedDirection | null;
+}
 
 export interface GateState {
   hospitalization: boolean | null;
   conmedChanged: boolean | null;
-  /** Verbatim medication text; never normalised on the client. */
-  conmedText: string;
-  conmedDirection: ConmedDirection | null;
+  /** One row per medication (R5.2); at least one row is always present. */
+  conmeds: ConmedRow[];
   /** Verbatim free text; never parsed. */
   otherText: string;
 }
 
+/** The API caps `conmeds` at 10 entries and each text at 200 characters (R5.2). */
+export const MAX_CONMEDS = 10;
+export const MAX_CONMED_TEXT = 200;
+
+export const EMPTY_CONMED_ROW: ConmedRow = { text: "", direction: null };
+
 export const INITIAL_GATE_STATE: GateState = {
   hospitalization: null,
   conmedChanged: null,
-  conmedText: "",
-  conmedDirection: null,
+  conmeds: [EMPTY_CONMED_ROW],
   otherText: "",
 };
+
+/**
+ * R5.1: the first question after the study ID. Wording from GET /items when the
+ * table carries `urgent_now`, else this fallback. Answer options are always Yes, No.
+ */
+export const URGENT_NOW_ID = "urgent_now";
+export const FALLBACK_URGENT_LABEL =
+  "Right now, are you having trouble breathing, or chest pain or tightness?";
+
+/**
+ * R5.1: a Severe (3) or Very severe (4) shortness-of-breath severity answer ends the
+ * check-in at once, exactly like urgent_now = Yes. Item id and attribute are the
+ * instrument's; the threshold is the "Severe" option's value.
+ */
+export const SEVERE_DYSPNEA = {
+  itemId: "shortness_of_breath",
+  attribute: "severity",
+  minValue: 3,
+} as const;
+
+export function isSevereDyspnea(itemId: string, attribute: string, value: number): boolean {
+  return (
+    itemId === SEVERE_DYSPNEA.itemId &&
+    attribute === SEVERE_DYSPNEA.attribute &&
+    value >= SEVERE_DYSPNEA.minValue
+  );
+}
+
+/** R5.1 fallback; the API's `stop_screen_text` (escalation_ladder.json) wins when present. */
+export const FALLBACK_STOP_TEXT =
+  "If you are having trouble breathing or chest pain right now, call 911 now. Your answers were saved. A member of the study team has been alerted and will contact you today.";
+
+/** R5.1: shown if the API cannot be reached; makes no claim that anything was saved. */
+export const UNSAVED_STOP_TEXT =
+  "If you are having trouble breathing or chest pain right now, call 911 now. Please tell a member of the study team right away.";
+
+/** Fictional 555-01xx number; the API's `site_phone` wins when present. */
+export const FALLBACK_SITE_PHONE = "(732) 555-0142";
+
+/** Yes always comes before No on every yes/no screen (R5.6). */
+export function yesFirst<T extends { label: string }>(options: readonly T[]): T[] {
+  const yes = options.filter((o) => o.label.trim().toLowerCase() === "yes");
+  const no = options.filter((o) => o.label.trim().toLowerCase() === "no");
+  if (yes.length === 0 || no.length === 0) return [...options];
+  const rest = options.filter((o) => !yes.includes(o) && !no.includes(o));
+  return [...yes, ...no, ...rest];
+}
 
 export const GATE_ORDER = ["hospitalization", "conmed", "other"] as const;
 export type GateId = (typeof GATE_ORDER)[number];
@@ -95,12 +152,24 @@ export function buildGatesBody(
 ): GatesRequest {
   const req: GatesRequest = {
     hospitalization: state.hospitalization === true,
+    urgent_now: false,
     conmed_changed: state.conmedChanged === true,
     ts_client: tsClient,
   };
   if (state.conmedChanged === true) {
-    if (state.conmedText.trim().length > 0) req.conmed_text = state.conmedText;
-    if (state.conmedDirection) req.conmed_direction = state.conmedDirection;
+    const rows = state.conmeds.filter((r) => r.text.trim().length > 0 && r.direction !== null);
+    if (rows.length > 0) {
+      req.conmeds = rows.map(
+        (r): ConmedEntry => ({
+          text: r.text.slice(0, MAX_CONMED_TEXT),
+          direction: r.direction as ConmedDirection,
+        }),
+      );
+      // Old servers read the single text field: all medicines joined, one direction.
+      req.conmed_text = rows.map((r) => r.text).join(", ");
+      const dirs = new Set(rows.map((r) => r.direction));
+      req.conmed_direction = dirs.size === 1 ? (rows[0].direction as ConmedDirection) : "both";
+    }
   }
   if (state.otherText.trim().length > 0) req.other_text = state.otherText;
   if (tempC !== null && Number.isFinite(tempC)) req.temp_c = tempC;
@@ -115,10 +184,15 @@ export function gateComplete(state: GateState, index: number): boolean {
     case "conmed":
       if (state.conmedChanged === null) return false;
       if (state.conmedChanged === false) return true;
-      return state.conmedText.trim().length > 0 && state.conmedDirection !== null;
+      return state.conmeds.every((r) => r.text.trim().length > 0 && r.direction !== null);
     case "other":
       return true;
     default:
       return false;
   }
+}
+
+/** The urgent_now question wording: the table's label when the API sends one, else the R5.1 text. */
+export function urgentLabel(questions: GateQuestion[]): string {
+  return questions.find((q) => q.id === URGENT_NOW_ID)?.label ?? FALLBACK_URGENT_LABEL;
 }

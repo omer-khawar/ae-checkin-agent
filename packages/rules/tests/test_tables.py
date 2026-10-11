@@ -45,8 +45,8 @@ CORE_MEDS = [
 ]  # fmt: skip
 
 STOP_SCREEN_TEXT = (
-    "Thank you. A member of the study team will contact you today. If you feel you need "
-    "urgent help right now, call 911 or go to the nearest emergency room."
+    "If you are having trouble breathing or chest pain right now, call 911 now. Your answers "
+    "were saved. A member of the study team has been alerted and will contact you today."
 )
 
 
@@ -117,10 +117,21 @@ def test_unknown_item_raises() -> None:
 
 def test_gate_questions() -> None:
     questions = tables.gate_questions()
-    assert [q.id for q in questions] == ["hospitalization", "conmed", "other"]
-    assert [q.field for q in questions] == ["hospitalization", "conmed_changed", "other_text"]
-    assert questions[0].raw["seriousness_trigger"] is True
-    assert "never parsed" in questions[2].raw["note"]
+    assert [q.id for q in questions] == ["urgent_now", "hospitalization", "conmed", "other"]
+    assert [q.field for q in questions] == [
+        "urgent_now",
+        "hospitalization",
+        "conmed_changed",
+        "other_text",
+    ]
+    assert questions[0].raw["order"] == 0
+    assert questions[0].raw["red_flag_rule"] == "redflag.urgent_now"
+    assert questions[1].raw["seriousness_trigger"] is True
+    assert "never interpreted by a language model" in questions[3].raw["note"]
+    # R5.6: Yes always lists before No on every yes/no gate.
+    for question in questions:
+        if "options" in question.raw:
+            assert list(question.raw["options"]) == ["Yes", "No"], question.id
 
 
 def test_composite_tables_reproduce_published_rows() -> None:
@@ -184,14 +195,17 @@ def test_red_flags_table() -> None:
         "redflag.fever_with_severe",
         "redflag.hospitalization",
         "redflag.other_text_with_severe",
+        "redflag.urgent_now",
+        "redflag.ended_early",
     ]
     floors = {r.id: r.tier_floor for r in table.rules}
     assert floors["redflag.severe_dyspnea"] == 3
     assert floors["redflag.hospitalization"] == 3
     assert floors["redflag.fever_with_severe"] == 2
     assert floors["redflag.other_text_with_severe"] == 2
-    assert [r.seriousness for r in table.rules] == [False, False, True, False]
-    assert "never parsed" in floors and False or "never parsed" in table.rules[3].effect
+    assert floors["redflag.urgent_now"] == floors["redflag.ended_early"] == 3
+    assert [r.seriousness for r in table.rules] == [False, False, True, False, False, False]
+    assert "never parsed" in table.rules[3].effect
     assert table.severe_item.severity_attribute_min == 3
     assert table.severe_item.no_severity_attribute_composite_min == 3
 
@@ -294,6 +308,10 @@ def test_rules_catalog_is_complete() -> None:
         "redflag.fever_with_severe",
         "redflag.hospitalization",
         "redflag.other_text_with_severe",
+        "redflag.urgent_now",
+        "redflag.ended_early",
+        "redflag.free_text",
+        "redflag.free_text_human_request",
         "vitals.unavailable",
         "vitals.low_quality",
         "vitals.implausible",

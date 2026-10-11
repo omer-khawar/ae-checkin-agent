@@ -15,7 +15,7 @@ import { ROLE_LABELS, ROLES, useAuth } from "../lib/auth";
 import type { Role } from "../lib/types";
 
 export function Login() {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, sessionExpired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
@@ -129,6 +129,11 @@ export function Login() {
             </p>
           </div>
 
+          {sessionExpired && !error && (
+            <p role="status" className="m-0 text-table font-medium text-foreground">
+              Your session expired. Please sign in again.
+            </p>
+          )}
           <ErrorBanner error={error} message="Sign-in failed" />
 
           <Button type="submit" variant="primary" fullWidth loading={busy} disabled={!password}>

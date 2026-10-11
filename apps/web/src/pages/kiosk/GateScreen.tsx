@@ -12,10 +12,23 @@
  * screen, and "Send my answers" there posts the gates. Next is always enabled;
  * with something missing it shows an inline prompt.
  */
+import { Plus, X } from "lucide-react";
 import { useState } from "react";
 
-import { GATE_ORDER, gateComplete, gateLabel, gatePrompts, type GateState } from "../../lib/gates";
+import {
+  EMPTY_CONMED_ROW,
+  GATE_ORDER,
+  MAX_CONMEDS,
+  MAX_CONMED_TEXT,
+  gateComplete,
+  gateLabel,
+  gatePrompts,
+  type ConmedRow,
+  type GateState,
+} from "../../lib/gates";
+import { useReadAloud, useSpeakOnShow } from "../../lib/speech";
 import type { ConmedDirection, GateQuestion } from "../../lib/types";
+import { Button } from "@/ui/button";
 import { AnswerGroup } from "@/ui/kiosk/answer-group";
 import { KioskActionBar } from "@/ui/kiosk/action-bar";
 import { KioskProgress } from "@/ui/kiosk/progress";
@@ -73,8 +86,22 @@ export function GateScreen({
   const complete = gateComplete(state, index);
   const isLast = index === GATE_ORDER.length - 1;
   const titleId = `gate-${id}-stem`;
-  const needMed = state.conmedChanged === true && state.conmedText.trim().length === 0;
-  const needDirection = state.conmedChanged === true && state.conmedDirection === null;
+  const medsOn = state.conmedChanged === true;
+  const manyMeds = state.conmeds.length > 1;
+
+  const { on: readAloud } = useReadAloud();
+  useSpeakOnShow(id === "other" ? [label] : [label, ...YES_NO.map((o) => o.label)], readAloud);
+
+  function updateRow(i: number, patch: Partial<ConmedRow>) {
+    onChange({ conmeds: state.conmeds.map((r, k) => (k === i ? { ...r, ...patch } : r)) });
+  }
+  function addRow() {
+    if (state.conmeds.length >= MAX_CONMEDS) return;
+    onChange({ conmeds: [...state.conmeds, { ...EMPTY_CONMED_ROW }] });
+  }
+  function removeRow(i: number) {
+    onChange({ conmeds: state.conmeds.filter((_, k) => k !== i) });
+  }
 
   function handleNext() {
     if (!complete) {
@@ -111,45 +138,97 @@ export function GateScreen({
               error={attempted && state.conmedChanged === null ? CHOOSE_ANSWER_TEXT : undefined}
               data-testid="yesno-conmed"
             />
-            {state.conmedChanged === true && (
+            {medsOn && (
               <>
+                {state.conmeds.map((row, i) => {
+                  const inputId = i === 0 ? "conmed-text" : `conmed-text-${i}`;
+                  const needMed = row.text.trim().length === 0;
+                  const needDirection = row.direction === null;
+                  return (
+                    <div
+                      key={i}
+                      data-testid={`conmed-row-${i}`}
+                      className={
+                        manyMeds
+                          ? "flex flex-col gap-4 rounded-control border-2 border-border p-4"
+                          : "flex flex-col gap-6"
+                      }
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <label
+                            htmlFor={inputId}
+                            className="block text-k-lead font-semibold text-foreground"
+                          >
+                            {i === 0 ? prompts.conmedText : `Medication ${i + 1}`}
+                          </label>
+                          {i > 0 && (
+                            <Button
+                              variant="secondary"
+                              size="xl"
+                              className="min-h-12 min-w-0 px-4 text-k-helper"
+                              aria-label={`Remove medication ${i + 1}`}
+                              leadingIcon={<X />}
+                              onClick={() => removeRow(i)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <input
+                          id={inputId}
+                          type="text"
+                          autoComplete="off"
+                          spellCheck={false}
+                          maxLength={MAX_CONMED_TEXT}
+                          value={row.text}
+                          onChange={(e) => updateRow(i, { text: e.target.value })}
+                          aria-invalid={attempted && needMed ? true : undefined}
+                          className={`${INPUT_CLASS} mt-3`}
+                          placeholder="Type the name as it appears on the package"
+                        />
+                        {i === 0 && (
+                          <p className="mt-2 text-k-helper text-muted-foreground">
+                            {prompts.conmedTextNote}
+                          </p>
+                        )}
+                        {attempted && needMed && (
+                          <p
+                            role="alert"
+                            className="mt-2 text-k-helper font-semibold text-destructive"
+                          >
+                            Please type the name of the medication
+                          </p>
+                        )}
+                      </div>
+                      <AnswerGroup<ConmedDirection>
+                        name={`conmed-direction-${i}`}
+                        legend={
+                          <span className="text-k-lead font-semibold">
+                            {prompts.conmedDirection}
+                          </span>
+                        }
+                        options={DIRECTIONS}
+                        density={manyMeds ? "compact" : "comfortable"}
+                        value={row.direction}
+                        onValueChange={(v) => updateRow(i, { direction: v })}
+                        error={attempted && needDirection ? CHOOSE_ANSWER_TEXT : undefined}
+                        data-testid={`conmed-direction-${i}`}
+                      />
+                    </div>
+                  );
+                })}
                 <div>
-                  <label
-                    htmlFor="conmed-text"
-                    className="block text-k-lead font-semibold text-foreground"
+                  <Button
+                    variant="secondary"
+                    size="xl"
+                    leadingIcon={<Plus />}
+                    disabled={state.conmeds.length >= MAX_CONMEDS}
+                    onClick={addRow}
                   >
-                    {prompts.conmedText}
-                  </label>
-                  <input
-                    id="conmed-text"
-                    type="text"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={state.conmedText}
-                    onChange={(e) => onChange({ conmedText: e.target.value })}
-                    aria-invalid={attempted && needMed ? true : undefined}
-                    className={`${INPUT_CLASS} mt-3`}
-                    placeholder="Type the name as it appears on the package"
-                  />
-                  <p className="mt-2 text-k-helper text-muted-foreground">
-                    {prompts.conmedTextNote}
-                  </p>
-                  {attempted && needMed && (
-                    <p role="alert" className="mt-2 text-k-helper font-semibold text-destructive">
-                      Please type the name of the medication
-                    </p>
-                  )}
+                    Add another medication
+                  </Button>
                 </div>
-                <AnswerGroup<ConmedDirection>
-                  name="conmed-direction"
-                  legend={
-                    <span className="text-k-lead font-semibold">{prompts.conmedDirection}</span>
-                  }
-                  options={DIRECTIONS}
-                  value={state.conmedDirection}
-                  onValueChange={(v) => onChange({ conmedDirection: v })}
-                  error={attempted && needDirection ? CHOOSE_ANSWER_TEXT : undefined}
-                />
               </>
             )}
           </>

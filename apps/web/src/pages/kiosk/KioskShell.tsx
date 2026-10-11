@@ -1,6 +1,6 @@
 /**
  * Kiosk chrome (UI phase 2): `data-surface="kiosk"` scope (Atkinson, 20px root,
- * 24px with "Larger text"), a calm glass header with the camera status line,
+ * 26px with "Larger text"), a calm glass header with the camera status line,
  * "Larger text" and "Need help?", one main column for one question, and a bottom
  * slot that holds either the sticky KioskActionBar (question screens, which
  * carries the footer sentence) or the plain footer sentence (welcome, thank-you,
@@ -18,7 +18,9 @@ import { createPortal } from "react-dom";
 
 import { Disclaimer } from "../../components/Disclaimer";
 import { cn } from "@/lib/cn";
+import { FALLBACK_SITE_PHONE } from "../../lib/gates";
 import { Button } from "@/ui/button";
+import { ReadAloudToggle } from "@/ui/kiosk/read-aloud";
 
 export interface KioskShellProps {
   /** Quiet camera line, e.g. "Camera on · simulated" or "Camera off". Hidden when omitted. */
@@ -31,6 +33,13 @@ export interface KioskShellProps {
    * footer sentence). Otherwise the plain footer sentence is shown.
    */
   hasActionBar?: boolean;
+  /** The study team's phone line (GET /settings/public); shown under the help text. */
+  sitePhone?: string;
+  /**
+   * The help line closes whenever this value changes, so it never stays open for the
+   * next person (the flow passes "active" during a check-in and the finished step after).
+   */
+  helpResetKey?: string;
   children: ReactNode;
 }
 
@@ -62,9 +71,22 @@ export function KioskBottom({ children }: { children: ReactNode }) {
   return createPortal(children, slot);
 }
 
-export function KioskShell({ statusLine, side, hasActionBar = false, children }: KioskShellProps) {
+export function KioskShell({
+  statusLine,
+  side,
+  hasActionBar = false,
+  sitePhone = FALLBACK_SITE_PHONE,
+  helpResetKey,
+  children,
+}: KioskShellProps) {
   const [large, setLarge] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  // The help line is open only for the reset key it was opened under, so it closes in the
+  // same render the key changes (playtest: it stayed open for the next person).
+  const [helpOpenFor, setHelpOpenFor] = useState<string | null>(null);
+  const resetKey = helpResetKey ?? "";
+  const helpOpen = helpOpenFor === resetKey;
+  const setHelpOpen = (next: (open: boolean) => boolean) =>
+    setHelpOpenFor(next(helpOpen) ? resetKey : null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
 
   return (
@@ -105,6 +127,7 @@ export function KioskShell({ statusLine, side, hasActionBar = false, children }:
               >
                 Larger text
               </Button>
+              <ReadAloudToggle />
               <Button
                 variant="secondary"
                 size="xl"
@@ -124,12 +147,17 @@ export function KioskShell({ statusLine, side, hasActionBar = false, children }:
               role="status"
               className={cn("mx-auto px-6 pb-4 text-k-body text-foreground", SHELL_MAX_W)}
             >
-              {HELP_TEXT}
+              <p className="m-0">{HELP_TEXT}</p>
+              <p className="m-0 mt-2 font-bold" data-testid="help-phone">
+                Call the study team: {sitePhone}
+              </p>
             </div>
           )}
         </header>
 
-        <main className={cn("mx-auto w-full flex-1 px-6 py-8", SHELL_MAX_W)}>
+        <main
+          className={cn("mx-auto w-full flex-1 px-6", hasActionBar ? "py-4" : "py-8", SHELL_MAX_W)}
+        >
           <div
             className={side ? SIDE_GRID_CLASS : undefined}
             style={

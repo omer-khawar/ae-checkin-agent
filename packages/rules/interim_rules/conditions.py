@@ -9,6 +9,7 @@ reading code. A condition is one of::
     {"kind": "item_composite", "item": ID, "op": OP, "value": N}
     {"kind": "any_severe_item"}                                    # see red_flags.json
     {"kind": "gate_bool", "field": F, "equals": true|false}
+    {"kind": "ended_early"}                                        # R5.1 urgent early stop
     {"kind": "gate_text_nonempty", "field": F}
     {"kind": "vital", "metric": "pulse"|"breathing"|"hrv", "op": OP, "value": N}
 
@@ -24,7 +25,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from .evidence import gate_evidence, pro_evidence, sample_evidence
+from .evidence import gate_evidence, pro_evidence, sample_evidence, table_evidence
 from .models import Attribute, Evidence, GateAnswers, ItemResult
 from .tables import SevereItemDefinition, TableError, item_by_id, vitals_config
 
@@ -57,6 +58,8 @@ class ConditionContext:
     """Evidence ids for gate fields (``hospitalization``, ``conmed_text``, ``other_text``, ...)."""
     vitals_max: Mapping[str, VitalMax]
     severe_item: SevereItemDefinition
+    ended_early: str | None = None
+    """R5.1: the trigger that ended the check-in at once (``urgent_now`` / ``severe_dyspnea``)."""
 
 
 @dataclass(frozen=True)
@@ -151,13 +154,30 @@ def _eval_any_severe_item(ctx: ConditionContext) -> ConditionOutcome:
 
 def _eval_gate_bool(cond: Mapping[str, Any], ctx: ConditionContext) -> ConditionOutcome:
     field, expected = cond["field"], cond["equals"]
-    if field not in ("hospitalization", "conmed_changed"):
+    if field not in ("hospitalization", "conmed_changed", "urgent_now"):
         raise TableError(f"gate_bool condition has unknown field {field!r}")
     actual = bool(getattr(ctx.gates, field))
     return ConditionOutcome(
         matched=actual == bool(expected),
         evidence=(gate_evidence(ctx.gate_ids[field], f"{field} = {actual}"),),
         inputs={field: actual},
+    )
+
+
+def _eval_ended_early(ctx: ConditionContext) -> ConditionOutcome:
+    trigger = ctx.ended_early
+    if trigger is None:
+        return ConditionOutcome(False, (), {"ended_early": None})
+    return ConditionOutcome(
+        matched=True,
+        evidence=(
+            table_evidence(
+                "escalation_ladder.json",
+                f"the check-in was ended early by the urgent path (trigger: {trigger}); "
+                "unanswered items are not reported",
+            ),
+        ),
+        inputs={"ended_early": trigger},
     )
 
 
@@ -223,6 +243,8 @@ def evaluate(cond: Mapping[str, Any], ctx: ConditionContext) -> ConditionOutcome
         return _eval_any_severe_item(ctx)
     if kind == "gate_bool":
         return _eval_gate_bool(cond, ctx)
+    if kind == "ended_early":
+        return _eval_ended_early(ctx)
     if kind == "gate_text_nonempty":
         return _eval_gate_text_nonempty(cond, ctx)
     if kind == "vital":

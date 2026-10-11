@@ -57,6 +57,7 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
         "gates.recorded",
         "vitals.batch",
         "session.completed",
+        "session.ended_early",  # R5.1: kiosk urgent path, completed with answers so far
         "rule.fired",
         "draft.created",
         "draft.edited",
@@ -77,6 +78,8 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
         # R2.4 (chart notes; emitted by the scanner track)
         "note.ingested",
         "note.scanned",
+        # R5.3 (second reader): input sha256, model, status, kept / rejected counts
+        "llm.read",
         # API additions beyond the contract list (see apps/api/README.md "Audit chain")
         "vitals.rejected",  # batch refused: no camera consent / unverifiable measured claim
         "drafts.applied",  # one summary line per apply_result() call on the originating entity

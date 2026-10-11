@@ -113,7 +113,7 @@ def test_hospitalization_is_tier3_with_page_sae_clock_and_investigator_stops_it(
     )
     assert done["tier"] == 3 and done["stop_screen"] is True
     assert done["stop_screen_text"].startswith(
-        "Thank you. A member of the study team will contact you today."
+        "If you are having trouble breathing or chest pain right now, call 911 now."
     )
     coord = login(client, "coordinator")
     inv = login(client, "investigator")

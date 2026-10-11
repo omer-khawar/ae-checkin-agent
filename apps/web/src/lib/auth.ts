@@ -10,7 +10,7 @@
  */
 import { useSyncExternalStore } from "react";
 
-import { AUTH_STORAGE_KEY, login as apiLogin } from "./api";
+import { AUTH_STORAGE_KEY, UNAUTHORIZED_EVENT, login as apiLogin } from "./api";
 import type { LoginResponse, Role } from "./types";
 
 export type AuthSession = LoginResponse;
@@ -34,6 +34,8 @@ export function isRole(x: unknown): x is Role {
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let cached: AuthSession | null | undefined; // undefined = not read yet
+/** True after the API rejected our token (HTTP 401); the login page says so, once. */
+let expired = false;
 
 function read(): AuthSession | null {
   try {
@@ -59,7 +61,17 @@ function write(session: AuthSession | null): void {
     /* storage unavailable (private mode); auth still works in-memory */
   }
   cached = session;
+  if (session) expired = false;
   listeners.forEach((l) => l());
+}
+
+/** api.ts clears the stored token on a 401 and fires this event; the app then routes to /login. */
+if (typeof window !== "undefined") {
+  window.addEventListener(UNAUTHORIZED_EVENT, () => {
+    expired = true;
+    cached = null;
+    listeners.forEach((l) => l());
+  });
 }
 
 export function getAuth(): AuthSession | null {
@@ -89,7 +101,12 @@ export function logout(): void {
 /** Test/admin helper to drop the cache (e.g. after sessionStorage is cleared). */
 export function resetAuthCache(): void {
   cached = undefined;
+  expired = false;
   listeners.forEach((l) => l());
+}
+
+function getExpired(): boolean {
+  return expired;
 }
 
 function subscribe(listener: Listener): () => void {
@@ -105,6 +122,8 @@ export interface UseAuth {
   auth: AuthSession | null;
   role: Role | null;
   isAuthenticated: boolean;
+  /** The session was rejected by the API (401) since the last sign-in. */
+  sessionExpired: boolean;
   login: typeof login;
   logout: typeof logout;
   /** True when the current role is one of `roles` (admin is NOT implicitly everything). */
@@ -113,9 +132,11 @@ export interface UseAuth {
 
 export function useAuth(): UseAuth {
   const auth = useSyncExternalStore(subscribe, getAuth, getAuth);
+  const sessionExpired = useSyncExternalStore(subscribe, getExpired, getExpired);
   const role = auth?.role ?? null;
   return {
     auth,
+    sessionExpired,
     role,
     isAuthenticated: auth !== null,
     login,

@@ -114,6 +114,8 @@ RULE_MED = "chartscan.med"
 RULE_MED_EXCLUDED = "chartscan.med_excluded"
 RULE_RED_FLAG = "chartscan.red_flag"
 RULE_HOSPITALIZATION = "chartscan.hospitalization"
+RULE_GEMINI_SYMPTOM = "chartscan.gemini_symptom"
+RULE_GEMINI_MED = "chartscan.gemini_med"
 RULE_IDS: tuple[str, ...] = (
     RULE_SYMPTOM,
     RULE_SYMPTOM_EXCLUDED,
@@ -121,6 +123,8 @@ RULE_IDS: tuple[str, ...] = (
     RULE_MED_EXCLUDED,
     RULE_RED_FLAG,
     RULE_HOSPITALIZATION,
+    RULE_GEMINI_SYMPTOM,
+    RULE_GEMINI_MED,
 )
 """Rule ids this module emits via :func:`rules_fired`; all listed in ``rules_catalog.json``."""
 
@@ -242,6 +246,8 @@ class _BandedGrade:
     term: str
     bands: tuple[_Band, ...]
     basis: str
+    range_basis: str = ""
+    reader_basis: str = ""
 
 
 @dataclass(frozen=True)
@@ -396,6 +402,9 @@ def _banded(table: Mapping[str, Any], key: str, where: str) -> _BandedGrade:
         term=_str(section.get("term"), f"{where}.{key}.term"),
         bands=tuple(bands),
         basis=_str(section.get("basis"), f"{where}.{key}.basis"),
+        range_basis=_optional_str(section.get("range_basis"), f"{where}.{key}.range_basis") or "",
+        reader_basis=_optional_str(section.get("reader_basis"), f"{where}.{key}.reader_basis")
+        or "",
     )
 
 
@@ -745,8 +754,13 @@ def _grade_from_context(
     if term == lex.stool_count.term:
         m = lex.stool_count.pattern.search(sentence)
         if m:
-            n = int(m.group(1))
+            low, high = m.group(1), m.group(2)
+            n = max(int(low), int(high)) if low else int(high)
             g = _banded_grade(lex.stool_count, n)
+            if low and lex.stool_count.range_basis:
+                return g, lex.stool_count.range_basis.format(
+                    lo=int(low), hi=int(high), n=n, grade=g
+                )
             return g, lex.stool_count.basis.format(n=n, grade=g)
     best: tuple[int, int, str] | None = None  # (distance, grade, word)
     for word in lex.severity_words:
@@ -914,6 +928,81 @@ def find_symptoms(
     return kept, excluded
 
 
+def symptom_terms() -> tuple[str, ...]:
+    """Every CTCAE term the scanner's lexicon can emit (part of the reader's closed vocabulary)."""
+    return tuple(dict.fromkeys(term for term, _ in _lexicon().symptoms))
+
+
+def reader_symptom_finding(
+    text: str,
+    term: str,
+    start: int,
+    end: int,
+    *,
+    ref_date: date | None = None,
+    count: float | None = None,
+) -> SymptomFinding:
+    """A kept finding for a span a language-model reader proposed and ``llm_verify`` verified.
+
+    The grade is the scanner's own, never the model's: the stool-count band when ``term`` is
+    the diarrhea term and the verified quote carries a ``count``; otherwise the same context
+    grading :func:`find_symptoms` applies (an explicit "grade N", a severity word, the
+    hospital cue), and the table's default grade when the sentence says nothing about
+    severity. ``text[start:end]`` is the quote.
+    """
+    lex = _lexicon()
+    original, norm = text, _normalize(lex, text)
+    sc = lex.scope
+    ss, se = _sentence_for(_sentences(norm), start)
+    window = norm[max(ss, start - sc.grade_window_chars) : min(se, end + sc.grade_window_chars)]
+    if term == lex.stool_count.term and count is not None:
+        n = int(count)
+        grade = _banded_grade(lex.stool_count, n)
+        basis = (lex.stool_count.reader_basis or lex.stool_count.basis).format(n=n, grade=grade)
+    else:
+        grade, basis = _grade_from_context(
+            lex,
+            term,
+            norm[max(ss, start - sc.severity_before_chars) : start],
+            norm[end : min(se, end + sc.severity_after_chars)],
+            window,
+            norm[ss:se].strip(),
+        )
+    hospital_cue = _unexcluded_hospital_cue(lex, norm, ss, se)
+    if hospital_cue is not None and grade < lex.hospital_raise_to:
+        grade, basis = lex.hospital_raise_to, basis + lex.hospital_basis_suffix
+    onset_window = norm[
+        max(ss, start - sc.onset_before_chars) : min(se, end + sc.onset_after_chars)
+    ]
+    onset_days = _onset_days(lex, onset_window)
+    resolved = lex.resolved.search(norm[end:se])
+    quote = original[start:end]
+    reason = (
+        f"'{quote}' read by the second reader as CTCAE term {term}; the quote was found "
+        "word for word in the text"
+    )
+    if hospital_cue is not None:
+        reason += f"; '{hospital_cue}' in the same sentence, not negated (possible hospitalization)"
+    return SymptomFinding(
+        term=term,
+        quote=quote,
+        span_start=start,
+        span_end=end,
+        reason=reason,
+        grade_hint=grade,
+        grade_basis=basis,
+        onset_days=onset_days,
+        worsening=bool(lex.worsening.search(window)),
+        excluded_reason=None,
+        onset_date=(
+            (ref_date - timedelta(days=onset_days)).isoformat()
+            if ref_date is not None and onset_days is not None
+            else None
+        ),
+        resolved=resolved is not None,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Medications
 # --------------------------------------------------------------------------- #
@@ -971,6 +1060,52 @@ def _indication(lex: _Lexicon, text: str, ss: int, start: int, end: int, ce: int
     return f"{raw} ({symptoms[0].term})" if symptoms else raw
 
 
+def _med_clause(text: str, ss: int, se: int, start: int, end: int) -> tuple[str, str, int]:
+    """``(before, after, clause_end)``: the sentence segment bounded by commas / semicolons
+    around the drug at ``text[start:end]``."""
+    cs = max(text.rfind(",", ss, start), text.rfind(";", ss, start), ss - 1) + 1
+    ce_candidates = [i for i in (text.find(",", end, se), text.find(";", end, se)) if i != -1]
+    ce = min(ce_candidates) if ce_candidates else se
+    return text[cs:start], text[end:ce], ce
+
+
+def _med_exclusion(
+    lex: _Lexicon, text: str, ss: int, se: int, start: int, before: str, after: str
+) -> tuple[ExcludedReason, str] | None:
+    """``(excluded_reason, reason)`` when the drug mention is an allergy listing or a declined
+    prescription, else ``None``."""
+    sc = lex.scope
+    sentence = text[ss:se].strip()
+    if lex.allergy.search(
+        text[max(ss, start - sc.allergy_lookback_chars) : start]
+    ) or sentence.lower().startswith("allerg"):
+        return "allergy", "listed as an allergy, not a medication taken"
+    negated = lex.med_negated.search(before + " " + after[: sc.med_negated_lookahead_chars])
+    if negated:
+        return "negated", f"medication was declined / not started ('{negated.group(0)}')"
+    return None
+
+
+def reader_med_exclusion(text: str, start: int, end: int) -> tuple[ExcludedReason, str] | None:
+    """The scanner's allergy / declined-prescription rule applied to a span a reader proposed
+    as a medication, so a reader cannot add a drug the rules would have excluded."""
+    lex = _lexicon()
+    norm = _normalize(lex, text)
+    ss, se = _sentence_for(_sentences(norm), start)
+    before, after, _ = _med_clause(norm, ss, se, start, end)
+    return _med_exclusion(lex, norm, ss, se, start, before, after)
+
+
+def reader_symptom_exclusion(text: str, start: int, end: int) -> tuple[ExcludedReason, str] | None:
+    """The scanner's negation / history / hypothetical rule applied to a span a reader proposed
+    as a current symptom, so a reader cannot add a mention the rules would have excluded."""
+    lex = _lexicon()
+    norm = _normalize(lex, text)
+    ss, se = _sentence_for(_sentences(norm), start)
+    found = _context_exclusion(lex, norm, ss, se, start, end)
+    return None if found is None else (found.reason, found.explanation)
+
+
 def find_meds(text: str) -> tuple[tuple[MedFinding, ...], tuple[MedFinding, ...]]:
     """``(kept, excluded)`` medication findings, one kept finding per generic name.
 
@@ -980,7 +1115,6 @@ def find_meds(text: str) -> tuple[tuple[MedFinding, ...], tuple[MedFinding, ...]
     """
     lex = _lexicon()
     original, text = text, _normalize(lex, text)
-    sc = lex.scope
     spans = _sentences(text)
     kept: dict[str, MedFinding] = {}
     excluded: list[MedFinding] = []
@@ -993,20 +1127,11 @@ def find_meds(text: str) -> tuple[tuple[MedFinding, ...], tuple[MedFinding, ...]
                 continue  # e.g. "amoxicillin" inside "amoxicillin-clavulanate"
             covered.append((start, end))
             ss, se = _sentence_for(spans, start)
-            sentence = text[ss:se].strip()
-            # clause = sentence segment bounded by commas / semicolons around the drug
-            cs = max(text.rfind(",", ss, start), text.rfind(";", ss, start), ss - 1) + 1
-            ce_candidates = [
-                i for i in (text.find(",", end, se), text.find(";", end, se)) if i != -1
-            ]
-            ce = min(ce_candidates) if ce_candidates else se
-            before, after = text[cs:start], text[end:ce]
+            before, after, ce = _med_clause(text, ss, se, start, end)
             quote = original[start:end]
 
-            allergy_before = lex.allergy.search(
-                text[max(ss, start - sc.allergy_lookback_chars) : start]
-            )
-            if allergy_before or sentence.lower().startswith("allerg"):
+            blocked = _med_exclusion(lex, text, ss, se, start, before, after)
+            if blocked is not None:
                 excluded.append(
                     MedFinding(
                         drug=drug,
@@ -1014,22 +1139,8 @@ def find_meds(text: str) -> tuple[tuple[MedFinding, ...], tuple[MedFinding, ...]
                         quote=quote,
                         span_start=start,
                         span_end=end,
-                        reason="listed as an allergy, not a medication taken",
-                        excluded_reason="allergy",
-                    )
-                )
-                continue
-            negated = lex.med_negated.search(before + " " + after[: sc.med_negated_lookahead_chars])
-            if negated:
-                excluded.append(
-                    MedFinding(
-                        drug=drug,
-                        change="taking",
-                        quote=quote,
-                        span_start=start,
-                        span_end=end,
-                        reason=f"medication was declined / not started ('{negated.group(0)}')",
-                        excluded_reason="negated",
+                        reason=blocked[1],
+                        excluded_reason=blocked[0],
                     )
                 )
                 continue

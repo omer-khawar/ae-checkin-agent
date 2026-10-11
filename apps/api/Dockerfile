@@ -30,10 +30,13 @@ WORKDIR /src
 COPY <<EOF /src/constraints.txt
 annotated-types==0.8.0
 anyio==4.15.1
+certifi==2026.7.22
 click==8.5.0
 fastapi==0.115.12
 h11==0.16.0
+httpcore==1.0.9
 httptools==0.9.0
+httpx==0.28.1
 idna==3.20
 pydantic==2.14.0
 pydantic-settings==2.15.0
@@ -71,6 +74,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # The package is installed into site-packages, so point the API at the copied data/ tree
     # instead of its repo-relative default.
     PUBLIC_DATA_DIR=/app/data/public \
+    LLM_CACHE_DIR=/app/data/llm_cache \
     SEED_ON_START=true \
     VITALS_SOURCE=mock
 
@@ -86,6 +90,8 @@ COPY --from=build /opt/venv /opt/venv
 # cohort. The API never fetches anything at runtime.
 COPY data/public /app/data/public
 COPY data/synthetic /app/data/synthetic
+# Recorded second-reader answers (CONTRACTS.md R5.3): the offline demo replays them with no key.
+COPY data/llm_cache /app/data/llm_cache
 
 WORKDIR /app
 USER interim

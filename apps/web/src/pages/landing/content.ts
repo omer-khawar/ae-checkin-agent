@@ -294,8 +294,9 @@ export const FAQ: FaqItem[] = [
   {
     q: "Does it use AI?",
     a: [
-      "Decisions do not. Grades, urgency tiers, 24-hour clocks and protocol flags come from deterministic rules kept in JSON tables, each with its source.",
-      "Generated text (report narratives, visit briefs, suggested query answers) is template-based, and every sentence cites the evidence it came from. An optional Claude writer can be switched on with an API key; its text is accepted only if every cited record exists and every quote matches, otherwise the template text is used. It is off in the demo and in the evaluation.",
+      "Gemini reads, rules decide, people confirm. Nothing is accepted without a word-for-word quote. Gemini is an optional second reader of chart notes and call summaries: it can only add findings that carry a quote our code finds in the source, and it never sets a grade, tier, seriousness or causality. Without a key, recorded answers replay; with neither, the rules-only scanner runs.",
+      "Grades, urgency tiers, 24-hour clocks and protocol flags come from deterministic rules kept in JSON tables, each with its source.",
+      "Generated text (report narratives, visit briefs, suggested query answers) is template-based, and every sentence cites the evidence it came from. An optional Claude writer can be switched on with an API key; its text is accepted only if every cited record exists and every quote matches, otherwise the template text is used. It is off by default.",
     ],
   },
   {

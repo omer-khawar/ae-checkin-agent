@@ -43,6 +43,7 @@ import type {
   ClockRow,
   CompleteRequest,
   CompleteResponse,
+  UrgentRequest,
   CreateSessionRequest,
   CtcaeTerm,
   Domain,
@@ -106,6 +107,8 @@ export const API_BASE = "/api/v1";
 
 /** sessionStorage key holding the JSON `LoginResponse`. Owned by auth.ts. */
 export const AUTH_STORAGE_KEY = "interim.auth";
+/** Fired on `window` when a request that carried a bearer token got HTTP 401. */
+export const UNAUTHORIZED_EVENT = "interim:unauthorized";
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -287,6 +290,16 @@ async function send(path: string, opts: RequestOptions = {}): Promise<Response> 
     throw new NetworkError(url, e);
   }
   if (!res.ok) {
+    // A bearer token the server no longer accepts (expired, or the API restarted with a new
+    // secret): drop it and tell auth.ts so the app routes to /login instead of failing quietly.
+    if (res.status === 401 && token && path !== "/auth/login") {
+      try {
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch {
+        /* storage unavailable */
+      }
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     throw new ApiError(url, await parseProblem(res));
   }
   return res;
@@ -438,6 +451,17 @@ export function completeSession(
   body: CompleteRequest,
 ): Promise<CompleteResponse> {
   return request<CompleteResponse>(`/sessions/${encodeURIComponent(sessionId)}/complete`, {
+    method: "POST",
+    body,
+  });
+}
+
+/**
+ * R5.1: end the check-in at once (urgent_now = Yes, or severe shortness of breath).
+ * Idempotent per session; returns the same body as /complete plus `ended_early`.
+ */
+export function postUrgent(sessionId: string, body: UrgentRequest): Promise<CompleteResponse> {
+  return request<CompleteResponse>(`/sessions/${encodeURIComponent(sessionId)}/urgent`, {
     method: "POST",
     body,
   });
@@ -989,6 +1013,7 @@ export const api = {
   postGates,
   postVitals,
   completeSession,
+  postUrgent,
   getQueue,
   getCheckIn,
   listParticipants,

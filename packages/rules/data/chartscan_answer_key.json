@@ -652,6 +652,18 @@
         "escalation": "none",
         "serious": false
       }
+    },
+    {
+      "id": "C-STOOLS",
+      "kind": "utterance",
+      "review_fix": "playtest 2026-10-11 (R5.3 scanner fix): a phone-call summary '6 or 7 watery stools a day' was graded 1 because the stool count pattern read neither 'watery stools' nor a range; the larger number (7) now sets grade 3. The key scores terms, medications and escalation, the grade is asserted in test_chartscan.py",
+      "text": "6 or 7 watery stools a day since Friday, started Imodium",
+      "expected": {
+        "ae_terms": ["Diarrhea"],
+        "meds": [["loperamide", "started"]],
+        "escalation": "none",
+        "serious": false
+      }
     }
   ]
 }

@@ -22,7 +22,10 @@ import {
   temperatureField,
   temperatureProblem,
 } from "../../lib/format";
+import { yesFirst } from "../../lib/gates";
+import { useReadAloud, useSpeakOnShow } from "../../lib/speech";
 import type { Attribute, Item } from "../../lib/types";
+import { cn } from "@/lib/cn";
 import { AnswerGroup } from "@/ui/kiosk/answer-group";
 import { KioskActionBar } from "@/ui/kiosk/action-bar";
 import { KioskProgress } from "@/ui/kiosk/progress";
@@ -60,6 +63,14 @@ export interface ItemScreenProps {
   onRetry: () => void;
   /** When the participant came here from the review screen, Next says "Done". */
   nextLabel?: string;
+  /** Screens that come before the first item (the urgent question): shifts "Question N of M". */
+  progressOffset?: number;
+}
+
+/** Answer options in display order: yes/no scales always list Yes first (R5.6). */
+function displayOptions(item: Item, attribute: Attribute) {
+  const options = optionsFor(item, attribute).map((o) => ({ value: o.value, label: o.label }));
+  return attribute === "presence" ? yesFirst(options) : options;
 }
 
 export function ItemScreen({
@@ -80,6 +91,7 @@ export function ItemScreen({
   error,
   onRetry,
   nextLabel,
+  progressOffset = 0,
 }: ItemScreenProps) {
   const [attempted, setAttempted] = useState(false);
   const temp = temperatureField(item);
@@ -89,6 +101,21 @@ export function ItemScreen({
   const recall = recallLine(item, recallWindow);
   const complete = item.attributes.every((a) => values[a] !== undefined);
   const titleId = `item-${item.id}-stem`;
+  /** Two-part questions put both halves side by side so neither is below the fold (R5.6). */
+  const twoPart = item.attributes.length > 1;
+
+  const { on: readAloud } = useReadAloud();
+  useSpeakOnShow(
+    [
+      item.label,
+      ...(recall ? [recall] : []),
+      ...item.attributes.flatMap((a) => [
+        promptFor(item, a),
+        ...displayOptions(item, a).map((o) => o.label),
+      ]),
+    ],
+    readAloud,
+  );
 
   function handleNext() {
     if (!complete) {
@@ -100,36 +127,45 @@ export function ItemScreen({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-k-content flex-col gap-6">
-      <KioskProgress current={index + 1} total={screenTotal ?? total} />
+    <div
+      className={cn(
+        "mx-auto flex w-full flex-col",
+        twoPart ? "max-w-none gap-3" : "max-w-k-content gap-6",
+      )}
+    >
+      <KioskProgress current={index + 1 + progressOffset} total={screenTotal ?? total} />
       <QuestionCard
         title={item.label}
         titleId={titleId}
         description={recall ?? undefined}
         focusKey={item.id}
+        compact={twoPart}
+        wide={twoPart}
       >
-        {item.attributes.map((attribute) => {
-          const groupId = `item-${item.id}-${attribute}`;
-          const missing = attempted && values[attribute] === undefined;
-          return (
-            <AnswerGroup<number>
-              key={attribute}
-              name={groupId}
-              id={groupId}
-              legend={
-                <span className="text-k-lead font-semibold">{promptFor(item, attribute)}</span>
-              }
-              options={optionsFor(item, attribute).map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
-              value={values[attribute] ?? null}
-              onValueChange={(v) => onSelect(attribute, v)}
-              error={missing ? CHOOSE_ANSWER_TEXT : undefined}
-              data-testid={`options-${item.id}-${attribute}`}
-            />
-          );
-        })}
+        <div className={twoPart ? "grid gap-x-10 gap-y-4 lg:grid-cols-2" : "flex flex-col gap-6"}>
+          {item.attributes.map((attribute) => {
+            const groupId = `item-${item.id}-${attribute}`;
+            const missing = attempted && values[attribute] === undefined;
+            return (
+              <AnswerGroup<number>
+                key={attribute}
+                name={groupId}
+                id={groupId}
+                legend={
+                  <span className={cn("text-k-lead font-semibold", twoPart && "leading-snug")}>
+                    {promptFor(item, attribute)}
+                  </span>
+                }
+                options={displayOptions(item, attribute)}
+                density={twoPart ? "compact" : "comfortable"}
+                value={values[attribute] ?? null}
+                onValueChange={(v) => onSelect(attribute, v)}
+                error={missing ? CHOOSE_ANSWER_TEXT : undefined}
+                data-testid={`options-${item.id}-${attribute}`}
+              />
+            );
+          })}
+        </div>
 
         {showTemp && temp && (
           <div>

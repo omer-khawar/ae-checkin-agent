@@ -23,6 +23,7 @@ from ..schemas import (
     CompleteRequest,
     CreateSessionRequest,
     GatesRequest,
+    UrgentRequest,
     VitalsPostRequest,
 )
 from ..services.common import (
@@ -35,6 +36,7 @@ from ..services.common import (
 from ..services.sessions import (
     complete_session,
     create_session,
+    end_session_early,
     record_answer,
     record_gates,
     record_vitals,
@@ -168,6 +170,8 @@ def post_gates(
             other_text=body.other_text,
             temp_c=body.temp_c,
             ts_client=body.ts_client,
+            urgent_now=body.urgent_now,
+            conmeds=([c.model_dump() for c in body.conmeds] if body.conmeds is not None else None),
         )
         return {"answers": [answer_to_dict(r) for r in rows]}
 
@@ -227,3 +231,21 @@ def post_complete(
             ),
         )
         return response
+
+
+@router.post("/sessions/{session_id}/urgent")
+def post_urgent(
+    session_id: str,
+    body: UrgentRequest,
+    database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """R5.1: the kiosk stopped at once. Completes with the answers so far, tier 3, stop screen.
+
+    Same body as ``/complete`` plus ``ended_early``. Idempotent per session and trigger.
+    """
+    with database.write_scope() as db:
+        session = get_session_or_404(db, session_id)
+        return end_session_early(
+            db, settings, session, trigger=body.trigger, ts_client=body.ts_client
+        )

@@ -43,17 +43,21 @@ function itemSummary(item: Item, answers: AnswerMap, tempC: string): string {
   return parts.join(" · ");
 }
 
-function gateSummary(id: (typeof GATE_ORDER)[number], g: GateState): string {
+/** One line per answer: a single medicine reads "Yes: name (started)"; several list each one. */
+function gateLines(id: (typeof GATE_ORDER)[number], g: GateState): string[] {
   if (id === "hospitalization") {
-    return g.hospitalization === null ? "Not answered" : g.hospitalization ? "Yes" : "No";
+    return [g.hospitalization === null ? "Not answered" : g.hospitalization ? "Yes" : "No"];
   }
   if (id === "conmed") {
-    if (g.conmedChanged === null) return "Not answered";
-    if (!g.conmedChanged) return "No";
-    const dir = g.conmedDirection ? ` (${DIRECTION_TEXT[g.conmedDirection]})` : "";
-    return `Yes: ${g.conmedText.trim()}${dir}`;
+    if (g.conmedChanged === null) return ["Not answered"];
+    if (!g.conmedChanged) return ["No"];
+    const meds = g.conmeds.filter((r) => r.text.trim().length > 0);
+    const line = (r: (typeof meds)[number]) =>
+      `${r.text.trim()}${r.direction ? ` (${DIRECTION_TEXT[r.direction]})` : ""}`;
+    if (meds.length <= 1) return [`Yes: ${meds[0] ? line(meds[0]) : ""}`.trimEnd()];
+    return [`Yes, ${meds.length} medications:`, ...meds.map(line)];
   }
-  return g.otherText.trim() || "Nothing added";
+  return [g.otherText.trim() || "Nothing added"];
 }
 
 export function ReviewScreen({
@@ -111,7 +115,11 @@ export function ReviewScreen({
                   {gateLabel(gateQuestions, id)}
                 </p>
                 <p className="m-0 break-words text-k-answer font-semibold">
-                  {gateSummary(id, gates)}
+                  {gateLines(id, gates).map((line, k) => (
+                    <span key={k} className="block">
+                      {line}
+                    </span>
+                  ))}
                 </p>
               </div>
               <Button

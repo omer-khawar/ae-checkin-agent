@@ -21,11 +21,21 @@ returns the entry's *generic* name so brands normalize (``claritin`` ->
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from functools import lru_cache
+from typing import Any
 
 from .evidence import gate_evidence, table_evidence
-from .models import ConMedMatch, MatchKind, RuleFired
-from .tables import ConMedMatchingConfig, MedEntry, MedList, conmed_matching_config, medlist
+from .models import ConMedEntry, ConMedMatch, GateAnswers, MatchKind, RuleFired
+from .tables import (
+    ConMedMatchingConfig,
+    MedEntry,
+    MedList,
+    conmed_matching_config,
+    load_table,
+    medlist,
+)
 
 MEDLIST_FILE = "medlist.json"
 MATCHING_TABLE_FILE = "conmed_matching.json"
@@ -36,6 +46,54 @@ _KIND_RANK: dict[MatchKind, int] = {
     "levenshtein": 2,
     "unmatched": 3,
 }
+
+
+@lru_cache(maxsize=1)
+def _split_config() -> tuple[re.Pattern[str], int, int]:
+    """Separator pattern, entry cap and per-entry character cap from ``conmed_matching.json``."""
+    cfg: dict[str, Any] = load_table("conmed_matching")["split"]
+    pattern = re.compile("|".join(re.escape(sep) for sep in cfg["separators"]), re.IGNORECASE)
+    return pattern, int(cfg["max_entries"]), int(cfg["max_entry_chars"])
+
+
+def split_conmed_text(text: str) -> list[str]:
+    """Split one box of typed text into one piece per medicine (R5.2).
+
+    Separators are commas, semicolons and the words ``and`` / ``&`` / ``+`` (table:
+    ``conmed_matching.json`` ``split``). Empty pieces are dropped; a text with no separator
+    comes back whole, exactly as typed. Pieces are stripped, never otherwise altered.
+    """
+    pattern, max_entries, _ = _split_config()
+    pieces = [p.strip() for p in pattern.split(text)]
+    pieces = [p for p in pieces if p]
+    if not pieces:
+        return [text]
+    if len(pieces) > max_entries:
+        head = pieces[: max_entries - 1]
+        head.append(", ".join(pieces[max_entries - 1 :]))
+        return head
+    return pieces
+
+
+def conmed_entries(gates: GateAnswers) -> tuple[ConMedEntry, ...]:
+    """The medications to match and draft, in order (empty when no change was reported).
+
+    ``gates.conmeds`` (several medications from the kiosk) is the source of truth. Otherwise
+    the single ``conmed_text`` is split by :func:`split_conmed_text`, every piece sharing the
+    direction and the one gate answer id. A reported change with no name typed still yields
+    one empty entry so the coordinator is asked, never silently dropped.
+    """
+    if not gates.conmed_changed:
+        return ()
+    if gates.conmeds:
+        return gates.conmeds
+    text = gates.conmed_text or ""
+    if not text.strip():
+        return (ConMedEntry(text, gates.conmed_direction, gates.conmed_answer_id),)
+    return tuple(
+        ConMedEntry(piece, gates.conmed_direction, gates.conmed_answer_id)
+        for piece in split_conmed_text(text)
+    )
 
 
 def levenshtein(a: str, b: str) -> int:

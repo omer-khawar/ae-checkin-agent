@@ -173,6 +173,30 @@ export const PLAIN_RULES: Record<string, { sentence: string; fallback: string }>
     fallback:
       "The participant wrote a comment and reported a severe symptom, so a person reads the comment today (Interim never interprets the text).",
   },
+  "redflag.urgent_now": {
+    sentence:
+      "The participant said they are having trouble breathing, or chest pain or tightness, right now, so the check-in stopped at once and the alert level is urgent (tier 3).",
+    fallback:
+      "The participant said they are having trouble breathing, or chest pain or tightness, right now, so the check-in stopped at once and the alert level is urgent (tier 3).",
+  },
+  "redflag.ended_early": {
+    sentence:
+      "The check-in was stopped early ({ended_early}); the questions not yet answered are marked not reported, and the alert level is urgent (tier 3).",
+    fallback:
+      "The check-in was stopped early; the questions not yet answered are marked not reported, and the alert level is urgent (tier 3).",
+  },
+  "redflag.free_text": {
+    sentence:
+      "The participant's own words in the comment box ({quotes}) are a warning sign, so the alert level is urgent (tier 3).",
+    fallback:
+      "The participant's own words in the comment box are a warning sign, so the alert level is urgent (tier 3).",
+  },
+  "redflag.free_text_human_request": {
+    sentence:
+      "The participant asked to talk to a person in the comment box, so the alert level is at least tier 2 (nurse call today).",
+    fallback:
+      "The participant asked to talk to a person in the comment box, so the alert level is at least tier 2 (nurse call today).",
+  },
   "vitals.unavailable": {
     sentence: "No vitals readings were captured; the check-in was assessed without them.",
     fallback: "No vitals readings were captured; the check-in was assessed without them.",
@@ -360,6 +384,18 @@ export const PLAIN_RULES: Record<string, { sentence: string; fallback: string }>
       "A chart note mentions a hospital stay or emergency-room visit ('{quote}'); this may be a serious event, and the 24-hour clock starts when the site reads the note.",
     fallback:
       "A chart note mentions a hospital stay or emergency-room visit; this may be a serious event, and the 24-hour clock starts when the site reads the note.",
+  },
+  "chartscan.gemini_symptom": {
+    sentence:
+      "A second reader found '{quote}' in the text and the quote was checked word for word; drafted as {term} with a suggested grade of {grade_hint} (provisional, investigator to confirm). The grade comes from the rules, not from the reader.",
+    fallback:
+      "A second reader found a side effect in the text, checked word for word, and drafted it for review (provisional, investigator to confirm).",
+  },
+  "chartscan.gemini_med": {
+    sentence:
+      "A second reader found a medication in the text: '{quote}' ({drug}, {change}); the quote was checked word for word.",
+    fallback:
+      "A second reader found a medication in the text, checked word for word, and drafted it for review.",
   },
   "query.ae_serious_no_signed_report": {
     sentence:

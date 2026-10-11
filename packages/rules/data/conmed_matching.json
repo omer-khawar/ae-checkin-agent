@@ -5,6 +5,12 @@
   "min_token_length": 4,
   "min_levenshtein_confidence": 0.7,
   "top_candidates": 3,
+  "split": {
+    "separators": [",", ";", " and ", " & ", " + "],
+    "max_entries": 10,
+    "max_entry_chars": 200,
+    "rationale": "R5.1/R5.2: one box that holds several medicines ('cefalexin antibiotic pill and hydrocortisone cream from urgent care') becomes one CM draft per medicine, each matched on its own. The split is on punctuation and the words 'and', '&', '+' only (no NLP); the verbatim text each entry carries is the piece of the typed text, and the full text stays in the gate answer. A list of entries sent by the kiosk is the source of truth and is not split again."
+  },
   "confidence": {
     "exact": 1.0,
     "case_insensitive": 1.0,

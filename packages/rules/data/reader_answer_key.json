@@ -1,0 +1,52 @@
+{
+  "source": "Written by the Interim team after the 2026-10-11 playtest (CONTRACTS.md R5.3). Both texts are SYNTHETIC; no real patient is described. N-HYPO is a realistic oncology clinic note in the style of the 8 chart notes of chartscan_answer_key.json; C-STOOLS is the playtest coordinator's phone-call summary word for word.",
+  "rationale": "A small, honest key for the second reader (Gemini): the deterministic scanner is scored on 43 cases in chartscan_answer_key.json and stays at 100% without any model. This key asks the narrower question the model exists for, 'what does the reader add that the scanner misses, and does it add anything wrong?'. N-HYPO holds a finding outside the scanner's lexicon (hypothyroidism, an immune-related endocrine event) next to negations ('Denies diarrhea ...') the reader must not turn into side effects. C-STOOLS is the case where the scanner was wrong (graded 1 instead of 3, fixed by the stool-count pattern) and the reader must agree with the corrected rule. scripts/eval_reader.py runs both sides over this key from the recorded cache (no network) and writes docs/eval/reader_results.md. Two cases are a smoke test, not an accuracy estimate: the report says so.",
+  "cases": [
+    {
+      "id": "N-HYPO",
+      "kind": "note",
+      "note_type": "progress_note",
+      "note_date": "2026-10-10",
+      "author": "J. Rivera, NP",
+      "text": "Oncology clinic follow-up, cycle 6 of cemiplimab. Pt reports feeling more tired than usual for about 3 weeks, with cold intolerance and dry skin. Denies diarrhea, shortness of breath, or rash. No fever. Labs today: TSH 18.2 (H), free T4 0.6 (L). Hypothyroidism, grade 2, likely immune-related. Started levothyroxine 50 mcg daily. Will recheck TSH in 6 weeks. Continue cemiplimab per protocol.",
+      "expected": {
+        "symptoms": [
+          {
+            "term": "Fatigue",
+            "grade": null,
+            "quote_contains": "tired",
+            "scanner_finds": true
+          },
+          {
+            "term": "Hypothyroidism",
+            "grade": 2,
+            "quote_contains": "Hypothyroidism, grade 2",
+            "scanner_finds": false
+          }
+        ],
+        "meds": [{ "drug": "levothyroxine", "change": "started", "scanner_finds": true }],
+        "forbidden_terms": ["Diarrhea", "Dyspnea", "Rash maculo-papular", "Fever"]
+      }
+    },
+    {
+      "id": "C-STOOLS",
+      "kind": "call",
+      "note_type": "phone_call",
+      "note_date": "2026-10-10",
+      "author": "Study coordinator",
+      "text": "6 or 7 watery stools a day since Friday, started Imodium",
+      "expected": {
+        "symptoms": [
+          {
+            "term": "Diarrhea",
+            "grade": 3,
+            "quote_contains": "watery stools",
+            "scanner_finds": true
+          }
+        ],
+        "meds": [{ "drug": "loperamide", "change": "started", "scanner_finds": true }],
+        "forbidden_terms": []
+      }
+    }
+  ]
+}

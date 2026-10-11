@@ -10,8 +10,9 @@
  * No I/O, no React: unit-tested in `__tests__/highlight.test.ts`.
  */
 import type { ScanResult } from "../../../lib/types";
+import { foundByOf, type FoundBy } from "./readerTypes";
 
-export type SpanKind = "symptom" | "med" | "red_flag" | "excluded";
+export type SpanKind = "symptom" | "med" | "red_flag" | "excluded" | "gemini";
 
 export interface HighlightSpan {
   /** Stable id, e.g. "symptom:0", used for selection. */
@@ -23,6 +24,8 @@ export interface HighlightSpan {
   label: string;
   /** Longer explanation, e.g. the exclusion reason. */
   title?: string;
+  /** R5.3: who found it; "both" gets a small Gemini mark. */
+  foundBy?: FoundBy;
 }
 
 export interface Segment {
@@ -33,7 +36,13 @@ export interface Segment {
   spans: HighlightSpan[];
 }
 
-const PRIORITY: Record<SpanKind, number> = { red_flag: 0, symptom: 1, med: 2, excluded: 3 };
+const PRIORITY: Record<SpanKind, number> = {
+  red_flag: 0,
+  gemini: 1,
+  symptom: 2,
+  med: 3,
+  excluded: 4,
+};
 
 const EXCLUSION_WORDING: Record<string, string> = {
   negated: "Negated in the note (e.g. “denies …”); not drafted.",
@@ -47,6 +56,13 @@ const EXCLUSION_WORDING: Record<string, string> = {
 export function exclusionWording(reason: string | null | undefined): string {
   if (!reason) return "Excluded by the scanner.";
   return EXCLUSION_WORDING[reason] ?? `Excluded: ${reason}.`;
+}
+
+function byNote(f: unknown): string {
+  const fb = foundByOf(f);
+  if (fb === "gemini") return ", found by Gemini, quote checked";
+  if (fb === "both") return ", found by scanner and Gemini";
+  return "";
 }
 
 /** Build the span list a `ScanResult` implies, clamped to the text length. */
@@ -71,20 +87,22 @@ export function spansFromScan(scan: ScanResult, textLength: number): HighlightSp
   scan.symptoms.forEach((f, i) =>
     push({
       id: `symptom:${i}`,
-      kind: "symptom",
+      kind: foundByOf(f) === "gemini" ? "gemini" : "symptom",
+      foundBy: foundByOf(f),
       start: f.span_start,
       end: f.span_end,
-      label: `${f.term} (symptom)`,
+      label: `${f.term} (symptom${byNote(f)})`,
       title: f.reason,
     }),
   );
   scan.meds.forEach((f, i) =>
     push({
       id: `med:${i}`,
-      kind: "med",
+      kind: foundByOf(f) === "gemini" ? "gemini" : "med",
+      foundBy: foundByOf(f),
       start: f.span_start,
       end: f.span_end,
-      label: `${f.drug} · ${f.change} (medication)`,
+      label: `${f.drug} · ${f.change} (medication${byNote(f)})`,
       title: f.reason,
     }),
   );

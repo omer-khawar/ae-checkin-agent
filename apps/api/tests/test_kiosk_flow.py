@@ -25,7 +25,7 @@ def test_health_study_items_and_public_settings(client) -> None:
     assert study["participants_note"] == "All participants are synthetic."
     items = client.get("/api/v1/items").json()
     assert [i["id"] for i in items["items"]][:2] == ["shortness_of_breath", "cough"]
-    assert len(items["items"]) == 10 and len(items["gates"]) == 3
+    assert len(items["items"]) == 10 and len(items["gates"]) == 4
     public = client.get("/api/v1/settings/public").json()
     assert public["simulated_as_measured"] is False
     assert public["min_confidence"] == 0.6

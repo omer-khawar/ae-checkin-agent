@@ -188,7 +188,7 @@ Success is coordinator time removed and side effects reaching the site sooner, w
 
 - **Making clinical decisions.** Interim never assigns grade 4 or 5, never decides seriousness or causality, never gives advice beyond one fixed "contact you today / call 911" screen.
 - **Reading the kiosk's free text.** The "anything else" answer is stored verbatim and never parsed (`docs/WHAT_IT_GETS_WRONG.md` §8).
-- **An LLM chart reader** (deferred; `docs/NOT_BUILT.md`).
+- **A model that decides anything.** Gemini is only an optional second reader of notes and call summaries (CONTRACTS R5.3): it can add findings with a verified quote; rules decide, people confirm.
 - **Real EDC or safety-database integration, a sponsor-side portal, voice check-in, multilingual items, mobile app, SSO** (`docs/NOT_BUILT.md`).
 - **Leading with vitals.** Contactless vitals stay as optional context; they never change a grade (D-026).
 

@@ -138,3 +138,43 @@ Format: date, decision, why, consequences. Newest at the bottom.
 ## 2026-10-11 — D-032: Discharge advice is not a hospitalization
 **Decision:** The chart scanner's hypothetical cues now cover return precautions ("call 911 if", "seek emergency care if", "if you feel worse, go to the ER"), so they never start an SAE clock; an actual ER visit is still flagged. The answer key grew to 42 cases, all passing.
 **Why:** Judge and tester finding (ISSUES #25): false 24-hour clocks erode trust in real ones.
+
+## 2026-10-11 — D-033: The kiosk asks the urgent question first and stops early
+**Decision:** The first question after the study ID is "Right now, are you having trouble breathing, or chest pain or tightness?" (Yes before No). Yes, or a Severe/Very severe shortness-of-breath severity answer, ends the check-in at once through `POST /sessions/{id}/urgent`: tier 3, on-call paged, answers so far saved (unanswered items are "not reported", never zero-filled). The stop screen text is fixed and table-driven (call 911; team alerted) with the site phone from `SITE_PHONE` (fictional 555-01xx default) under it.
+**Why:** The playtest showed an urgent participant had to answer a dozen questions first. No advice beyond the fixed text, as before (CONTRACTS R5.1).
+
+## 2026-10-11 — D-034: Kiosk free text and medication text are now read, in utterance mode
+**Decision:** The "anything else" box and the medication box run through the deterministic scanner in utterance mode. Red-flag hits raise the tier floor to 3 with the quote as evidence; a request to talk to a person raises it to 2; a hospital mention against a "No" answer adds a conflict reason and suspects seriousness. Free text never lowers anything. Participant phrasings the playtest missed ("can't breathe", "chest feels tight") were added to the red-flag table, checked against a 34-utterance answer key.
+**Why:** Reverses the old "free text is never read" stance (WHAT_IT_GETS_WRONG §8). The earlier worry was an unvalidated lexicon on participant language; the answer key and the quote-as-evidence rule are the validation we could afford overnight.
+
+## 2026-10-11 — D-035: Several medications are split into separate entries
+**Decision:** The kiosk sends `conmeds` (up to 10, each with a direction). A single text is also split on commas, semicolons, "and", "&", "+". Each entry becomes its own CM draft, matched separately.
+**Why:** The playtest lost cephalexin because "cefalexin antibiotic pill and hydrocortisone cream" was matched as one string.
+
+## 2026-10-11 — D-036: Gemini is a second reader that can only add, and only with a verbatim quote
+**Decision:** For chart notes and call summaries, a Gemini reader proposes symptoms and medication changes. Code keeps a finding only if its quote is found in the source (exact, else whitespace/case-normalized, mapped back to original offsets), the term is in the closed CTCAE vocabulary (extended with about 20 immune-related terms), any count appears as digits in the quote, and a drug name appears in the quote. Rules then grade the finding; the model never sets a grade, tier, seriousness or causality. The merge is additive: scanner findings are never removed or changed. The note tier cap of 2 (D-017) is unchanged, and a Gemini-only finding never pages or stops a clock. Product line: "Gemini reads, rules decide, people confirm. Nothing is accepted without a word-for-word quote."
+**Why:** The deterministic scanner missed hypothetical-free but unlisted terms such as hypothyroidism (ISSUES #29). This supersedes the "LLM chart-note reader is deferred" line in CLAUDE.md §00.
+
+## 2026-10-11 — D-037: Judges' clones read a committed cache; no key needed
+**Decision:** Model responses are cached in `data/llm_cache/gemini_reader.json`, committed, keyed by sha256 of prompt version, kind and text. A cache hit is used with no network; a miss with no key means the reader is off and says so. `INTERIM_LLM_MODE` is `auto`, `replay` or `off`. The key comes only from the environment and is never logged or committed.
+**Why:** A clean clone must show every feature offline (CLAUDE.md §00). The cost is that judges see recorded output, which we state plainly (WHAT_IT_GETS_WRONG §26).
+
+## 2026-10-11 — D-038: Model gemini-3.5-flash; synthetic data only
+**Decision:** Default model `gemini-3.5-flash`, overridable by `INTERIM_GEMINI_MODEL`. gemini-2.5-flash is closed to new API keys. Only synthetic text is ever sent. A production deployment handling real participant text would need Vertex AI under a business associate agreement (BAA), data-residency review and a site privacy sign-off.
+**Why:** A new key cannot call 2.5-flash; and the hackathon API tier is not a HIPAA-eligible path.
+
+## 2026-10-11 — D-039: Stool counts are read as ranges
+**Decision:** "6 or 7", "6-7" and "6 to 7" are read with the larger number winning (the basis says so), "watery/loose/liquid stools" count, and "a day/per day/daily" are accepted. Bands are unchanged (4-6 per day grade 2, 7 or more grade 3).
+**Why:** The playtest phrase "6 or 7 watery stools a day" was under-graded. Taking the larger number errs toward the investigator looking, not away.
+
+## 2026-10-11 — D-040: Read-aloud is pre-rendered, with browser voice as the fallback
+**Decision:** Fixed kiosk strings are rendered to MP3 at build time (`scripts/build_kiosk_audio.py`, ElevenLabs) and played from a manifest. If a file is absent the browser's speech synthesis is used, else silence. Nothing calls a speech service at runtime.
+**Why:** No runtime network calls (CLAUDE.md §13). The MP3s are pending a key (ISSUES #35), so the browser voice is what ships today.
+
+## 2026-10-11 — D-041: Worklist vitals column and eval checkbox removed
+**Decision:** The worklist no longer shows a vitals column or the "Include eval runs" checkbox (the `include_eval` URL parameter still works). This does not break the simulated-label rule: no vitals values are shown on the worklist, and MEASURED/SIMULATED stays beside every vitals value where values appear.
+**Why:** Vitals are optional context (D-026), and the column crowded the demo view.
+
+## 2026-10-11 — D-042: Kiosk defaults: camera off, Yes before No, bad login goes to sign-in
+**Decision:** The camera is off until the participant opts in. Yes is always listed before No. An invalid or expired login returns to the sign-in page rather than showing an error on a dead screen.
+**Why:** Playtest findings; opt-in matches the consent being covered at enrollment (D-026).
