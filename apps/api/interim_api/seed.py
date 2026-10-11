@@ -49,6 +49,7 @@ import argparse
 import json
 import logging
 import random
+import re
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -547,6 +548,12 @@ def _report_past_sae_clock(
     return signed
 
 
+def demo_phone(label: str) -> str | None:
+    """R6: a synthetic mobile number in the fictional 555-01xx range (P-007 -> +17325550167)."""
+    digits = re.sub(r"\D", "", label)
+    return f"+1732555{160 + int(digits):04d}" if digits and int(digits) < 40 else None
+
+
 def seed_participant(
     db: DbSession,
     settings: Settings,
@@ -568,6 +575,7 @@ def seed_participant(
         enrolled_at=shift(now, days=-enrolled_days),
         baseline_vitals=baseline_vitals,
         baseline=synthea_profile,
+        phone=demo_phone(profile.label),
         now=now,
     )
     summary: dict[str, Any] = {

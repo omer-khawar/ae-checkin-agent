@@ -59,6 +59,9 @@ class Participant(SQLModel, table=True):
     # ``ProtocolContext``: ``prior_pi3k_inhibitor``, ``last_dose_date``). Both nullable.
     baseline_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     protocol_context_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # R6: optional mobile number (E.164) for confirmation texts. Texting consent is covered
+    # by the informed consent form signed at enrollment (D-043); synthetic 555-01xx numbers.
+    phone: str | None = None
 
 
 class User(SQLModel, table=True):
@@ -232,6 +235,29 @@ class SAEClock(SQLModel, table=True):
     """[packets agent] ``sae`` (suspected serious event) | ``aesi`` (possible adverse event of
     special interest, CONTRACTS R3.1/R3.2); same 24-hour machinery. Added column: an older
     database gets it through ``schema_upgrade`` with ``DEFAULT 'sae'``."""
+
+
+class Message(SQLModel, table=True):
+    """R6: one text to a participant (check-in confirmation or "reviewed" note). Written for
+    every send; with no Twilio keys this table is the whole delivery (the mock outbox)."""
+
+    __tablename__ = "messages"
+
+    id: str = Field(primary_key=True)
+    created_at: str = Field(index=True)
+    usubjid: str = Field(index=True)
+    session_id: str | None = Field(default=None, index=True)
+    escalation_id: str | None = None
+    kind: str
+    """``checkin_confirmation`` | ``review_ack``."""
+    to_phone: str
+    body: str = Field(sa_column=Column(Text, nullable=False))
+    channel: str
+    """``twilio`` | ``outbox``."""
+    status: str
+    """``sent`` | ``outbox`` | ``failed``."""
+    provider_id: str | None = None
+    error: str | None = None
 
 
 class Page(SQLModel, table=True):

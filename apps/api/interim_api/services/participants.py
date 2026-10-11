@@ -60,6 +60,7 @@ def create_participant(
     baseline: dict[str, object] | None = None,
     protocol_context: dict[str, object] | None = None,
     is_eval: bool = False,
+    phone: str | None = None,
     now: str | None = None,
 ) -> Participant:
     """``baseline`` is the Synthea profile (seed only); ``protocol_context`` is the rules
@@ -82,6 +83,7 @@ def create_participant(
             dump_json(protocol_context) if protocol_context is not None else None
         ),
         is_eval=is_eval,
+        phone=phone,
         created_at=created,
     )
     db.add(participant)

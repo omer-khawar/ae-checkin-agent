@@ -10,10 +10,11 @@ from ..audit import Actor
 from ..auth import require_role
 from ..constants import MOCK_SCENARIOS, VITALS_SOURCES
 from ..db import Database
-from ..deps import get_database, get_settings
+from ..deps import Pagination, get_database, get_settings
 from ..problems import problem
 from ..schemas import ResetRequest, SettingsUpdate
 from ..seed import reset_and_seed
+from ..services.messages import list_messages
 from ..services.settings_svc import get_admin_settings, update_settings
 from ..settings import Settings
 
@@ -71,3 +72,21 @@ def post_reset(
         )
     reseed = body.reseed if body is not None else True
     return reset_and_seed(database, settings, actor, reseed=reseed)
+
+
+@router.get("/admin/messages")
+def get_messages(
+    _actor: Actor = Depends(require_role("admin")),
+    page: Pagination = Depends(),
+    database: Database = Depends(get_database),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """R6: every participant text, newest first. ``channel`` says where new texts go now."""
+    with database.read_scope() as db:
+        out = list_messages(db, limit=page.limit, offset=page.offset)
+    out["channel"] = (
+        "twilio"
+        if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from
+        else "outbox"
+    )
+    return out

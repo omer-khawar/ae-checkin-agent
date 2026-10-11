@@ -61,6 +61,7 @@ import type {
 } from "../../lib/types";
 import { AnswersColumn } from "./detail/AnswersColumn";
 import { EvidenceList, Prov } from "./detail/bits";
+import { ParticipantTexts } from "./detail/ParticipantTexts";
 import { ClockActions } from "./detail/ClockActions";
 import { DraftsColumn, type DraftActions, type DraftModeRequest } from "./detail/DraftsColumn";
 import {
@@ -265,8 +266,12 @@ export function CheckInDetail() {
   };
 
   const ack = async (esc: Escalation) => {
-    const updated = await ackEscalation(esc.id);
-    setDetail((d) => ({ ...d, escalation: updated }));
+    const { message, ...updated } = await ackEscalation(esc.id);
+    setDetail((d) => ({
+      ...d,
+      escalation: updated,
+      messages: message ? [...(d.messages ?? []), message] : d.messages,
+    }));
     toast.push({ kind: "success", title: "Escalation acknowledged" });
   };
 
@@ -421,6 +426,7 @@ export function CheckInDetail() {
           onRetry={reload}
         />
       )}
+      <ParticipantTexts messages={detail.messages} />
       {allDone && (
         <div
           role="status"

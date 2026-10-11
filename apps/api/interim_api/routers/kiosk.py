@@ -33,6 +33,7 @@ from ..services.common import (
     session_to_dict,
     study_to_dict,
 )
+from ..services.messages import send_checkin_confirmation
 from ..services.sessions import (
     complete_session,
     create_session,
@@ -230,7 +231,9 @@ def post_complete(
                 else None
             ),
         )
-        return response
+    # R6: after the commit, outside the write lock; never fails the check-in.
+    response["confirmation"] = send_checkin_confirmation(database, settings, session_id)
+    return response
 
 
 @router.post("/sessions/{session_id}/urgent")
@@ -246,6 +249,8 @@ def post_urgent(
     """
     with database.write_scope() as db:
         session = get_session_or_404(db, session_id)
-        return end_session_early(
+        response = end_session_early(
             db, settings, session, trigger=body.trigger, ts_client=body.ts_client
         )
+    response["confirmation"] = send_checkin_confirmation(database, settings, session_id)
+    return response
