@@ -535,3 +535,29 @@ All new numbers and lists live in JSON tables with `source`, `rationale` and, wh
 - Packet page `/dashboard/packets/:id`: fields with evidence chips, missing-info checklist, narrative with per-sentence evidence chips and a "written by template" label, Edit, Sign (investigator), Print.
 - Brief page `/dashboard/participants/:usubjid/brief`: one printable page.
 - Plain-language first: the check-in detail shows plain labels with the SDTM name in a smaller monospace badge; the Why panel's first line per rule is the plain sentence.
+
+---
+
+# Revision 4 (2026-10-10, night) — the full life of a side effect (CLAUDE.md §00 steps 1–8)
+
+Adds the steps R3 did not cover: phone-call intake (step 2), follow-up reports (step 5), irAE assessment (step 6), sponsor queries (step 7). Built with R3.2/R3.3 in stage 2.
+
+## R4.1 Phone-call intake (step 2)
+- `POST /notes` accepts `note_type: "phone_call"` with optional `caller` ("participant" | "caregiver" | "other") and `call_direction` ("inbound" | "outbound"). The text is the coordinator's call summary; it is scanned exactly like a chart note. Queue/source label "phone call". Audit `note.ingested` carries the note type.
+- Web: "Log a call" quick form (participant, caller, direction, summary) on the Notes page and on the participant timeline.
+
+## R4.2 Follow-up reports (step 5)
+- Packets gain `sequence` (0 = initial, 1..n = follow-ups) and `parent_packet_id`. `POST /packets/{id}/follow-up` (coordinator+) creates follow-up n+1 for a **signed** packet: fields pre-filled from current evidence, a `changes_since_previous: [{field, before, after, evidence}]` list, and `missing_information` recomputed. A follow-up narrative is written by the template writer (`kind: "sae_followup"` / `"aesi_followup"`; stage 2 may add these kinds to `narrative.py` with templates in `narrative_templates.json`). Signing a follow-up posts it to the mock EDC and audits `packet.followup_signed`.
+
+## R4.3 Investigator assessment (step 6)
+- `PATCH /drafts/{id}/attribution` accepts `INTERIM_IRAE` ("Y" | "N" | null) in addition to `AESER`/`AEREL`, investigator only. Protocol p.91: the investigator assesses whether the AE is immune-related. Setting `AESER` or recording a clock decision stops the clock (existing behavior); `PATCH /sae-clocks/{id}/stop` exists for clocks with no AE draft.
+- Web: Check-in detail attribution box gains the irAE choice; Escalations and note detail gain "Record seriousness decision" for clocks with no AE draft.
+
+## R4.4 Sponsor queries (step 7)
+- **Rules** (`interim_rules.queries`, pure): `run_edit_checks(records: list[dict], context) -> list[QueryCandidate]` driven by `packages/rules/data/edit_checks.json` (each check: `id` "query.*", `domain`, `condition` (declarative), `query_text` template, `severity` ("data" | "safety"), `source`/`rationale`/`protocol_ref` where applicable). Ship at least: AE with `AESER="Y"` and no signed packet; AE grade ≥ 3 on a potentially immune-related term with `INTERIM_IRAE="N"` ("the sponsor may request additional information", protocol p.91–92); AE `AEENDTC` before `AESTDTC`; CM missing any protocol-required field (§7.7 p.69: dose, unit, frequency, indication, start date); CM with a prohibited/discouraged protocol flag and no investigator note; VS value outside plausibility; AE `AEOUT` set without `AEENDTC` when outcome is resolved. `QueryCandidate = {check_id, domain, record_key, field, text, severity, evidence: [Evidence]}`. Also `suggest_answer(query, facts) -> WrittenText` using the template writer (`kind: "query_answer"`), citing evidence.
+- **API:** `Query` table `{id, check_id|null (manual), domain, draft_id, usubjid, field, text, severity, status: "open"|"answered"|"closed", raised_by ("edit-check" | user id), raised_at, answer_text, answer_evidence, answered_by, answered_at, closed_by, closed_at}`. Edit checks run when records are posted to `POST /mock-edc/{domain}` (the "sponsor side") and on `POST /queries/run-checks` (admin). `GET /queries?status=&usubjid=` (paginated, aging in hours), `GET /queries/{id}` (with `suggested_answer: WrittenText`), `POST /queries` (admin acting as sponsor monitor: manual query on a draft field), `POST /queries/{id}/answer {answer_text, evidence_ids?, also_edit?: {field, value}}` (coordinator+; `also_edit` creates a new draft version), `POST /queries/{id}/close` (admin as sponsor). Audit `query.raised`, `query.answered`, `query.closed`.
+- **Web:** Queries page `/dashboard/queries`: open/answered/closed tabs, aging chips, per-query panel with the record field, the suggested answer with evidence chips ("written by template"), Answer (optionally correcting the field), and for admin "Raise query" / "Close".
+- **Time saved:** answering a query from a suggested answer counts as a pre-filled field in the time model.
+
+## R4.5 Seed (Monday morning, R3.2) also includes
+One open edit-check query on a confirmed CM missing dose/indication, one answered query, and one logged phone call from a caregiver overnight.
