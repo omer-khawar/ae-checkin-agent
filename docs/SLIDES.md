@@ -1,5 +1,7 @@
 # Slide deck outline (12 slides)
 
+> **Status (2026-10-10, evening): this outline describes the wave-2 build (`docs/CONTRACTS.md` R2.6).** The R3 rewrite (`docs/DECISIONS.md` D-023 to D-026: the Monday-morning story, protocol-aware rules, no per-session camera consent, the optional text writer that relaxes "no LLM anywhere" for written text only) is pending; until it lands, statements here about consent, the no-LLM rule and persona counts describe the running wave-2 app.
+
 > Target: 10–12 slides per the Regeneron "Design & Packaging" criterion. This is the 12-slide outline from `CLAUDE.md` §12 with content, the screenshot each slide needs, and speaker notes of 60 words or fewer. Spoken time: about 7 minutes without the live demo; the live demo itself is `docs/DEMO.md` (3 minutes). Build the deck light-on-white to match the product; one idea per slide; no stock photos.
 
 Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, after `make demo-reset` and one full rehearsal of `docs/DEMO.md`):
@@ -8,6 +10,8 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 |---|---|---|
 | S-kiosk | Kiosk mid-check-in: shortness-of-breath item, vitals card showing pulse 72 / breathing 14 with the **SIMULATED** badge | `/kiosk`, `resting` scenario |
 | S-detail | Check-in detail page with AE/VS/CM drafts, one field highlighted and its evidence panel open, Why panel visible | `/dashboard/checkins/:sessionId` after DEMO step 4 |
+| S-notes | Notes page after ingesting the DEMO step 4b note: the note text with "cough" highlighted, the Cough follow-up AE and dextromethorphan CM drafts, the two skipped mentions with "'Denies' precedes …" | `/dashboard/notes` after DEMO step 4b |
+| S-synthea | The headline table of `docs/eval/synthea_results.md` (symptoms, medications, escalation by encounter class) | editor / rendered Markdown |
 | S-why-tier2 | The Why panel after DEMO step 5 showing `corr.tachypnea_dyspnea` / `corr.tachycardia_dyspnea` and `tier.corroboration_bump` with the actual values | after DEMO step 5 |
 | S-queue | Queue with Tier 1 and Tier 2 rows, tier chips, SAE countdown chip on a persona with hospitalization | `/dashboard` after running the eval with `include_eval` shown |
 | S-audit | Audit page with the green "verified" badge and the head hash | `/dashboard/audit` |
@@ -47,12 +51,13 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 ## Slide 3 — What we built
 
 **Content**
-- Kiosk check-in (10 PRO-CTCAE-style items + 3 gates) → rules → drafts → coordinator confirm
+- Two inputs, one engine: kiosk check-in (10 PRO-CTCAE-style items + 3 gates, with contactless vitals) **and** clinician chart notes (deterministic scanner) → rules → SDTM drafts → coordinator confirm
+- Cross-source dedup: a cough in a phone note links to the cough reported at the kiosk
 - One screenshot of the coordinator detail page: answers | drafts | Why
 
-**Screenshot:** S-detail, full-bleed.
+**Screenshot:** S-detail, full-bleed, with S-notes as a small inset (bottom-right).
 
-**Speaker notes (≤60 words):** This is the coordinator's detail page. Left, the participant's answers with timestamps. Middle, drafted AE, VS and CM records in SDTM variable names. Right, every rule that fired, in plain English. Every field is clickable and shows its evidence. Nothing leaves without a confirm click.
+**Speaker notes (≤60 words):** This is the coordinator's detail page. Left, the participant's answers. Middle, drafted AE, VS and CM records in SDTM variable names. Right, every rule that fired, in plain English. Chart notes feed the same drafts, with the exact words highlighted. Every field shows its evidence. Nothing leaves without a confirm click.
 
 ## Slide 4 — The angle: vitals as eSource
 
@@ -69,13 +74,14 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 ## Slide 5 — Architecture
 
 **Content**
-- Mermaid diagram from `README.md`: kiosk (web) → API → rules → SQLite; bridge → WS → kiosk and → HTTP → API
+- Mermaid diagram for `README.md` (the README's architecture section is still to be written; draw these edges): kiosk (web) → API → rules → SQLite; bridge → WS → kiosk and → HTTP → API; dashboard Notes page → `POST /notes` → `interim_rules.chartscan` → same drafts, dedup, SAE clock
 - Three apps, one shared package: `apps/web`, `apps/api`, `apps/vitals-bridge`, `packages/rules`
-- `VitalsSource` plugin: `mock` (now) · `presage` (one-file slot) · `arduino` (slot)
+- `VitalsSource` plugin: `mock` (demo, SIMULATED) · `presage` (implemented, SDK loaded on demand, live test pending) · `arduino` (slot)
+- Offline, build-time only: `scripts/synthea/` (pinned Synthea jar → de-identified NSCLC cohort → evaluation); nothing reads FHIR at runtime
 
 **Screenshot:** S-arch.
 
-**Speaker notes (≤60 words):** Three apps, one shared rules package. The bridge runs on the kiosk machine and is the only thing that touches the camera; frames never leave it. The API is the single writer. The vitals adapter is a plugin: mock today, and Presage SmartSpectra is a documented one-file job.
+**Speaker notes (≤60 words):** Three apps, one shared rules package. The bridge is the only thing that touches the camera; frames never leave it. The API is the single writer. Check-ins and chart notes flow into the same rules, drafts and audit chain. The vitals adapter is a plugin: mock today, Presage implemented and awaiting its live test.
 
 ## Slide 6 — Rules, not prompts
 
@@ -89,12 +95,14 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 | Vitals corroboration | `vitals_corroboration.json` | +1 tier max; breathing ≥24, pulse ≥110 |
 | Escalation ladder | `escalation_ladder.json` | tier 0–3, stop screen, page |
 | SAE clock | `seriousness.json` | +24 h site; 7/15 d informational |
-| Con-med matcher | `medlist.json` | exact → case-insensitive → Levenshtein ≤2 |
-| Dedup | `dedup.json` | 7-day follow-up link |
+| Con-med matcher | `medlist.json`, `conmed_matching.json` | exact → case-insensitive → Levenshtein ≤2, confidence floor 0.7 |
+| Dedup | `dedup.json` | 7-day follow-up link, check-ins and notes alike |
+| Chart-note scanner | `chartscan_lexicon.json` | 29 CTCAE terms, 43 drugs; NegEx-style negation / history / hypothetical skips with reasons |
+| Note red flags | `chartscan_red_flags.json` | Tier 2 max (never pages); hospitalization → SAE clock at ingestion |
 
 **Screenshot:** S-rules.
 
-**Speaker notes (≤60 words):** Every clinical number lives in a JSON table with a source and a rationale, not in code. Composite scoring follows Basch 2021. Red flags, corroboration thresholds, the escalation ladder and the SAE clock are all deterministic. Change an input and the output changes the same way every time.
+**Speaker notes (≤60 words):** Every clinical number, and every regex, lives in a JSON table with a source and a rationale, not in code. Composite scoring follows Basch 2021. Red flags, corroboration, the ladder, the SAE clock and the chart-note scanner are all deterministic. Change an input and the output changes the same way every time.
 
 ## Slide 7 — Evidence and audit
 
@@ -110,19 +118,18 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 ## Slide 8 — Evaluation results
 
 **Content**
-- 24 scripted personas + 5 hidden judge personas, replayed through the **real API** by `scripts/run_eval.py`
-- Per-tier precision / recall / F1; per-grade confusion matrix; dedup and SAE-clock correctness
-- Numbers from `docs/eval/results.md` (paste the table)
+- **Regression (our answer keys, 100% by construction):** 24 scripted personas + 5 hidden judge personas replayed through the **real API** (the 7 `protocol` personas added with the R3 rules join this line when the R3 API work lands; the Eval page already lists them) (per-tier P/R/F1, grade confusion matrix, dedup, SAE clock); chart-note scanner on 39 cases: AE terms 38/38, meds 17/17, 14/14 escalations, 0 over-escalations. Numbers from `docs/eval/results.md`
+- **Independent (Synthea, never tuned on it):** 72 notes, 12 NSCLC patients. Symptoms P 0.919 / R 0.792; medications P 1.000 / R 0.178 of those visible in text; routine visits over-flagged 55.8% (templated "Chest Pain"). From `docs/eval/synthea_results.md`
 - "Build your own persona" form on the Eval page
 
-**Screenshot:** S-eval.
+**Screenshot:** S-eval left, S-synthea right.
 
-**Speaker notes (≤60 words):** Twenty-four scripted personas with an answer key replay through the real API, not the rules directly. Per-tier precision and recall, a grade confusion matrix, dedup and SAE-clock checks. One hundred percent on the shipped set because they are deterministic. Five hidden judge personas and a build-your-own form are waiting for you.
+**Speaker notes (≤60 words):** Left: our answer keys, one hundred percent because they are deterministic regression tests. Right: the honest number. Synthea notes the scanner never saw: good precision, weaker recall, and a templated chest-pain complaint over-flags routine visits. We publish both. Five hidden judge personas and a build-your-own form are waiting for you.
 
 ## Slide 9 — Live demo
 
 **Content**
-- `docs/DEMO.md`, 3 minutes: P-007 → Tier 1 → scenario `post_exercise` → Tier 2, grade unchanged → judge edits an input → audit verify → export bundle
+- `docs/DEMO.md`, 3 minutes: P-007 → Tier 1 → (optional: paste a phone note, cough links to the kiosk AE) → scenario `post_exercise` → Tier 2, grade unchanged → judge edits an input → audit verify → export bundle
 - URLs: kiosk `http://localhost:5173/kiosk` · dashboard `http://localhost:5173/dashboard` · API docs `http://localhost:8000/docs`
 
 **Screenshot:** S-why-tier2 as the fallback if the live demo fails.
@@ -133,15 +140,16 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 
 **Content**
 - Composite → grade crosswalk is an approximation, not validated (presence-only rash is always G1)
-- Camera vitals confounded by talking, motion, light; thresholds fixed, not baseline-adjusted
-- Con-med matcher: string distance over 300 names ("vitamin k" → vitamin c, "lasik" → furosemide)
-- 7-day dedup heuristic; demo auth
-- Deliberately not built: chart-note scanning (needs an LLM), voice, multilingual, real EDC/MedDRA/RxNorm; Presage and Arduino are documented slots
+- Camera vitals confounded by talking, motion, light; thresholds fixed, not baseline-adjusted; **Presage source not yet run live**
+- Scanner is lexicon-bound: misses "tingling", skips a cough after "Phone call with pt:", starts no SAE clock for "seen in ED" (needs "the")
+- Con-med matcher: string distance over 300 names ("Vitamin B12 5 MG/ML …" → methylphenidate via "ritalin"; no clopidogrel)
+- Synthea: stage 1, chemotherapy, no PD-1 patients, templated notes
+- Not built: voice, multilingual, real EDC/MedDRA/RxNorm, Arduino (slot). **Shipped later than planned:** chart-note scanning and Presage (credit Omer Khawar)
 - `docs/WHAT_IT_GETS_WRONG.md` · `docs/NOT_BUILT.md`
 
 **Screenshot:** none; text slide.
 
-**Speaker notes (≤60 words):** We will tell you first. The composite-to-grade crosswalk is an approximation, not validated. Camera vitals are confounded by talking and motion. Thresholds are fixed, not baseline-adjusted. The med matcher is string distance over about three hundred and seventy names. Dedup is a seven-day heuristic. We deliberately did not build chart scanning or voice.
+**Speaker notes (≤60 words):** We will tell you first. The grade crosswalk is not validated. Camera vitals are confounded by talking and motion, and our Presage source has not seen a live camera yet. The note scanner only knows its lexicon, and one missing "the" decides an SAE clock. Synthea has no immunotherapy patients. We once cut chart scanning; a teammate proved it deterministic.
 
 ## Slide 11 — Readiness
 
@@ -160,9 +168,10 @@ Screenshot checklist (capture at 1920×1080, light theme, browser zoom 110%, aft
 
 **Content**
 - Team names and roles
+- **Credits:** chart-note scanner and Presage SmartSpectra groundwork: Omer Khawar, *AE Capture Desk* (`omer-khawar/ae-checkin-agent`, MIT). Synthetic EHR: Synthea, © The MITRE Corporation (Apache-2.0), recommended by the Regeneron judges. Public data: ClinicalTrials.gov, openFDA, NCI CTCAE v5.0
 - Repository URL · 3-minute demo video URL · submission/judging link requested by the track (`CLAUDE.md` calls it the JEDI link; fill in before presenting)
-- "Run the hidden judge personas: Dashboard → Eval → Include hidden → Run"
+- "Run the hidden judge personas: Dashboard → Eval → Run hidden judge personas (5)" · "Change an input: Dashboard → Eval → Build your own persona → Run this persona" · "Paste a note: Dashboard → Notes"
 
 **Screenshot:** QR code to the repo.
 
-**Speaker notes (≤60 words):** Thank you. The repository, the demo video and the submission link are on this slide. Everything shown is public and runnable, and the eval page is waiting for your input.
+**Speaker notes (≤60 words):** Thank you. The chart-note scanner and the Presage groundwork are Omer Khawar's work, ported with credit; the synthetic EHR is Synthea from MITRE. The repository, the demo video and the submission link are on this slide. Everything shown is public and runnable, and the eval page is waiting for your input.

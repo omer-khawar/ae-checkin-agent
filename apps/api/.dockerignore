@@ -1,0 +1,17 @@
+# apps/api/Dockerfile is built with the REPOSITORY ROOT as context (it needs packages/rules and
+# data/ too), so the ignore file that applies to it is the root `.dockerignore`.
+# This file applies only if someone builds with `apps/api` as context
+# (`docker build apps/api`), which the Dockerfile does not support; it keeps such a context small
+# and free of local state anyway.
+.venv
+**/__pycache__
+**/*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+**/*.db
+**/*.sqlite*
+.env
+.env.*

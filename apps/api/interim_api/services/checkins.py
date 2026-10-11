@@ -28,7 +28,7 @@ from interim_rules.serialize import build_input, to_jsonable
 
 from ..audit import Actor, append_event
 from ..models import AEOpen, Answer, Draft, Escalation, Page, SAEClock, Session, Study, VitalsSample
-from ..util import dump_json, load_json, new_id, normalize_iso, now_iso
+from ..util import dump_json, load_json, new_id, normalize_iso, now_iso, seconds_between
 from .common import stop_screen_text, tier_name
 
 GATE_HOSPITALIZATION = "gate_hospitalization"
@@ -279,11 +279,14 @@ def apply_result(
             if item.is_followup and item.linked_ae_open_id:
                 existing = db.get(AEOpen, item.linked_ae_open_id)
                 if existing is not None:
-                    existing.last_reported_at = reported_at
-                    if session_id is not None:
-                        existing.last_session_id = session_id
-                    if note_id is not None:
-                        existing.last_note_id = note_id
+                    # A backdated note (admin override) may be "read" before the AE's latest
+                    # report; the open AE's last report never moves backwards.
+                    if seconds_between(existing.last_reported_at, reported_at) >= 0:
+                        existing.last_reported_at = reported_at
+                        if session_id is not None:
+                            existing.last_session_id = session_id
+                        if note_id is not None:
+                            existing.last_note_id = note_id
                     db.add(existing)
                     ae_open_id = existing.id
                     outcome.ae_open_rows.append(existing)

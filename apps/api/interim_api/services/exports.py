@@ -35,7 +35,7 @@ from interim_rules.tables import vitals_config
 
 from .. import API_VERSION
 from ..audit import Actor, append_event, head, verify_chain
-from ..models import AuditEvent, Draft, Session, Study, VitalsSample
+from ..models import AuditEvent, Draft, Participant, Session, Study, VitalsSample
 from ..problems import problem
 from ..util import load_json, new_id, now_iso
 from .common import draft_to_dict
@@ -135,18 +135,38 @@ def _session_map(db: DbSession, session_ids: Iterable[str]) -> dict[str, Session
     return {s.id: s for s in db.exec(select(Session).where(Session.id.in_(ids))).all()}  # type: ignore[union-attr]
 
 
+def eval_usubjids(db: DbSession) -> set[str]:
+    """USUBJIDs of eval-harness participants (``is_eval``): hidden from exports by default."""
+    return {
+        p.usubjid
+        for p in db.exec(select(Participant).where(Participant.is_eval == True)).all()  # noqa: E712
+    }
+
+
 def records_for(
     db: DbSession, domain: str, status: str, *, include_eval: bool = False
 ) -> list[dict[str, Any]]:
+    """Current draft rows of ``domain`` as export records.
+
+    Eval data is excluded unless ``include_eval``: a draft is eval data when its
+    session is (``Session.is_eval``) **or** when its participant is
+    (``Participant.is_eval``). The second test is what hides chart-note drafts,
+    which have no session: the eval harness ingests the answer-key notes for
+    ``EVAL-NOTE-*`` participants, and those rows must never reach a submission
+    bundle.
+    """
     stmt = select(Draft).where(Draft.domain == domain).where(Draft.status != "superseded")
     if status == "confirmed":
         stmt = stmt.where(Draft.status == "confirmed")
     rows = list(db.exec(stmt).all())
     sessions = _session_map(db, (r.session_id or "" for r in rows))
+    hidden = set() if include_eval else eval_usubjids(db)
     out: list[dict[str, Any]] = []
     for row in rows:
         session = sessions.get(row.session_id or "")
         if session is not None and session.is_eval and not include_eval:
+            continue
+        if row.usubjid in hidden:
             continue
         record = dict(draft_to_dict(row)["fields"])
         record["INTERIM_DRAFT_ID"] = row.id

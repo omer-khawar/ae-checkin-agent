@@ -1,0 +1,12 @@
+# Build context: apps/web (see apps/web/Dockerfile). The image runs `npm ci` and `vite build`
+# itself, so local installs and builds are never shipped.
+node_modules
+dist
+coverage
+*.tsbuildinfo
+.eslintcache
+*.log
+.env
+.env.*
+Dockerfile
+.dockerignore

@@ -1,0 +1,111 @@
+# Interim: `docker compose up --build` from a clean clone (CLAUDE.md §10.7).
+#
+#   kiosk      http://localhost:5173/kiosk          (all ports bind to 127.0.0.1; see below)
+#   dashboard  http://localhost:5173/dashboard   (coordinator / investigator / admin, password
+#                                                 DEMO_PASSWORD, default "interim-demo")
+#   API docs   http://localhost:8000/docs
+#   bridge     ws://localhost:8787               (MOCK vitals only; every value labeled SIMULATED)
+#
+# Configuration: compose reads the repo-root `.env` (optional; copy .env.example) for
+# ${VAR:-default} interpolation ONLY. No service uses `env_file:`, so a variable reaches a
+# container only when it is listed below. In particular PRESAGE_API_KEY / PRESAGE_CAMERA_ID are
+# never passed to any container: the bridge here always runs the mock source (no webcam in a
+# container, no SDK in the image). Real sensors run the bridge on the kiosk laptop itself
+# (docs/VITALS_SOURCES.md).
+#
+# Data: SQLite in the named volume `interim-db`; the API seeds it on first start
+# (SEED_ON_START). `docker compose down -v` wipes it. Postgres: set DOCKER_DATABASE_URL.
+#
+# Network exposure: every published port binds to 127.0.0.1 by default (INTERIM_BIND), because
+# the demo credentials are public (DEMO_PASSWORD, and AUTH_SECRET signs tokens unless you change
+# it) and the bridge WebSocket takes commands. On shared venue Wi-Fi nobody else can reach the
+# stack. For a kiosk on another device: set INTERIM_BIND=0.0.0.0, a real AUTH_SECRET and
+# DEMO_PASSWORD, and add the kiosk page's origin to BRIDGE_ALLOWED_ORIGINS. Host ports can be
+# moved with INTERIM_API_PORT / INTERIM_WEB_PORT / INTERIM_BRIDGE_PORT (if the bridge port moves,
+# also bake DOCKER_BRIDGE_WS_URL into the web image so the kiosk finds it).
+
+name: interim
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: interim-api:local
+    restart: unless-stopped
+    environment:
+      # The host's DATABASE_URL (a repo-relative path for `make dev`) is deliberately not used here.
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-sqlite:////var/lib/interim/interim.db}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-interim-demo}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      BRIDGE_TOKEN: ${BRIDGE_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${INTERIM_WEB_PORT:-5173},http://127.0.0.1:${INTERIM_WEB_PORT:-5173}}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      DEMO_NCT_ID: ${DEMO_NCT_ID:-NCT03088540}
+      # The admin default must match what the compose bridge runs.
+      VITALS_SOURCE: mock
+      VITALS_SCENARIO: ${VITALS_SCENARIO:-resting}
+      TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-12}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - interim-db:/var/lib/interim
+    ports:
+      - "${INTERIM_BIND:-127.0.0.1}:${INTERIM_API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4); sys.exit(0 if r.status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      start_period: 90s
+      retries: 6
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # Build-time only. Empty = the kiosk opens ws://<page hostname>:8787.
+        VITE_BRIDGE_WS_URL: ${DOCKER_BRIDGE_WS_URL:-}
+    image: interim-web:local
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # nginx resolves this per request (apps/web/nginx.conf), so web survives api restarts.
+      API_UPSTREAM: http://api:8000
+    ports:
+      - "${INTERIM_BIND:-127.0.0.1}:${INTERIM_WEB_PORT:-5173}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  bridge:
+    build:
+      context: ./apps/vitals-bridge
+    image: interim-bridge:local
+    restart: unless-stopped
+    # Node is PID 1 otherwise; tini reaps and forwards SIGTERM (the bridge flushes on stop).
+    init: true
+    depends_on:
+      api:
+        condition: service_healthy
+    # Always mock in compose; flags beat env, so no variable can switch this to a real sensor.
+    command: ["node", "dist/cli.js", "--source", "mock", "--ws-host", "0.0.0.0", "--api", "http://api:8000"]
+    environment:
+      VITALS_SCENARIO: ${VITALS_SCENARIO:-resting}
+      BRIDGE_WS_PORT: "8787"
+      BRIDGE_TOKEN: ${BRIDGE_TOKEN:-}
+      # Only the compose web app's own origins may open the WebSocket, so another site open in the
+      # same browser cannot drive the bridge. Comma-separated; see apps/vitals-bridge/README.md.
+      BRIDGE_ALLOWED_ORIGINS: ${BRIDGE_ALLOWED_ORIGINS:-http://localhost:${INTERIM_WEB_PORT:-5173},http://127.0.0.1:${INTERIM_WEB_PORT:-5173}}
+    ports:
+      - "${INTERIM_BIND:-127.0.0.1}:${INTERIM_BRIDGE_PORT:-8787}:8787"
+
+volumes:
+  interim-db:

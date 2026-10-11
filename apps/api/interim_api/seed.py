@@ -13,10 +13,11 @@ What it creates, deterministically (``random.Random(20261010)``):
 * the eight synthetic chart notes (``data/synthetic/chart_notes.json``, read here
   through the identical copy in the rules package's answer key, CONTRACTS R2.4)
   ingested for their mapped participants through the ``/notes`` service with
-  ``ingested_at_override``, re-anchored to the seed clock (README §4.6):
-  note-sourced drafts in the queue, two Tier 2 note escalations (N6 acknowledged,
-  N3 left open), one SAE clock started at ingestion (N6), and cross-source
-  follow-up links (N2 onto P-002's check-in AEs; N7 onto N1's).
+  ``ingested_at_override``, re-anchored to the seed clock (README §4.6 and its
+  Notes section): note-sourced drafts in the queue, two Tier 2 note escalations
+  (N6 acknowledged, N3 left open), one SAE clock started at ingestion (N6, read
+  ~3 h before the seed clock so the countdown is live, not overdue), and
+  cross-source follow-up links (N2 onto P-002's check-in AEs; N7 onto N1's).
 
 Everything goes through the service layer with the admin backdating overrides,
 so every seeded fact is audited and drafted exactly like a live check-in.
@@ -498,7 +499,17 @@ class NoteSeed:
     note_id: str
     ack_escalation: bool
     why: str
+    ingested_hours_before_seed: float | None = None
+    """When set, the note is ingested this many hours (±30 min) before the seed clock instead
+    of on its (re-anchored) ``note_date``: an outside record that reached the site late."""
 
+
+N6_INGEST_HOURS_BEFORE_SEED = 3.0
+"""The ED note is dated two days back but is *read* by the site ~3 h before the seed clock, so
+its SAE clock (site awareness = ingestion) is a live ~21 h countdown on the first dashboard
+load rather than an already-overdue one (CLAUDE.md §3.4(f) "show a live countdown"). Outside
+ED records reaching the site a day or two late is the realistic story, and it is exactly the
+case ICH E2A's "site awareness" wording is about."""
 
 NOTE_SEEDS: tuple[NoteSeed, ...] = (
     NoteSeed("N8", False, "routine visit: four negated symptoms, one con-med 'taking' (CM only)"),
@@ -514,8 +525,10 @@ NOTE_SEEDS: tuple[NoteSeed, ...] = (
     NoteSeed(
         "N6",
         True,
-        "ED note: urgent red flags + hospitalization -> Tier 2 and an SAE clock started at "
-        "ingestion; the coordinator acknowledged, the clock waits for the investigator",
+        "ED note dated two days back, read by the site ~3 h before the seed clock: urgent red "
+        "flags + hospitalization -> Tier 2 and an SAE clock started at ingestion (live "
+        "countdown); the coordinator acknowledged, the clock waits for the investigator",
+        ingested_hours_before_seed=N6_INGEST_HOURS_BEFORE_SEED,
     ),
     NoteSeed(
         "N3",
@@ -525,8 +538,9 @@ NOTE_SEEDS: tuple[NoteSeed, ...] = (
     ),
     NoteSeed("N7", False, "nurse call: Diarrhea + Nausea link as follow-ups to N1 (cross-note)"),
 )
-"""Ingestion order is chronological (oldest note first); ``ack_escalation`` says whether the
-seed acknowledges the note's Tier 2 escalation as the coordinator."""
+"""Ingestion order is chronological by ``ingested_at`` (oldest first; N6 therefore goes last);
+``ack_escalation`` says whether the seed acknowledges the note's Tier 2 escalation as the
+coordinator."""
 
 
 def note_cases() -> dict[str, chartscan.AnswerKeyCase]:
@@ -552,26 +566,38 @@ def seed_chart_notes(
     """Ingest the eight notes for their mapped participants, backdated.
 
     Each note keeps its distance from the answer key's reference date (N1 is 5 days
-    before 2026-10-10, so it is ingested 5 days before the seed clock) and its
+    before 2026-10-10, so it is dated 5 days before the seed clock) and its
     ``note_date`` is rewritten to that day; ``ingested_at`` is the same day at
-    09:00-17:00 UTC. That keeps the demo's cross-source follow-up links valid on
-    any seed date (dedup compares against the seed-relative check-ins).
+    09:00-17:00 UTC, except for a note with ``ingested_hours_before_seed`` (N6),
+    which is read by the site that many hours before the seed clock. That keeps
+    the demo's cross-source follow-up links valid on any seed date (dedup
+    compares against the seed-relative check-ins) and gives the dashboard a live
+    SAE countdown.
     """
     cases = note_cases()
     anchor = note_anchor_date()
-    ordered = sorted(
-        NOTE_SEEDS,
-        key=lambda n: (-_days_before_anchor(cases[n.note_id].note_date, anchor), n.note_id),
-    )
-    out: list[dict[str, Any]] = []
-    for entry in ordered:
+    planned: list[tuple[NoteSeed, int, str, str]] = []
+    for entry in NOTE_SEEDS:
         case = cases[entry.note_id]
         days_ago = _days_before_anchor(case.note_date, anchor)
         day = shift(now, days=-days_ago)[:10]
-        ingested_at = shift(
-            f"{day}T{rng.randint(9, 16):02d}:{rng.randint(0, 59):02d}:00.000Z",
-            seconds=rng.randint(0, 59),
-        )
+        if entry.ingested_hours_before_seed is not None:
+            ingested_at = shift(
+                now,
+                seconds=-int(entry.ingested_hours_before_seed * 3600) + rng.randint(-1800, 1800),
+            )
+        else:
+            ingested_at = shift(
+                f"{day}T{rng.randint(9, 16):02d}:{rng.randint(0, 59):02d}:00.000Z",
+                seconds=rng.randint(0, 59),
+            )
+        planned.append((entry, days_ago, day, ingested_at))
+    # Chronological by the moment the site read each note, so the audit chain reads naturally
+    # and same-participant follow-ups (N7 onto N1) see their predecessor already open.
+    planned.sort(key=lambda p: (p[3], p[0].note_id))
+    out: list[dict[str, Any]] = []
+    for entry, days_ago, day, ingested_at in planned:
+        case = cases[entry.note_id]
         usubjid = f"{study.study_id}-{case.usubjid_label}"
         detail = ingest_note(
             db,
@@ -602,6 +628,7 @@ def seed_chart_notes(
                 "case_id": entry.note_id,
                 "usubjid": usubjid,
                 "days_ago": days_ago,
+                "ingested_at": ingested_at,
                 "tier": detail["tier"],
                 "drafts": len(detail["drafts"]),
                 "followups": sum(1 for d in detail["drafts"] if d["is_followup"]),

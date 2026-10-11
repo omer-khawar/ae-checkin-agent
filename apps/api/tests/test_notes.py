@@ -286,7 +286,12 @@ def test_cross_source_dedup_in_both_directions(client) -> None:
     assert diarrhea["linked_ae_open_id"] == n1_ae["Diarrhea"]["ae_open_id"]
     assert diarrhea["fields"]["AESTDTC"] == "2026-10-02T00:00:00.000Z"  # the note's onset date
     assert "dedup.followup_linked" in [r["rule_id"] for r in detail2["rules_fired"]]
-    assert detail2["ae_links"][0]["first_session_id"] is None  # opened by a note, not a session
+    # Opened by a note, not a session: the check-in's ae_links say which note, so the
+    # detail page has somewhere to link to.
+    link = detail2["ae_links"][0]
+    assert link["first_session_id"] is None and link["first_note_id"] == n1["note"]["id"]
+    assert link["source"] == "chart_note" and link["aedecod"] == "Diarrhea"
+    assert link["open_ae"]["first_note_id"] == n1["note"]["id"]
     assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
 
 
@@ -305,6 +310,9 @@ def test_scan_is_a_dry_run(client) -> None:
     assert len(scan["why"]) == len(scan["rules_fired"]) >= 4
     for pointer in (e for r in scan["rules_fired"] for e in r["evidence"]):
         assert text[pointer["span_start"] : pointer["span_end"]] == pointer["note"]
+        # No note was stored: the pointer says so instead of faking an id or a timestamp.
+        assert pointer["kind"] == "chart_note" and pointer["id"] == "scan"
+        assert pointer["ts"] is None
     # Nothing stored, nothing audited.
     assert client.get("/api/v1/notes", headers=coord).json()["total"] == 0
     assert client.get("/api/v1/audit?action=note.scanned", headers=coord).json()["total"] == 0
@@ -349,9 +357,16 @@ def test_roles_overrides_and_validation(client) -> None:
     event = client.get("/api/v1/audit?action=note.ingested", headers=coord).json()["items"][0]
     assert event["payload"]["backdated"] is True and event["payload"]["override_by"] == "admin"
     assert event["payload"]["chars"] == len(case.text)
-    # An investigator may ingest too (coordinator+).
-    by_inv = client.post("/api/v1/notes", json=body, headers=inv)
-    assert by_inv.status_code == 201 and by_inv.json()["note"]["ingested_by"] == "investigator"
+    # An investigator may ingest too (coordinator+); a different note, since the same
+    # words on the same day for the same participant would be refused as a duplicate.
+    other = NOTE_CASES["N5"]
+    by_inv = client.post(
+        "/api/v1/notes",
+        json={**body, "note_date": other.note_date, "text": other.text},
+        headers=inv,
+    )
+    assert by_inv.status_code == 201, by_inv.text
+    assert by_inv.json()["note"]["ingested_by"] == "investigator"
     # Validation: unknown participant, malformed / future note date, blank text, bad override.
     assert (
         client.post("/api/v1/notes", json={**body, "usubjid": "P-999"}, headers=coord).status_code
@@ -452,6 +467,159 @@ def test_note_drafts_review_attribution_and_ack(client) -> None:
             )
     assert client.get("/api/v1/queue?status=open", headers=coord).json()["total"] == 0
     assert client.get("/api/v1/queue", headers=coord).json()["total"] == 1
+    assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
+
+
+def test_duplicate_note_is_refused_not_drafted_twice(client) -> None:
+    """A double-click on Ingest (or a retried request) must not store and draft a note twice."""
+    add_participant(client, "P-001")
+    coord = login(client, "coordinator")
+    first = _ingest(client, coord, "N1")
+    case = NOTE_CASES["N1"]
+    body = {
+        "usubjid": "P-001",
+        "note_date": case.note_date,
+        "author": case.author,
+        "note_type": case.note_type,
+        "text": case.text,
+    }
+    again = client.post("/api/v1/notes", json=body, headers=coord)
+    assert again.status_code == 409, again.text
+    assert again.headers["content-type"].startswith("application/problem+json")
+    assert again.json()["title"] == "Duplicate note"
+    assert again.json()["existing_note_id"] == first["note"]["id"]
+    # Same words, same day: a different author field is still the same note; the label
+    # form of the participant id resolves to the same participant.
+    assert (
+        client.post(
+            "/api/v1/notes",
+            json={**body, "author": "someone else", "usubjid": first["note"]["usubjid"]},
+            headers=coord,
+        ).status_code
+        == 409
+    )
+    assert client.get("/api/v1/notes", headers=coord).json()["total"] == 1
+    assert client.get("/api/v1/export/AE.json?status=all", headers=coord).json()["n_records"] == 2
+    assert client.get("/api/v1/export/CM.json?status=all", headers=coord).json()["n_records"] == 2
+    # Another day (a genuine second note with the same text) is a new note.
+    later = client.post("/api/v1/notes", json={**body, "note_date": "2026-10-09"}, headers=coord)
+    assert later.status_code == 201, later.text
+    assert client.get("/api/v1/notes", headers=coord).json()["total"] == 2
+    assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
+
+
+def test_hospitalization_only_note_clock_is_stopped_by_the_investigator(client) -> None:
+    """A hospitalization cue with no symptom finding starts a clock but drafts no AE, so
+    there is nothing to attribute: the investigator stops the clock directly (D-023)."""
+    add_participant(client, "P-004")
+    coord = login(client, "coordinator")
+    inv = login(client, "investigator")
+    body = client.post(
+        "/api/v1/notes",
+        json={
+            "usubjid": "P-004",
+            "note_date": "2026-10-09",
+            "author": "ED attending",
+            "note_type": "ed_note",
+            "text": "Pt admitted overnight for observation after a fall at home. "
+            "Discharged in stable condition.",
+        },
+        headers=coord,
+    ).json()
+    assert body["tier"] == 2 and body["drafts"] == [] and body["seriousness_suspected"] is True
+    assert body["escalation"]["tier"] == 2 and body["sae_clock"]["stopped_at"] is None
+    clock_id = body["sae_clock"]["id"]
+    assert client.get("/api/v1/sae-clocks?active=true", headers=coord).json()["total"] == 1
+    # Investigator-only, like attribution.
+    denied = client.patch(
+        f"/api/v1/sae-clocks/{clock_id}/stop", json={"decision": "AESER = N"}, headers=coord
+    )
+    assert denied.status_code == 403
+    assert (
+        client.patch(f"/api/v1/sae-clocks/{clock_id}/stop", json={"decision": "x"}).status_code
+        == 401
+    )
+    missing = client.patch(
+        "/api/v1/sae-clocks/nope/stop", json={"decision": "AESER = N"}, headers=inv
+    )
+    assert missing.status_code == 404
+    stopped = client.patch(
+        f"/api/v1/sae-clocks/{clock_id}/stop",
+        json={"decision": "AESER = N: mechanical fall, not an AE", "note": "per ED record"},
+        headers=inv,
+    )
+    assert stopped.status_code == 200, stopped.text
+    assert stopped.json()["stopped_by"] == "investigator"
+    assert stopped.json()["decision"].startswith("AESER = N") and stopped.json()["stopped_at"]
+    assert stopped.json()["seconds_remaining"] is None and stopped.json()["overdue"] is False
+    assert client.get("/api/v1/sae-clocks?active=true", headers=coord).json()["total"] == 0
+    assert client.get("/api/v1/sae-clocks?active=false", headers=coord).json()["total"] == 1
+    detail = client.get(f"/api/v1/notes/{body['note']['id']}", headers=coord).json()
+    assert detail["sae_clock"]["stopped_by"] == "investigator"
+    queue_row = client.get("/api/v1/queue?usubjid=P-004", headers=coord).json()["items"][0]
+    assert queue_row["sae_stopped"] is True and queue_row["sae_stopped_at"]
+    # Audited with the same action as the attribution path, once; a second stop is refused.
+    events = client.get("/api/v1/audit?action=sae_clock.stopped", headers=coord).json()
+    assert events["total"] == 1
+    payload = events["items"][0]["payload"]
+    assert payload["note_id"] == body["note"]["id"] and payload["path"] == "sae_clock.stop"
+    assert payload["within_24h"] is True and payload["note"] == "per ED record"
+    assert (
+        client.patch(
+            f"/api/v1/sae-clocks/{clock_id}/stop", json={"decision": "AESER = N"}, headers=inv
+        ).status_code
+        == 409
+    )
+    assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
+
+
+def test_backdated_note_links_to_a_later_kiosk_report_and_flags_earlier_onset(client) -> None:
+    """An admin-backdated note read *before* a kiosk report of the same term (within the
+    window) is the same episode: a follow-up, not a second open AE; and when the note dates
+    the onset earlier than the AE's first report, the draft says so instead of silently
+    keeping the later date."""
+    add_participant(client, "P-007")
+    coord = login(client, "coordinator")
+    admin = login(client, "admin")
+    done = run_kiosk_checkin(client, "P-007", responses=DEMO_RESPONSES)  # Cough G1 today
+    detail = client.get(f"/api/v1/checkins/{done['session_id']}", headers=coord).json()
+    checkin_cough = next(d for d in detail["drafts"] if d["fields"].get("AEDECOD") == "Cough")
+    completed_at = detail["session"]["completed_at"]
+    read_at = shift(completed_at, days=-3)
+    note = client.post(
+        "/api/v1/notes",
+        json={
+            "usubjid": "P-007",
+            "note_date": read_at[:10],
+            "author": "Research RN",
+            "note_type": "phone_note",
+            "text": "Reports mild cough x10 days, unchanged.",
+            "ingested_at_override": read_at,
+        },
+        headers=admin,
+    )
+    assert note.status_code == 201, note.text
+    body = note.json()
+    cough = next(d for d in body["drafts"] if d["domain"] == "AE")
+    assert cough["is_followup"] is True
+    assert cough["linked_ae_open_id"] == checkin_cough["ae_open_id"]
+    assert cough["fields"]["AESTDTC"] == checkin_cough["fields"]["AESTDTC"]  # first report kept
+    dedup = next(r for r in body["rules_fired"] if r["rule_id"] == "dedup.followup_linked")
+    assert dedup["inputs"]["read_before_last_report"] is True
+    assert -3.1 < dedup["inputs"]["days_since_last_report"] < -2.9
+    assert "backdated ingestion" in dedup["description"]
+    # The stated onset (note date - 10 days) predates the check-in: surfaced, not applied.
+    assert cough["fields"]["INTERIM_STATED_ONSET_DATE"] == shift(read_at, days=-10)[:10]
+    assert cough["fields"]["INTERIM_ONSET_BEFORE_FIRST_REPORT"] is True
+    assert dedup["inputs"]["onset_before_first_report"] is True
+    assert any("dates onset to" in line for line in body["why"])
+    assert any(e["kind"] == "chart_note" for e in cough["evidence"]["AESTDTC"])
+    # One open Cough AE, whose last report is still the (later) kiosk check-in.
+    timeline = client.get("/api/v1/participants/P-007/timeline", headers=coord).json()
+    coughs = [a for a in timeline["open_aes"] if a["aedecod"] == "Cough"]
+    assert len(coughs) == 1
+    assert coughs[0]["last_reported_at"] == completed_at
+    assert coughs[0]["last_session_id"] == done["session_id"] and coughs[0]["last_note_id"] is None
     assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
 
 

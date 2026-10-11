@@ -16,7 +16,8 @@
 # production node_modules (ulid + ws). No secrets are baked in: everything is environment-driven.
 
 # ---- build ---------------------------------------------------------------------------------
-FROM node:20-alpine AS build
+# Base image pinned by digest (tag kept for humans) so a rebuild resolves the smoke-tested image.
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -25,7 +26,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # ---- runtime -------------------------------------------------------------------------------
-FROM node:20-alpine
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
 ENV NODE_ENV=production \
     # Bind all interfaces: the kiosk browser connects from outside the container through the
     # published port (the CLI default is loopback for the bare-metal case).
@@ -43,6 +44,13 @@ COPY --from=build /app/dist ./dist
 EXPOSE 8787
 # Drop root: the bridge needs no privileges (one listening socket, outbound HTTP).
 USER node
+# Liveness: the WebSocket port accepts TCP connections (the bridge serves no plain HTTP route).
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["node", "-e", "require('net').connect(Number(process.env.BRIDGE_WS_PORT || 8787), '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"]
 # Node is PID 1 here and handles SIGTERM itself (graceful stop + flush, see src/cli.ts); run the
 # container with `init: true` / `--init` so a stopped container also reaps correctly.
-CMD ["node", "dist/cli.js"]
+# `--source mock` is a flag (flags beat env), so this image cannot be switched to a real sensor
+# by an environment variable: no webcam, no SDK and no Presage key ever exist in it. The API URL
+# stays env-driven (BRIDGE_API_URL) so `docker run -e BRIDGE_API_URL=...` keeps working; compose
+# passes `--api http://api:8000` explicitly.
+CMD ["node", "dist/cli.js", "--source", "mock", "--ws-host", "0.0.0.0"]

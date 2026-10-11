@@ -1,4 +1,5 @@
-# Keep the build context to sources + lockfile; everything else is rebuilt inside the image.
+# Build context: apps/vitals-bridge. Keep it to sources + lockfile; everything else is rebuilt
+# inside the image. Secrets (.env, PRESAGE_API_KEY) never enter the build context.
 node_modules
 dist
 coverage
@@ -7,3 +8,7 @@ test
 .eslintcache
 *.tsbuildinfo
 README.md
+.env
+.env.*
+Dockerfile
+.dockerignore

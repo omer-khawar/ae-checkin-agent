@@ -132,6 +132,40 @@ def test_bundle_manifest_hashes_match_the_files(client) -> None:
     assert verify["ok"] and verify["head_hash"] != manifest["audit_head_hash"]
 
 
+def test_eval_run_never_leaks_into_exports_or_the_bundle(client) -> None:
+    """Demo step 6 (judge runs the eval) then step 7 (export): eval-harness rows, including the
+    chart-note drafts that have no session, stay out unless ``include_eval=true``."""
+    add_participant(client, "P-007")
+    done = run_kiosk_checkin(client, "P-007")
+    coord = login(client, "coordinator")
+    _confirm_all(client, done["session_id"], coord)
+    before = {
+        d: client.get(f"/api/v1/export/{d}.json?status=all", headers=coord).json()["n_records"]
+        for d in ("AE", "VS", "CM")
+    }
+    assert before == {"AE": 2, "VS": 2, "CM": 1}
+    res = client.post(
+        "/api/v1/eval/run", json={"persona_ids": ["T1-dyspnea-moderate"]}, headers=coord
+    )
+    assert res.status_code == 200 and res.json()["chartscan"]["via_api"]["n_notes"] == 8
+    for domain, n in before.items():
+        for status in ("all", "confirmed"):  # everything of P-007 was confirmed above
+            doc = client.get(f"/api/v1/export/{domain}.json?status={status}", headers=coord).json()
+            assert doc["n_records"] == n, (domain, status)
+            assert all(r["USUBJID"] == "R2810-ONC-1624-P-007" for r in doc["records"])
+    csv_rows = client.get("/api/v1/export/AE.csv?status=all", headers=coord).text
+    assert "EVAL" not in csv_rows
+    bundle = client.get("/api/v1/export/bundle.zip?status=all", headers=coord)
+    manifest = json.loads(zipfile.ZipFile(io.BytesIO(bundle.content)).read("manifest.json"))
+    assert manifest["record_counts"] == {"AE": 2, "VS": 2, "CM": 1, "VS_samples": 2}
+    # Asked for explicitly, the eval rows are there (14 note AEs + the persona's 2).
+    with_eval = client.get(
+        "/api/v1/export/AE.json?status=all&include_eval=true", headers=coord
+    ).json()
+    assert with_eval["n_records"] == 2 + 2 + 14
+    assert sum(1 for r in with_eval["records"] if "EVAL-NOTE" in r["USUBJID"]) == 14
+
+
 def test_mock_edc_acknowledges_valid_records_and_rejects_bad_columns(client) -> None:
     add_participant(client, "P-007")
     done = run_kiosk_checkin(client, "P-007")

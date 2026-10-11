@@ -211,6 +211,25 @@ def chart_note_to_dict(n: ChartNote, *, display_label: str | None = None) -> dic
     }
 
 
+def ae_link(draft: Draft, opened: AEOpen | None) -> dict[str, Any]:
+    """One ``ae_links[]`` entry: a follow-up draft and the open AE it extends.
+
+    The originating record may be a check-in (``first_session_id``) **or** a chart
+    note (``first_note_id``); ``source`` says which, so a detail page can link to
+    the right place. Check-in and note details share this shape.
+    """
+    return {
+        "draft_id": draft.id,
+        "ae_open_id": draft.linked_ae_open_id,
+        "first_session_id": opened.first_session_id if opened else None,
+        "first_note_id": opened.first_note_id if opened else None,
+        "source": opened.source if opened else None,
+        "first_reported_at": opened.first_reported_at if opened else None,
+        "aedecod": opened.aedecod if opened else None,
+        "open_ae": ae_open_to_dict(opened) if opened else None,
+    }
+
+
 def page_to_dict(p: Page) -> dict[str, Any]:
     return {
         "id": p.id,

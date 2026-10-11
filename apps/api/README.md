@@ -90,11 +90,12 @@ and `BRIDGE_TOKEN`. None of that changes the endpoint contract.
 | `GET /drafts/{id}`, `GET /drafts/{id}/versions` | any role | a draft; its lineage in version order |
 | `POST /drafts/{id}/confirm`, `POST /drafts/{id}/reject` | coordinator+ | status changes (409 if not actionable) |
 | `PATCH /drafts/{id}` | coordinator+ | **new version row** (`version + 1`, `supersedes_id`), old row → `superseded`; audit `draft.edited` with a diff; edited fields gain an `Evidence{kind: "edit", id: <audit event id>}`. Typed fields are validated server-side (`services/sdtm_fields.py`: `AETOXGR` within `composite_to_grade.json`'s 0..3, `AESER`/`AEONGO` Y/N, `AESTDTC`/`AEENDTC`/`VSDTC` ISO, `VSORRES` finite number, `VSSTAT` null/NOT DONE, `CMSTDTC`/`CMENDTC` dates, `INTERIM_TIER` 0..3) |
-| `PATCH /drafts/{id}/attribution` | investigator | `AEREL` / `AESER` as a new version; an `AESER` value **stops the session's SAE clock** |
-| `GET /escalations`, `POST /escalations/{id}/ack` | any role | `seconds_to_ack` computed; ack is once |
-| `GET /sae-clocks?active=true`, `GET /pages` | any role | live `seconds_remaining` (+ informational sponsor deadlines from `seriousness.json`); the mock pager log |
-| `GET /export/{AE\|VS\|CM}.{csv\|json}?status=confirmed\|all&per_sample=false` | any role | SDTM column order (`STUDYID, USUBJID`, domain variables, then `INTERIM_*`); `VS` long-format per-sample rows with `per_sample=true`; each export is an `export.generated` event with a SHA-256 |
-| `GET /export/bundle.zip` | any role | `AE/VS/CM .csv + .json`, `VS_samples.csv`, `audit_excerpt.json` (events for the exported entities + a verify result), `manifest.json` (sha256 + bytes per file, audit head hash, version) |
+| `PATCH /drafts/{id}/attribution` | investigator | `AEREL` / `AESER` as a new version; an `AESER` value **stops the SAE clock of the draft's source** (check-in session or chart note) |
+| `GET /escalations?acked=&usubjid=&include_eval=false`, `POST /escalations/{id}/ack` | any role | `seconds_to_ack` computed; ack is once. Eval-harness rows (participant `is_eval`) are hidden unless `include_eval=true`, like the queue |
+| `GET /sae-clocks?active=true&include_eval=false`, `GET /pages?include_eval=false` | any role | live `seconds_remaining` (+ informational sponsor deadlines from `seriousness.json`); the mock pager log; eval rows hidden by default |
+| `PATCH /sae-clocks/{id}/stop {decision, note?}` | investigator | records a seriousness decision **directly on a clock** (D-023): for a hospitalization/ER cue that drafted no AE (a note saying "admitted after a fall", a kiosk Yes to the hospital question with every item at zero) there is nothing to attribute, so attribution could never stop it. Audited `sae_clock.stopped` (payload `path: "sae_clock.stop"`); 409 once stopped |
+| `GET /export/{AE\|VS\|CM}.{csv\|json}?status=confirmed\|all&per_sample=false&include_eval=false` | any role | SDTM column order (`STUDYID, USUBJID`, domain variables, then `INTERIM_*`); `VS` long-format per-sample rows with `per_sample=true`; each export is an `export.generated` event with a SHA-256. Eval data (session `is_eval` **or** participant `is_eval`, which is what hides the eval harness's chart-note drafts) stays out unless `include_eval=true` |
+| `GET /export/bundle.zip?status=&include_eval=false` | any role | `AE/VS/CM .csv + .json`, `VS_samples.csv`, `audit_excerpt.json` (events for the exported entities + a verify result), `manifest.json` (sha256 + bytes per file, audit head hash, version) |
 | `POST /mock-edc/{domain}` | any role | validates the column set (domain SDTM variables + any `INTERIM_*`) and the typed fields with the **same validator as `PATCH /drafts`** (lenient about CSV strings), returns `{ack_id, received, accepted_at}`; nothing leaves the system |
 | `GET /audit`, `GET /audit/verify` | any role | newest first with `entity_type/entity_id/action/actor_id` filters; verify recomputes every hash |
 | `GET /eval/personas`, `POST /eval/run`, `POST /eval/run-custom`, `GET /eval/results` | any role | see "Eval" |
@@ -115,8 +116,8 @@ into the same rows a check-in produces, through the same `apply_result`.
 
 | Method & path | Auth | What |
 |---|---|---|
-| `POST /scan {text, ref_date?}` | any role | dry run: the `ScanResult` (`symptoms`, `excluded_symptoms`, `meds`, `excluded_meds`, `red_flags`, each with `span_start`/`span_end` into `text`) plus `rules_fired`, `why`, `escalation_level`, `seriousness_suspected` and the `tier` the note would get. Nothing stored, nothing audited. |
-| `POST /notes {usubjid \| display_label, note_date, author, note_type, text, ingested_at_override?}` | coordinator / investigator / admin (`ingested_at_override` admin-only) | stores the note verbatim (`ChartNote`), audits `note.ingested`, scans, audits `note.scanned` + one `rule.fired` per rule, then drafts: one **AE** per kept symptom (`AETERM` = the quoted words, `AEDECOD` = CTCAE v5 term, `AETOXGR` = grade hint, `AESTDTC` = onset date if the note states one else `note_date`, `INTERIM_SOURCE = "chart_note"`, `INTERIM_GRADE_BASIS`, `INTERIM_RESOLVED_CUE`), one **CM** per kept medication (`CMTRT` = quoted words, `CMDECOD` = lexicon generic, `CMSTDTC` on started/changed, `CMENDTC` on stopped, `INTERIM_MATCH_KIND = "lexicon"`). Returns `{note, scan, drafts, escalation, sae_clock, rules_fired, why, ae_links, evidence_index, tier, tier_name}` (201). |
+| `POST /scan {text, ref_date?}` | any role | dry run: the `ScanResult` (`symptoms`, `excluded_symptoms`, `meds`, `excluded_meds`, `red_flags`, each with `span_start`/`span_end` into `text`) plus `rules_fired`, `why`, `escalation_level`, `seriousness_suspected` and the `tier` the note would get. Nothing stored, nothing audited; its `chart_note` evidence pointers carry `id: "scan"` and `ts: null` because there is no note to point at. |
+| `POST /notes {usubjid \| display_label, note_date, author, note_type, text, ingested_at_override?}` | coordinator / investigator / admin (`ingested_at_override` admin-only) | stores the note verbatim (`ChartNote`), audits `note.ingested`, scans, audits `note.scanned` + one `rule.fired` per rule, then drafts: one **AE** per kept symptom (`AETERM` = the quoted words, `AEDECOD` = CTCAE v5 term, `AETOXGR` = grade hint, `AESTDTC` = onset date if the note states one else `note_date`, `INTERIM_SOURCE = "chart_note"`, `INTERIM_GRADE_BASIS`, `INTERIM_STATED_ONSET_DATE`, `INTERIM_RESOLVED_CUE`), one **CM** per kept medication (`CMTRT` = quoted words, `CMDECOD` = lexicon generic, `CMSTDTC` on started/changed, `CMENDTC` on stopped, `INTERIM_MATCH_KIND = "lexicon"`). Returns `{note, scan, drafts, escalation, sae_clock, rules_fired, why, ae_links, evidence_index, tier, tier_name}` (201). **Duplicate guard**: the same participant + `note_date` + verbatim `text` already ingested (whatever the `author` field says) is a 409 `Duplicate note` problem carrying `existing_note_id`, so a double-click or a retried request never stores and drafts a note twice. |
 | `GET /notes?usubjid=&include_eval=false&limit&offset` | any role | newest ingestion first; `ChartNoteListItem` = note + `n_symptoms`, `n_meds`, `n_red_flags`, `draft_counts`, `escalation_acked`, `has_sae_clock` |
 | `GET /notes/{id}` | any role | the same shape as `POST /notes` |
 
@@ -130,12 +131,29 @@ Rules of the note desk:
   Tier 3, never pages and never shows a stop screen (D-017): it is retrospective.
 * **Seriousness**: a hospitalization/ER cue sets `seriousness_suspected` and starts the SAE clock
   with `site_awareness_at = ingested_at`, the moment the site read the note. An investigator's
-  `AESER` on any of the note's AE drafts stops it (`PATCH /drafts/{id}/attribution`).
+  `AESER` on any of the note's AE drafts stops it (`PATCH /drafts/{id}/attribution`); when the
+  cue came with no symptom finding (no AE draft to attribute), the investigator stops the clock
+  directly with `PATCH /sae-clocks/{id}/stop` (D-023).
 * **Cross-source de-duplication**: the same `AEDECOD` already open for the participant, from a
   check-in or an earlier note, within `dedup.json`'s window is a follow-up (`is_followup`,
   `linked_ae_open_id`, `INTERIM_FOLLOWUP_OF`, `AESTDTC` of the original) and extends the
   `AEOpen` row (`last_note_id`); the reverse direction (note first, kiosk later) works the same
-  because `build_engine_input` loads every open AE regardless of source.
+  because `build_engine_input` loads every open AE regardless of source. A note is the one
+  source that can legitimately be *read before* a later report of the same term (an admin
+  backdates `ingested_at` for the seed or a late-filed outside record), so `services/notes.py`
+  applies the window **in either direction** (`find_open_ae_for_note`; the dedup rule's inputs
+  say `read_before_last_report: true` and `days_since_last_report` is negative) and the open
+  AE's `last_reported_at` never moves backwards. Without this a backdated note would open a
+  second concurrent AE for the same term.
+* **`AESTDTC` precision**: a new note AE carries the calendar date the note supports
+  (`2026-10-02`, a partial ISO 8601 date, which SDTM allows); a follow-up carries the linked
+  AE's `first_reported_at`, a full timestamp when a kiosk check-in opened it. One export column
+  therefore mixes the two precisions on purpose: the API never fabricates a time of day it does
+  not have. When a follow-up note states an onset **earlier** than the AE's first report, the
+  draft keeps the first report as `AESTDTC` (CONTRACTS §1.8) and says so:
+  `INTERIM_STATED_ONSET_DATE`, `INTERIM_ONSET_BEFORE_FIRST_REPORT = true`, the quote on the
+  `AESTDTC` evidence, and a why line ("the note dates onset to …, coordinator to decide"). Moving
+  the start date of a confirmed AE is a human edit (`PATCH /drafts/{id}`), not an inference.
 * **"Resolved / improved"** in the text is flagged (`INTERIM_RESOLVED_CUE = true`, a why line)
   for the coordinator to set `AEENDTC`; the API never proposes an end date itself.
 * **Queue and timeline**: `GET /queue` lists notes next to check-ins (`source: "chart_note"`,
@@ -297,9 +315,12 @@ the rules package's answer key (`chartscan.answer_key()`, identical to
 distance from the answer key's reference date (`utterance_ref_date`, 2026-10-10), so N1 is always
 5 days ago and N3/N7 yesterday, and the cross-source follow-up links hold on any seed date. P-002's
 second check-in is 6 days ago so note N2 (2 days ago) links its Rash and Pruritus as follow-ups;
-N7 links onto N1. N6 (ED visit) starts the only SAE clock (at ingestion, two days ago, so it shows
-as overdue until an investigator records `AESER`) and its Tier 2 escalation is acknowledged; N3's
-Tier 2 escalation is left open for the demo. Note drafts stay `draft`.
+N7 links onto N1. N6 (the ED visit) keeps its note date two days back but is **read by the site
+about 3 hours before the seed clock** (`NoteSeed.ingested_hours_before_seed`; notes are ingested
+in `ingested_at` order, so N6 goes last): its SAE clock starts at that ingestion and the dashboard
+shows a live ~21 h countdown on first load instead of an already-overdue one; it runs until an
+investigator records `AESER` on one of N6's AE drafts. N6's Tier 2 escalation is acknowledged;
+N3's Tier 2 escalation is left open for the demo. Note drafts stay `draft`.
 
 ## Layout
 

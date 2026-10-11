@@ -70,6 +70,20 @@ def test_persona_list_and_full_run_pass_100_percent(client) -> None:
     # Eval sessions are hidden from the queue unless asked for.
     assert client.get("/api/v1/queue", headers=coord).json()["total"] == 0
     assert client.get("/api/v1/queue?include_eval=true", headers=coord).json()["total"] >= 29
+    # ... and from the Escalations page, the SAE clocks and the pager log: a run must not
+    # leave a wall of never-acknowledged EVAL rows and unstoppable clocks behind.
+    for path in ("/escalations?acked=false", "/escalations", "/sae-clocks?active=true", "/pages"):
+        assert client.get(f"/api/v1{path}", headers=coord).json()["total"] == 0, path
+        joiner = "&" if "?" in path else "?"
+        shown = client.get(f"/api/v1{path}{joiner}include_eval=true", headers=coord).json()
+        assert shown["total"] > 0, path
+    shown_esc = client.get("/api/v1/escalations?include_eval=true&limit=100", headers=coord).json()
+    assert {e["source"] for e in shown_esc["items"]} == {"check_in", "chart_note"}
+    assert all(e["usubjid"].startswith("R2810-ONC-1624-EVAL") for e in shown_esc["items"])
+    assert all(
+        r["usubjid"].startswith("R2810-ONC-1624-EVAL")
+        for r in client.get("/api/v1/sae-clocks?include_eval=true", headers=coord).json()["items"]
+    )
     assert client.get("/api/v1/audit/verify", headers=coord).json()["ok"] is True
 
 

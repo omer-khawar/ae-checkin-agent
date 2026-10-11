@@ -13,8 +13,14 @@ from ..db import Database
 from ..deps import Pagination, get_database
 from ..models import Participant
 from ..problems import problem
-from ..schemas import AckRequest
-from ..services.common import escalation_to_dict, get_session_or_404, get_study, participant_to_dict
+from ..schemas import AckRequest, StopSaeClockRequest
+from ..services.common import (
+    escalation_to_dict,
+    get_session_or_404,
+    get_study,
+    participant_to_dict,
+    sae_clock_to_dict,
+)
 from ..services.dashboard import (
     ack_escalation,
     checkin_detail,
@@ -22,6 +28,7 @@ from ..services.dashboard import (
     list_pages,
     list_sae_clocks,
     queue,
+    stop_sae_clock,
     timeline,
 )
 from ..services.participants import require_participant
@@ -92,12 +99,18 @@ def get_timeline(usubjid: str, database: Database = Depends(get_database)) -> di
 def get_escalations(
     acked: bool | None = Query(default=None),
     usubjid: str | None = Query(default=None),
+    include_eval: bool = Query(default=False),
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.read_scope() as db:
         return list_escalations(
-            db, acked=acked, usubjid=usubjid, limit=page.limit, offset=page.offset
+            db,
+            acked=acked,
+            usubjid=usubjid,
+            limit=page.limit,
+            offset=page.offset,
+            include_eval=include_eval,
         )
 
 
@@ -116,16 +129,35 @@ def post_ack(
 @router.get("/sae-clocks")
 def get_sae_clocks(
     active: bool | None = Query(default=True),
+    include_eval: bool = Query(default=False),
     page: Pagination = Depends(),
     database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.read_scope() as db:
-        return list_sae_clocks(db, active=active, limit=page.limit, offset=page.offset)
+        return list_sae_clocks(
+            db, active=active, limit=page.limit, offset=page.offset, include_eval=include_eval
+        )
+
+
+@router.patch("/sae-clocks/{clock_id}/stop")
+def patch_stop_sae_clock(
+    clock_id: str,
+    body: StopSaeClockRequest,
+    actor: Actor = Depends(require_role("investigator")),
+    database: Database = Depends(get_database),
+) -> dict[str, Any]:
+    """Investigator-only: record a seriousness decision on a clock that has no AE draft to
+    attribute (D-023). ``PATCH /drafts/{id}/attribution`` remains the usual path."""
+    with database.write_scope() as db:
+        row = stop_sae_clock(db, actor, clock_id, decision=body.decision, note=body.note)
+        return sae_clock_to_dict(row)
 
 
 @router.get("/pages")
 def get_pages(
-    page: Pagination = Depends(), database: Database = Depends(get_database)
+    include_eval: bool = Query(default=False),
+    page: Pagination = Depends(),
+    database: Database = Depends(get_database),
 ) -> dict[str, Any]:
     with database.read_scope() as db:
-        return list_pages(db, limit=page.limit, offset=page.offset)
+        return list_pages(db, limit=page.limit, offset=page.offset, include_eval=include_eval)

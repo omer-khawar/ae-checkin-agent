@@ -149,6 +149,19 @@ class AckRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class StopSaeClockRequest(BaseModel):
+    """Investigator-only ``PATCH /sae-clocks/{id}/stop`` (D-023): the seriousness decision
+    recorded directly on a clock whose source drafted no AE (hospitalization cue only)."""
+
+    decision: str = Field(
+        min_length=1,
+        max_length=200,
+        description="the investigator's seriousness decision, e.g. 'AESER = N: fall, "
+        "not related to study treatment' or 'AESER = Y'",
+    )
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class MockEdcRequest(BaseModel):
     records: list[dict[str, Any]] = Field(min_length=1, max_length=10000)
 

@@ -35,6 +35,7 @@ from ..problems import problem
 from ..util import load_json, now_iso
 from .checkins import session_answers, session_samples
 from .common import (
+    ae_link,
     ae_open_to_dict,
     answer_to_dict,
     draft_to_dict,
@@ -366,15 +367,7 @@ def checkin_detail(db: DbSession, session: Session) -> dict[str, Any]:
     clock = db.exec(select(SAEClock).where(SAEClock.session_id == session.id)).first()
     vitals = result.get("vitals") or {}
     ae_links = [
-        {
-            "draft_id": d.id,
-            "ae_open_id": d.linked_ae_open_id,
-            "first_session_id": (
-                opened.first_session_id if (opened := db.get(AEOpen, d.linked_ae_open_id)) else None
-            ),
-            "first_reported_at": opened.first_reported_at if opened else None,
-            "aedecod": opened.aedecod if opened else None,
-        }
+        ae_link(d, db.get(AEOpen, d.linked_ae_open_id))
         for d in draft_rows
         if d.is_followup and d.linked_ae_open_id
     ]
@@ -496,15 +489,29 @@ def timeline(db: DbSession, participant: Participant) -> dict[str, Any]:
 
 
 def list_escalations(
-    db: DbSession, *, acked: bool | None, usubjid: str | None, limit: int, offset: int
+    db: DbSession,
+    *,
+    acked: bool | None,
+    usubjid: str | None,
+    limit: int,
+    offset: int,
+    include_eval: bool = False,
 ) -> dict[str, Any]:
-    stmt = select(Escalation)
+    """Escalations, highest tier first. Eval-harness rows (participant ``is_eval``) are
+    hidden unless ``include_eval``, like the queue: an eval run must not leave
+    never-acknowledged ``EVAL-*`` rows on the Escalations page."""
+    stmt = select(Escalation).join(
+        Participant,
+        Participant.usubjid == Escalation.usubjid,  # type: ignore[arg-type]
+    )
     if acked is True:
         stmt = stmt.where(Escalation.acked_at != None)  # noqa: E711
     elif acked is False:
         stmt = stmt.where(Escalation.acked_at == None)  # noqa: E711
     if usubjid:
         stmt = stmt.where(Escalation.usubjid == usubjid)
+    if not include_eval:
+        stmt = stmt.where(Participant.is_eval == False)  # noqa: E712
     # Highest tier first, newest first within a tier.
     rows = sorted(db.exec(stmt).all(), key=lambda e: e.created_at, reverse=True)
     rows.sort(key=lambda e: e.tier, reverse=True)
@@ -555,13 +562,25 @@ def ack_escalation(
 
 
 def list_sae_clocks(
-    db: DbSession, *, active: bool | None, limit: int, offset: int, now: str | None = None
+    db: DbSession,
+    *,
+    active: bool | None,
+    limit: int,
+    offset: int,
+    now: str | None = None,
+    include_eval: bool = False,
 ) -> dict[str, Any]:
-    stmt = select(SAEClock)
+    """SAE clocks, soonest due first; eval-harness clocks hidden unless ``include_eval``."""
+    stmt = select(SAEClock).join(
+        Participant,
+        Participant.usubjid == SAEClock.usubjid,  # type: ignore[arg-type]
+    )
     if active is True:
         stmt = stmt.where(SAEClock.stopped_at == None)  # noqa: E711
     elif active is False:
         stmt = stmt.where(SAEClock.stopped_at != None)  # noqa: E711
+    if not include_eval:
+        stmt = stmt.where(Participant.is_eval == False)  # noqa: E712
     rows = sorted(db.exec(stmt).all(), key=lambda c: c.due_at)
     reference = now or now_iso()
     return {
@@ -572,8 +591,73 @@ def list_sae_clocks(
     }
 
 
-def list_pages(db: DbSession, *, limit: int, offset: int) -> dict[str, Any]:
-    rows = sorted(db.exec(select(Page)).all(), key=lambda p: p.ts, reverse=True)
+def stop_sae_clock(
+    db: DbSession,
+    actor: Actor,
+    clock_id: str,
+    *,
+    decision: str,
+    note: str | None,
+    now: str | None = None,
+) -> SAEClock:
+    """``PATCH /sae-clocks/{id}/stop``: an investigator records a seriousness decision
+    directly on the clock (D-023).
+
+    The usual stop path is ``PATCH /drafts/{id}/attribution`` with ``AESER``, which
+    stops the clock of the draft's source. A hospitalization/ER cue with no symptom
+    finding (a note saying "admitted overnight after a fall", or a kiosk check-in
+    answering Yes to the hospital question with every item at zero) starts a clock
+    but drafts no AE, so there would be nothing to attribute and the clock could
+    never stop. This endpoint closes that gap; the decision is still the
+    investigator's and is audited as ``sae_clock.stopped`` exactly like the
+    attribution path.
+    """
+    row = db.get(SAEClock, clock_id)
+    if row is None:
+        raise problem(404, f"No SAE clock with id {clock_id}", title="SAE clock not found")
+    if row.stopped_at is not None:
+        raise problem(
+            409,
+            f"SAE clock {row.id} was stopped by {row.stopped_by} at {row.stopped_at} "
+            f"({row.decision})",
+            title="Already stopped",
+        )
+    stamp = now or now_iso()
+    row.stopped_at = stamp
+    row.stopped_by = actor.id
+    row.decision = decision
+    db.add(row)
+    db.flush()
+    append_event(
+        db,
+        actor,
+        "sae_clock.stopped",
+        "sae_clock",
+        row.id,
+        {
+            "session_id": row.session_id,
+            "note_id": row.note_id,
+            "usubjid": row.usubjid,
+            "decision": decision,
+            "note": note,
+            "stopped_at": stamp,
+            "due_at": row.due_at,
+            "within_24h": stamp <= row.due_at,
+            "path": "sae_clock.stop",
+        },
+        ts_utc=stamp,
+    )
+    return row
+
+
+def list_pages(
+    db: DbSession, *, limit: int, offset: int, include_eval: bool = False
+) -> dict[str, Any]:
+    """The mock pager log, newest first; eval-harness pages hidden unless ``include_eval``."""
+    stmt = select(Page).join(Participant, Participant.usubjid == Page.usubjid)  # type: ignore[arg-type]
+    if not include_eval:
+        stmt = stmt.where(Participant.is_eval == False)  # noqa: E712
+    rows = sorted(db.exec(stmt).all(), key=lambda p: p.ts, reverse=True)
     return {
         "items": [page_to_dict(p) for p in rows[offset : offset + limit]],
         "total": len(rows),

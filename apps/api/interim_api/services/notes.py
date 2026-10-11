@@ -42,6 +42,7 @@ The tier of a note (not a PRO instrument, so no composite grades):
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -51,7 +52,12 @@ from sqlmodel import Session as DbSession
 from sqlmodel import select
 
 from interim_rules import chartscan
-from interim_rules.dedup import DEDUP_TABLE_FILE, effective_window_days, find_open_ae
+from interim_rules.dedup import (
+    DEDUP_TABLE_FILE,
+    OpenAESearch,
+    effective_window_days,
+    find_open_ae,
+)
 from interim_rules.models import OpenAE, RuleSettings
 from interim_rules.seriousness import SERIOUSNESS_TABLE_FILE, build_clock
 from interim_rules.tables import escalation_ladder, seriousness_config
@@ -60,10 +66,20 @@ from ..audit import Actor, append_event
 from ..models import AEOpen, ChartNote, Draft, Escalation, Participant, SAEClock, Study
 from ..problems import problem
 from ..settings import Settings
-from ..util import dump_json, iso_date, load_json, new_id, normalize_iso, now_iso, to_jsonable
+from ..util import (
+    dump_json,
+    iso_date,
+    load_json,
+    new_id,
+    normalize_iso,
+    now_iso,
+    parse_iso_utc,
+    seconds_between,
+    to_jsonable,
+)
 from .checkins import DraftInput, apply_result, next_aeseq_for, open_aes_for
 from .common import (
-    ae_open_to_dict,
+    ae_link,
     chart_note_to_dict,
     draft_to_dict,
     escalation_to_dict,
@@ -108,10 +124,17 @@ def _iso_or_422(value: str, what: str) -> str:
         raise problem(422, f"{what}: {exc}", title="Invalid timestamp") from exc
 
 
+DRY_RUN_POINTER_ID = "scan"
+"""``id`` of the ``chart_note`` pointers a ``POST /scan`` dry run emits: nothing was stored, so
+there is no note id to point at and ``ts`` is ``None`` (``Evidence.ts: str | None``)."""
+
+
 def note_pointer(
-    note_id: str, ingested_at: str, quote: str, span_start: int, span_end: int
+    note_id: str, ingested_at: str | None, quote: str, span_start: int, span_end: int
 ) -> dict[str, Any]:
-    """The ``chart_note`` evidence pointer (R2.4): which words of which note, and when."""
+    """The ``chart_note`` evidence pointer (R2.4): which words of which note, and when.
+
+    ``ingested_at`` is ``None`` only for a dry run (no ingestion happened)."""
     return {
         "kind": "chart_note",
         "id": note_id,
@@ -149,6 +172,76 @@ def _rule(
     }
 
 
+def note_text_sha256(text: str) -> str:
+    """Fingerprint of the verbatim note text for the duplicate guard (``POST /notes``)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def find_duplicate_note(
+    db: DbSession, *, usubjid: str, note_date: str, text: str
+) -> ChartNote | None:
+    """An already-ingested note with the same participant, note date and verbatim text.
+
+    ``POST /notes`` has no client idempotency key, so a double-click on the Notes
+    page's Ingest button or a retried request would otherwise store the note
+    twice and draft it twice (the second AE as a follow-up of the first, the CM
+    outright). Same words, same day, same participant is the same note, whoever
+    typed the author field.
+    """
+    candidates = db.exec(
+        select(ChartNote)
+        .where(ChartNote.usubjid == usubjid)
+        .where(ChartNote.note_date == note_date)
+    ).all()
+    digest = note_text_sha256(text)
+    for candidate in sorted(candidates, key=lambda n: (n.ingested_at, n.id)):
+        if note_text_sha256(candidate.text) == digest:
+            return candidate
+    return None
+
+
+def find_open_ae_for_note(
+    aedecod: str,
+    open_aes: Sequence[OpenAE],
+    ingested_at: str,
+    window_days: int,
+    *,
+    note_id: str,
+) -> tuple[OpenAESearch, bool]:
+    """The engine's ``find_open_ae`` plus the one case a note adds: backdated ingestion.
+
+    ``find_open_ae`` skips an open AE whose last report is dated more than the
+    clock-skew tolerance *after* the reference time, because for a live check-in
+    that can only be bad data. A note is different: an admin may backdate
+    ``ingested_at`` (the seed, a late-filed outside record), so the note can
+    legitimately be "read" before a kiosk report of the same term. The same
+    CTCAE term within the dedup window **in either direction** is the same
+    episode, so when the engine finds nothing, the skipped-for-skew candidates
+    inside the window are reconsidered (most recent last report wins) and the
+    second return value says the link was made that way (``days_since`` is then
+    negative). The window is the same table value; nothing else changes.
+    """
+    search = find_open_ae(aedecod, open_aes, ingested_at, window_days, session_id=note_id)
+    if search.linked is not None:
+        return search, False
+    best: OpenAE | None = None
+    best_days: float | None = None
+    for candidate in open_aes:
+        if candidate.aedecod != aedecod or candidate.last_session_id == note_id:
+            continue
+        delta_days = seconds_between(candidate.last_reported_at, ingested_at) / 86_400
+        if delta_days >= 0 or -delta_days > window_days:
+            continue
+        if best is None or parse_iso_utc(candidate.last_reported_at) > parse_iso_utc(
+            best.last_reported_at
+        ):
+            best, best_days = candidate, delta_days
+    if best is None:
+        return search, False
+    skipped = tuple(entry for entry in search.skipped if entry[0] != best.ae_open_id)
+    return OpenAESearch(best, best_days, skipped), True
+
+
 def open_ae_inputs(rows: Sequence[AEOpen]) -> list[OpenAE]:
     """``AEOpen`` rows -> the engine's ``OpenAE`` (a note-opened AE's last note id stands in
     for ``last_session_id``, exactly as ``build_engine_input`` does for check-ins)."""
@@ -178,7 +271,11 @@ def scan_only(text: str, ref_date: str | None) -> dict[str, Any]:
             **r,
             "evidence": [
                 note_pointer(
-                    "dry-run", "", str(r["quote"]), int(r["span_start"]), int(r["span_end"])
+                    DRY_RUN_POINTER_ID,
+                    None,
+                    str(r["quote"]),
+                    int(r["span_start"]),
+                    int(r["span_end"]),
                 )
             ],
         }  # type: ignore[arg-type]
@@ -260,30 +357,53 @@ def _ae_draft(
     )
     context = _rule_pointer("draft.ae", ingested, f"chart note {note.id} context")
 
-    search = find_open_ae(finding.term, open_aes, ingested, window_days, session_id=note.id)
+    search, read_before = find_open_ae_for_note(
+        finding.term, open_aes, ingested, window_days, note_id=note.id
+    )
     linked, days = search.linked, search.days_since
     skipped = [list(entry) for entry in search.skipped]
+    # The onset the note itself states (``ref_date - onset_days``), kept on every AE draft so
+    # a follow-up whose stated onset predates the open AE's first report is visible as such.
+    stated_onset = finding.onset_date
+    onset_before_first_report = False
     if linked is not None and days is not None:
         dedup_rule_id = "dedup.followup_linked"
+        aestdtc = normalize_iso(linked.first_reported_at)
+        onset_before_first_report = stated_onset is not None and (
+            f"{stated_onset}T00:00:00.000Z" < aestdtc
+        )
+        when = (
+            f"{days:.1f} day(s) after open AE"
+            if not read_before
+            else f"{-days:.1f} day(s) before the last report of open AE (backdated ingestion)"
+        )
+        onset_note = (
+            f"; the note dates onset to {stated_onset}, before the AE's first report "
+            f"{aestdtc}: AESTDTC keeps the first report, coordinator to decide"
+            if onset_before_first_report
+            else ""
+        )
         dedup_rule = _rule(
             dedup_rule_id,
             "dedup",
-            f"{finding.term} reported again in a chart note {days:.1f} day(s) after open AE "
+            f"{finding.term} reported again in a chart note {when} "
             f"{linked.ae_open_id} (last reported {linked.last_reported_at}); within the "
-            f"{window_days}-day window -> follow-up, no new AE",
+            f"{window_days}-day window -> follow-up, no new AE{onset_note}",
             {
                 "aedecod": finding.term,
                 "window_days": window_days,
                 "linked_ae_open_id": linked.ae_open_id,
                 "days_since_last_report": round(days, 2),
+                "read_before_last_report": read_before,
                 "first_reported_at": linked.first_reported_at,
+                "stated_onset_date": stated_onset,
+                "onset_before_first_report": onset_before_first_report,
                 "skipped": skipped,
                 "source": "chart_note",
             },
             f"AE draft links to open AE {linked.ae_open_id} (AEONGO stays Y)",
             (_table_pointer(DEDUP_TABLE_FILE, "window_days"), quote_ev),
         )
-        aestdtc = normalize_iso(linked.first_reported_at)
         aestdtc_ev: list[dict[str, Any]] = [
             _rule_pointer(
                 dedup_rule_id,
@@ -291,6 +411,8 @@ def _ae_draft(
                 f"follow-up of open AE {linked.ae_open_id}; first reported {aestdtc}",
             )
         ]
+        if onset_before_first_report:
+            aestdtc_ev.append(quote_ev)
         built.followups += 1
     else:
         dedup_rule_id = "dedup.new_ae"
@@ -375,6 +497,8 @@ def _ae_draft(
         "INTERIM_NOTE_DATE": note.note_date,
         "INTERIM_GRADE_BASIS": finding.grade_basis,
         "INTERIM_ONSET_DAYS": finding.onset_days,
+        "INTERIM_STATED_ONSET_DATE": stated_onset,
+        "INTERIM_ONSET_BEFORE_FIRST_REPORT": onset_before_first_report,
         "INTERIM_WORSENING": finding.worsening,
         "INTERIM_RESOLVED_CUE": resolved,
     }
@@ -409,6 +533,12 @@ def _ae_draft(
         "INTERIM_NOTE_DATE": [context],
         "INTERIM_GRADE_BASIS": [symptom_rule_ev, quote_ev],
         "INTERIM_ONSET_DAYS": [quote_ev] if finding.onset_days is not None else [],
+        "INTERIM_STATED_ONSET_DATE": [quote_ev] if stated_onset is not None else [],
+        "INTERIM_ONSET_BEFORE_FIRST_REPORT": (
+            [quote_ev, _rule_pointer(dedup_rule_id, ingested, "stated onset vs first report")]
+            if onset_before_first_report
+            else []
+        ),
         "INTERIM_WORSENING": [quote_ev] if finding.worsening else [],
         "INTERIM_RESOLVED_CUE": resolved_ev,
     }
@@ -423,6 +553,11 @@ def _ae_draft(
     )
     built.ae_terms.append(finding.term)
     followup_note = f"; follow-up of open AE {followup_of}" if followup_of else ""
+    if onset_before_first_report:
+        followup_note += (
+            f" (the note dates onset to {stated_onset}, earlier than the AE's first report; "
+            "coordinator to decide whether AESTDTC moves)"
+        )
     resolved_note = (
         "; the note says it resolved or improved (coordinator to set AEENDTC)" if resolved else ""
     )
@@ -438,6 +573,8 @@ def _ae_draft(
                 "aedecod": finding.term,
                 "aetoxgr": finding.grade_hint,
                 "aestdtc": aestdtc,
+                "stated_onset_date": stated_onset,
+                "onset_before_first_report": onset_before_first_report,
                 "resolved_cue": resolved,
                 "tier": tier,
                 "followup_of": followup_of,
@@ -568,6 +705,19 @@ def ingest_note(
         )
     if not text.strip():
         raise problem(422, "text must not be blank", title="Empty note")
+    duplicate = find_duplicate_note(
+        db, usubjid=participant.usubjid, note_date=ref.isoformat(), text=text
+    )
+    if duplicate is not None:
+        raise problem(
+            409,
+            f"This note (same participant, note date {duplicate.note_date} and text) was "
+            f"already ingested at {duplicate.ingested_at} as note {duplicate.id}; open it "
+            "instead of ingesting it again",
+            title="Duplicate note",
+            existing_note_id=duplicate.id,
+            existing_note_url=f"/dashboard/notes/{duplicate.id}",
+        )
 
     note = ChartNote(
         id=new_id(),
@@ -888,21 +1038,11 @@ def note_detail(
     escalation = db.exec(select(Escalation).where(Escalation.note_id == note.id)).first()
     clock = db.exec(select(SAEClock).where(SAEClock.note_id == note.id)).first()
     rules = list(stored.get("rules_fired", []))
-    ae_links = []
-    for d in draft_rows:
-        if d.is_followup and d.linked_ae_open_id:
-            opened = db.get(AEOpen, d.linked_ae_open_id)
-            ae_links.append(
-                {
-                    "draft_id": d.id,
-                    "ae_open_id": d.linked_ae_open_id,
-                    "first_session_id": opened.first_session_id if opened else None,
-                    "first_note_id": opened.first_note_id if opened else None,
-                    "first_reported_at": opened.first_reported_at if opened else None,
-                    "aedecod": opened.aedecod if opened else None,
-                    "open_ae": ae_open_to_dict(opened) if opened else None,
-                }
-            )
+    ae_links = [
+        ae_link(d, db.get(AEOpen, d.linked_ae_open_id))
+        for d in draft_rows
+        if d.is_followup and d.linked_ae_open_id
+    ]
     return {
         "note": chart_note_to_dict(
             note, display_label=participant.display_label if participant else None

@@ -79,13 +79,18 @@ def test_seed_produces_twelve_participants_with_lived_in_timelines(seeded_client
     unacked = [i for i in open_queue["items"] if i["escalation_acked"] is False]
     assert [(i["display_label"], i["source"]) for i in unacked] == [("P-003", "chart_note")]
 
-    # The ED note (N6) started the only SAE clock, at ingestion, two days ago: overdue and
-    # still running (seriousness is the investigator's call; the seed never records it).
+    # The ED note (N6) is dated two days back but was read by the site ~3 h before the seed
+    # clock, so its SAE clock is a live ~21 h countdown on first load, still running
+    # (seriousness is the investigator's call; the seed never records it).
     clocks = client.get("/api/v1/sae-clocks?active=true", headers=coord).json()
     assert clocks["total"] == 1
     clock = clocks["items"][0]
     assert clock["usubjid"].endswith("P-006") and clock["session_id"] is None and clock["note_id"]
-    assert clock["overdue"] is True and clock["stopped_at"] is None
+    assert clock["overdue"] is False and clock["stopped_at"] is None
+    assert 24 * 3600 - 3.6 * 3600 < clock["seconds_remaining"] < 24 * 3600 - 2.4 * 3600
+    n6 = client.get(f"/api/v1/notes/{clock['note_id']}", headers=coord).json()
+    assert n6["note"]["note_date"] < n6["note"]["ingested_at"][:10]  # written before it was read
+    assert n6["sae_clock"]["site_awareness_at"] == n6["note"]["ingested_at"]
 
     # Eight notes ingested, backdated; N2 links onto P-002's d6 check-in AEs (cross-source)
     # and N7 onto N1's AEs (cross-note); N8 has no AE at all.

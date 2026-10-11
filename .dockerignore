@@ -1,0 +1,66 @@
+# Build context for images built from the repository root (apps/api/Dockerfile).
+# The web and bridge images use their own app directory as context and their own .dockerignore.
+#
+# Rule: an image must build from a clean checkout, so nothing generated locally is shipped:
+# no virtualenvs, node_modules, build output, caches, local databases, or secrets.
+
+# VCS and editor/agent state
+.git
+.github
+.gitattributes
+.claude
+.agents
+.playwright-mcp
+.idea
+.vscode
+**/.DS_Store
+**/Thumbs.db
+
+# Secrets: never in an image. Configuration reaches containers through compose `environment:`.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Python build/test artefacts
+.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+**/build
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.hypothesis
+**/.coverage
+**/coverage.xml
+**/htmlcov
+
+# Node artefacts
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.eslintcache
+
+# Runtime data: the SQLite file lives in a named volume, never in an image
+**/*.db
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
+data/runtime
+exports
+tmp
+
+# Not needed by any image built from the root context
+docs
+backend
+presage-bridge
+legacy
+apps/web
+apps/vitals-bridge
+scripts
+packages/rules/tests
+apps/api/tests
