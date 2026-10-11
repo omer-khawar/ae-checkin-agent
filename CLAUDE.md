@@ -1,6 +1,53 @@
-# CLAUDE.md — INTERIM: Between-Visit AE Check-In with Contactless Vitals as eSource
+# CLAUDE.md — INTERIM: the trial coordinator's safety-data desk
 
-> This file is the complete build brief. You are starting from an empty repository. Read it fully before writing any code. Everything the product needs is specified here; where a decision is left open, make the simplest choice that keeps the demo path bulletproof and write it down in `docs/DECISIONS.md`.
+> This file is the complete build brief. Read it fully before writing any code. **Read §00 first: it is a direction update made on 2026-10-10 after mentor feedback, and it overrides anything below that conflicts with it.** Where a decision is left open, make the simplest choice that keeps the demo path bulletproof and write it down in `docs/DECISIONS.md`.
+
+---
+
+## 00. Direction update (2026-10-10, evening) — READ FIRST, OVERRIDES CONFLICTS BELOW
+
+**Why it changed.** A Regeneron mentor reviewed the build. His points: the starter sheet is a guide to a problem area, not the whole scope; "AI wrappers" are fine if they lighten site staff's work; consent is covered by the informed consent form signed at enrollment; most judges are not doctors and will not value clinical depth; Presage is cool but will not work cleanly. Research backs him: about 70% of EDC data is retyped from the EHR, coordinators spend 12–15 h per study per week copying, and SAE reporting carries a 24-hour deadline that eats a coordinator's day. Presage's documented valid pulse range ends at 110 bpm, so the two pulse ≥ 110 corroboration rules can never fire on its real readings.
+
+**New scope.** Interim is the **coordinator's safety-data desk**: it follows each side effect from its first mention to an EDC-ready record and, when required, a sponsor report, and it briefs the investigator before the next visit. Success is measured as **coordinator time removed**, not Good/Better/Best boxes. The life of one side effect at a site:
+1. The participant feels something between visits.
+2. It is mentioned somewhere: a kiosk check-in, a call, an urgent-care or ER note. *(built: kiosk, chart-note scanner)*
+3. The coordinator has to find it. *(built: queue, scanner, dedup)*
+4. The coordinator types it into the record and the EDC. *(built: SDTM drafts with evidence)*
+5. If it is serious or of special interest, a report and a written narrative are due to the sponsor within 24 hours. *(NEW: §00.2, §00.3)*
+6. The investigator decides seriousness and causality. *(built: attribution screen)*
+7. Sponsor queries come back and must be answered. *(not in scope this round)*
+8. Before the next visit, someone briefs the investigator on everything since the last one. *(NEW: §00.4)*
+
+**What changes in the non-negotiables (§0):**
+- **Rules decide, text tools write, people confirm.** Every decision (grade, tier, who is alerted, whether a 24-hour clock starts, whether a medication breaks the protocol) stays in the deterministic rules engine and its JSON tables. Generated *text* (SAE narratives, visit briefs) is allowed, but every sentence must cite evidence ids that resolve, and a person reviews it before it leaves the system.
+- **Generated text works with no API key.** The default writer is a deterministic template writer that assembles sentences only from evidence fields. An LLM writer (Anthropic Claude via the official SDK, model ids from the environment, never called unless `ANTHROPIC_API_KEY` is set) can replace it behind the same interface; its output is accepted only if every cited evidence id exists and every quoted string appears verbatim in the cited source, otherwise the system falls back to the template writer and says so. A clean clone with no key must show every feature. There is no key yet (2026-10-10), so the template writer is what ships and what the eval measures.
+- **The LLM chart-note reader is deferred** (not this round). The deterministic scanner stays the reader; its Synthea numbers stay in `docs/WHAT_IT_GETS_WRONG.md`.
+- **Vitals are optional context, not the headline.** Keep the bridge, mock source and Presage source; stop leading with "vitals as eSource" in the UI, README and slides. Vitals still never change a grade.
+- **Consent is covered at enrollment.** Remove the per-session camera consent screen from the kiosk; the session records `consent_basis: "enrollment_icf"`. Keep the "no video is stored" sentence on the welcome screen.
+- **Speak to non-clinicians first.** Plain-language labels lead ("Side effect: diarrhea, severe (grade 3, provisional)"); SDTM variable names and rule ids stay available one click deeper. Show time saved on screen.
+
+### 00.1 Protocol-aware rules (deterministic, from the real protocol)
+Source: EMPOWER-Lung 1 protocol R2810-ONC-1624 Amendment 9 (public on ClinicalTrials.gov, `https://cdn.clinicaltrials.gov/large-docs/40/NCT03088540/Prot_000.pdf`), cached as an excerpt with page numbers and sha256 under `data/public/`. Encode as JSON tables in `packages/rules/data/` with page citations:
+- **Adverse events of special interest (§9.4.3, p. 92)** must be reported within 24 hours like SAEs: grade ≥ 2 infusion-related reactions, grade ≥ 2 allergic/hypersensitivity reactions, grade ≥ 3 immune-related AEs, any irAE in a patient previously treated with a PI3K inhibitor. Interim maps its 10 symptoms to "potentially immune-related" (rash, itching, diarrhea/colitis, shortness of breath/pneumonitis, joint pain, fatigue as endocrine signal — keep the mapping as a table with rationale) and starts a **24-hour AESI clock** when a provisional grade ≥ 3 lands on one of them. The clock is labeled "possible AESI, investigator to confirm"; it uses the same SAE-clock machinery with a `kind` field (`sae` | `aesi`).
+- **SAE reporting (§9.4.2, p. 91):** all SAEs within 24 hours regardless of causality; follow-up reports for missing information.
+- **Prohibited and discouraged concomitant medications (§7.7.1–7.7.2, p. 69):** prohibited = other investigational anti-tumor agents, bevacizumab, necitumumab; discouraged = systemic corticosteroids (hydrocortisone, prednisone, prednisolone, dexamethasone) except life-threatening emergencies or irAE treatment; permitted = bisphosphonates, denosumab, pemetrexed maintenance (non-squamous), palliative radiation. A new con-med matching a prohibited entry raises the tier floor to 2 with reason "possible protocol deviation"; a discouraged one adds a coordinator flag (no tier change) with the protocol's exception text.
+- **CM CRF completeness (§7.7, p. 69):** generic name, dose, dose unit, frequency, indication, start/stop date. CM drafts list which of these are still missing so the coordinator knows what to ask.
+- **AE reporting window (§9.4.1, p. 91):** all AEs from consent until 90 days after last dose. Informational on the participant header.
+
+### 00.2 Serious-event packet (SAE / AESI)
+One click on an SAE or AESI clock opens a **packet**: the report fields pre-filled from evidence (event term, onset, seriousness criteria suspected, provisional grade, relevant con-meds, study drug, last dose if known, outcome unknown, reporter, site awareness time, deadline), each field with its evidence pointers, a list of **missing information** to chase, and a **draft narrative** (template writer by default). The investigator edits, then signs; signing is an audit event, stops the clock as "reported (mock)", and exports a packet bundle (JSON + a printable HTML page). Nothing is sent anywhere real; the sponsor endpoint is the existing mock EDC.
+
+### 00.3 Generated-text contract
+`interim_rules.narrative` (template writer, pure, tested) and an optional `apps/api` LLM adapter implement `write(kind, facts) -> {text, sentences: [{text, evidence_ids}], writer: "template"|"llm", fallback_reason?}`. Facts are a structured bundle built by the API from DB rows. The UI shows each sentence with its evidence chips and a "written by template / written by Claude" label.
+
+### 00.4 Visit-prep brief
+One page per participant: everything since the last completed visit (configurable cut-off, default the previous visit date in the seed), grouped as new side effects (with grade trend), open AEs and their status, medication changes (with protocol flags), escalations and clocks, chart notes ingested, vitals context if any, and "questions to ask at the visit" (deterministic: missing CM fields, unresolved AEs, unsigned packets). Every line links to its evidence. Printable. Reachable from the queue and the participant timeline.
+
+### 00.5 Time saved, on screen
+A small, honest metric: for each confirmed record, the number of fields pre-filled from evidence and the number edited by a person; a **time-saved estimate** using per-field minutes from a cited table (`packages/rules/data/time_model.json`, sources: the 12–15 h/week EHR-to-EDC figure and per-field abstraction times; label it an estimate). Shown as a dashboard header strip and on the Monday-morning queue.
+
+### 00.6 The new demo story (replaces §11's emphasis)
+"Monday 8 am. Overnight: three kiosk check-ins and two hospital notes (an ER visit and an urgent-care visit). Interim has already found the side effects with exact quotes, merged duplicates, flagged the ER visit as a possible serious event, started the 24-hour clock, pre-filled the report and drafted its narrative, caught a discouraged steroid against the protocol, and built tomorrow's visit brief. The coordinator reviews and confirms: twenty minutes instead of most of a day." The seed must produce exactly this overnight state.
 
 ---
 

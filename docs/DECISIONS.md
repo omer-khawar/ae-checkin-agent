@@ -97,3 +97,20 @@ Format: date, decision, why, consequences. Newest at the bottom.
 ## 2026-10-10 — D-022: Rules-engine guards added after review
 **Decision:** `vitals_corroboration.json` gained `min_window_s` (pulse 12, breathing 30, HRV 60) and `simulated_sources: ["mock"]`; a reading from a simulated source is never measured regardless of its flag, and a reading with too short a window is ignored. `conmed_matching.json` gained `min_levenshtein_confidence: 0.7` (so "from" no longer matches "iron"). `dedup.json` gained `max_future_skew_s: 300` and dedup skips an open AE from the session being evaluated. `evaluate_checkin` validates its input up front (ISO timestamps, `next_aeseq ≥ 1`, finite numbers). A "yes" con-med change with no name still yields an empty CM draft flagged for the coordinator. VS evidence is bounded (first/last/count) so a 3-minute capture stays under 100 KB.
 **Why:** Each closes a reviewer-demonstrated path where the engine would have corroborated, linked or serialized something it should not have.
+
+## 2026-10-10 — D-023: Scope expands to the coordinator's safety-data workload
+**Decision:** Interim follows each side effect from first mention to an EDC-ready record, a 24-hour sponsor report when required, and an investigator visit brief (CLAUDE.md §00). Success is measured as coordinator time removed. This round adds protocol-aware rules, a serious-event packet with a drafted narrative, a visit-prep brief, and an on-screen time-saved estimate.
+**Why:** Regeneron mentor feedback (the starter sheet is a guide, not the scope; lighten staff work; most judges are not clinicians) and research on site burden (EHR-to-EDC retyping, 24-hour SAE reporting).
+**Consequences:** The "no LLM anywhere" non-negotiable is replaced by "rules decide, text tools write, people confirm" (D-024). Chart-note LLM reading is deferred. `docs/PRD.md`, `SLIDES.md`, `DEMO.md` and the README are rewritten around the Monday-morning story.
+
+## 2026-10-10 — D-024: Generated text ships as a deterministic template writer; Claude is optional
+**Decision:** Narratives and briefs are produced by `interim_rules.narrative`, a template writer that builds each sentence from evidence fields and cites evidence ids. A Claude adapter (official `anthropic` SDK) can replace it when `ANTHROPIC_API_KEY` is set; its output is accepted only if every cited id resolves and every quote appears verbatim, otherwise the template text is used with a stated fallback reason.
+**Why:** There is no API key yet, and a clean clone must show every feature. Decisions never depend on generated text.
+
+## 2026-10-10 — D-025: Protocol rules come from the real EMPOWER-Lung 1 protocol
+**Decision:** AESI criteria (§9.4.3), SAE reporting (§9.4.2), the AE reporting window (§9.4.1) and prohibited/discouraged/permitted concomitant medications (§7.7) are encoded as JSON tables citing printed page numbers in `data/public/empower_lung1_protocol_excerpt.json` (verbatim excerpt of the public ClinicalTrials.gov PDF, sha256 recorded). Grade ≥ 3 on a potentially immune-related item starts a 24-hour AESI clock ("possible AESI, investigator to confirm"); a prohibited con-med floors the tier at 2; a discouraged steroid adds a coordinator flag with the protocol's exception text.
+**Why:** The previous build only started a 24-hour clock on hospitalization and would miss a grade 3 rash, which this protocol requires reporting within 24 hours. Protocol awareness is the most credible thing to show a sponsor's judges.
+
+## 2026-10-10 — D-026: Per-session camera consent removed; vitals demoted
+**Decision:** The kiosk no longer asks for camera consent each session (consent is covered by the informed consent form at enrollment; sessions record `consent_basis: "enrollment_icf"`). Vitals stay as optional context; the UI, README and slides stop leading with "vitals as eSource".
+**Why:** Mentor guidance; Presage's documented valid pulse range ends at 110 bpm, so the pulse ≥ 110 corroboration rules cannot fire on its real readings (recorded in WHAT_IT_GETS_WRONG).

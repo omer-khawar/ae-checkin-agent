@@ -499,3 +499,39 @@ The eight dashboard pages were built against §2 + R2.3/R2.4 with mocked fetch. 
 - `QueueItem` carries `source`, `note_id` (null for check-ins), nullable `session_id` (null for notes) and `sae_stopped_at`; `GET /participants/{usubjid}/timeline` carries `notes[]`.
 - `GET /queue?usubjid=` receives a full USUBJID (the page resolves display labels itself via `GET /participants`).
 - Housekeeping for the web side (not API): the Notes types and the per-page API wrappers (`pages/dashboard/notes/apiNotes.ts`, `pages/dashboard/audit/auditApi.ts`) should be folded into `src/lib/api.ts` / `types.ts` during integration.
+
+---
+
+# Revision 3 (2026-10-10, evening) — expanded scope (CLAUDE.md §00)
+
+Implements CLAUDE.md §00.1–§00.6. Built in two stages: rules package first, then API + web.
+
+## R3.1 Rules package additions (`interim_rules`)
+All new numbers and lists live in JSON tables with `source`, `rationale` and, where from the protocol, `protocol_ref` (`{section, printed_page}`) pointing into `data/public/empower_lung1_protocol_excerpt.json`.
+- **`data/protocol_rules.json`** (protocol R2810-ONC-1624 Amd 9): `aesi` criteria (§9.4.3 p.92), `sae_reporting_hours: 24` (§9.4.2 p.91), `ae_reporting_window_days_after_last_dose: 90` (§9.4.1 p.91), `conmeds.prohibited[]`, `conmeds.discouraged[]` (with `exception_text` verbatim), `conmeds.permitted[]` (§7.7.1–7.7.2 p.69), `cm_required_fields: ["CMTRT","CMDOSE","CMDOSU","CMDOSFRQ","CMINDC","CMSTDTC","CMENDTC"]` (§7.7 p.69). Drug names lowercase generics; brands map via `medlist.json`.
+- **`data/irae_mapping.json`**: for each of the 10 items, `potentially_immune_related: bool`, `irae_category` (pneumonitis, colitis, dermatologic, endocrine, musculoskeletal, mucosal, none) and rationale (cite the protocol's "rash, colitis, elevated transaminases, or endocrine" examples p.91–92 and Appendix 3 where applicable).
+- **`protocol.py`**: `assess_protocol(result: CheckInResult, conmed: ConMedMatch|None, gates, context: ProtocolContext) -> ProtocolAssessment` with `aesi_suspected: bool`, `aesi_reasons[]`, `conmed_flags: [{level: "prohibited"|"discouraged"|"permitted", drug, protocol_ref, exception_text?}]`, `cm_missing_fields[]`, `tier_floor` (2 for prohibited), `rules_fired[]` (new ids below). `ProtocolContext = {prior_pi3k_inhibitor: bool, last_dose_date: str|None}`. Called by `evaluate_checkin` after con-med matching; its tier floor joins the red-flag floor in the ladder (vitals bump still applies after). AESI suspicion is `grade ≥ 3` on an item with `potentially_immune_related` true, or any irAE-category grade ≥ 1 when `prior_pi3k_inhibitor`. Infusion/allergic-reaction AESIs are not detectable from the 10 kiosk items; the table says so and the chart-note path may set them later.
+- **`CheckInResult`** gains `protocol: ProtocolAssessment` and `aesi_clock: SAEClock|None` (same shape as `sae_clock`, plus `kind: "aesi"`); `sae_clock` gains `kind: "sae"`. Serialization keeps old keys.
+- **New rule ids** (add to `rules_catalog.json`): `protocol.aesi_suspected`, `protocol.conmed_prohibited`, `protocol.conmed_discouraged`, `protocol.conmed_permitted`, `protocol.cm_fields_missing`, `aesi.clock_started`, `tier.protocol_floor`.
+- **`narrative.py`** (template writer, pure): `write(kind: "sae_narrative"|"aesi_narrative"|"visit_brief", facts: dict) -> WrittenText` where `WrittenText = {kind, writer: "template", sentences: [{text, evidence_ids: [str]}], text}`. Every sentence's text is assembled only from fact fields; every sentence has ≥ 1 evidence id taken from the facts. Facts schemas are defined in `narrative.py` as TypedDicts (`SaeFacts`, `BriefFacts`) and documented in the README. Plain English, no medical advice, "provisional, investigator to confirm" wherever a grade appears.
+- **`data/time_model.json`**: per-field manual minutes (AE field, CM field, VS field, SAE form field, narrative paragraph, brief section) with cited sources and a `disclaimer: "estimate"`; `time_saved.py`: `estimate(prefilled_fields: dict[str,int], edited_fields: dict[str,int]) -> {minutes_saved, minutes_manual_baseline, basis[]}`.
+- **`data/plain_language.json`**: SDTM variable → plain label ("AETOXGR" → "Severity grade (provisional)"), rule id → short plain sentence, tier → plain name. Used by the API and web; the web keeps SDTM names one click deeper.
+
+## R3.2 API additions (stage 2)
+- Kiosk: the consent step is removed; `POST /sessions` takes `consent_camera` optional (default true), records `consent_basis: "enrollment_icf"`; the participant can still turn vitals off on the welcome screen.
+- Clocks: `SAEClock` rows gain `kind` (`sae`|`aesi`); `GET /sae-clocks` returns both with `kind`; queue chips show "SAE" or "AESI".
+- `GET /checkins/{id}` adds `protocol` (ProtocolAssessment) and plain-language labels `labels: {field: plain}`.
+- **Packets:** `POST /packets {clock_id}` (coordinator+) creates or returns the packet for a clock; `GET /packets/{id}` → `{id, clock_id, kind, usubjid, status: "draft"|"signed", fields: [{name, plain_label, value, evidence: [Evidence]}], missing_information: [str], narrative: WrittenText, created_at, signed_by, signed_at}`; `PATCH /packets/{id}` edits fields/narrative text (versioned, audited); `POST /packets/{id}/sign` (investigator only) → status signed, clock stopped with decision "reported (mock)", audit `packet.signed`, posts the packet JSON to the mock EDC; `GET /packets/{id}/export.json` and `GET /packets/{id}/print` (HTML).
+- **Briefs:** `GET /participants/{usubjid}/brief?since=YYYY-MM-DD` → `{usubjid, display_label, since, generated_at, sections: [{key, title, items: [{text, evidence_ids, link}]}], narrative: WrittenText, questions_to_ask: [str]}`; `GET /participants/{usubjid}/brief/print` (HTML). Audit `brief.generated`.
+- **Time saved:** `GET /metrics/time-saved?since=` → `{minutes_saved, minutes_manual_baseline, records_confirmed, fields_prefilled, fields_edited, packets_signed, briefs_generated, basis[]}`; every confirmed draft stores `prefilled_fields`/`edited_fields` counts.
+- **Writer selection:** `GET /settings/public` adds `writer: "template"|"llm"`, `llm_configured: bool`. The LLM adapter (stage 2, optional) lives in `apps/api/interim_api/writers/llm.py`, uses the official `anthropic` SDK only when `ANTHROPIC_API_KEY` is set, validates evidence ids and verbatim quotes, and falls back to the template writer with `fallback_reason`. No network calls in tests (the adapter is unit-tested with a fake client).
+- **Seed:** produces the §00.6 Monday-morning state relative to the seed clock: 3 overnight kiosk check-ins (one with a G3 rash → AESI clock; one with a discouraged steroid "prednisone" con-med; one routine), 2 overnight chart notes (an ER visit for one participant → SAE clock + escalation; an urgent-care visit → follow-up linked to an open AE), plus the existing history; one participant's next visit is "tomorrow" so the brief is meaningful.
+- Audit actions added: `packet.created`, `packet.edited`, `packet.signed`, `brief.generated`, `clock.started` (with kind).
+
+## R3.3 Web additions (stage 2)
+- Kiosk: remove the consent screen; welcome screen keeps the "no video stored" line and an "I'd rather not use the camera" toggle.
+- Dashboard header strip: "Time saved this week (estimate)" from `/metrics/time-saved`, with a hover explaining the basis.
+- Queue: AESI/SAE chips; a "Monday morning" grouping ("Since you were last here: N check-ins, M notes, K need action").
+- Packet page `/dashboard/packets/:id`: fields with evidence chips, missing-info checklist, narrative with per-sentence evidence chips and a "written by template" label, Edit, Sign (investigator), Print.
+- Brief page `/dashboard/participants/:usubjid/brief`: one printable page.
+- Plain-language first: the check-in detail shows plain labels with the SDTM name in a smaller monospace badge; the Why panel's first line per rule is the plain sentence.
