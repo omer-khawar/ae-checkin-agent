@@ -53,7 +53,8 @@ export const NAV = [
 ] as const;
 
 export const HERO = {
-  headline: "Side effects between visits often reach the trial record late.",
+  headline: "Between visits. Every detail matters.",
+  problem: "Side effects between visits often reach the trial record late.",
   subhead:
     "Interim catches them from kiosk check-ins, chart notes and phone calls, and hands the study coordinator ready-to-confirm records, 24-hour reports and visit briefs. Rules decide, templates write, people confirm.",
   image: {

@@ -21,12 +21,12 @@ export interface ConfusionMatrixProps {
   labels?: string[];
 }
 
-/** Teal ramp, light → dark, for counts > 0 (index by quartile of the max). */
+/** Brand sage → deep teal ramp, light → dark, for counts > 0 (index by quartile of the max). */
 const RAMP: ReadonlyArray<{ bg: string; darkText: boolean }> = [
-  { bg: "#5eead4", darkText: true },
-  { bg: "#14b8a6", darkText: true },
-  { bg: "#0f766e", darkText: false },
-  { bg: "#134e4a", darkText: false },
+  { bg: "#dce7df", darkText: true },
+  { bg: "#b8cdbe", darkText: true },
+  { bg: "#125d58", darkText: false },
+  { bg: "#0e4a46", darkText: false },
 ];
 
 const DEFAULT_LABELS = ["G0", "G1", "G2", "G3"];

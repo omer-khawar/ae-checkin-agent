@@ -20,6 +20,7 @@ import { Disclaimer } from "../../components/Disclaimer";
 import { cn } from "@/lib/cn";
 import { FALLBACK_SITE_PHONE } from "../../lib/gates";
 import { Button } from "@/ui/button";
+import { BrandLockup } from "@/ui/brand";
 import { ReadAloudToggle } from "@/ui/kiosk/read-aloud";
 
 export interface KioskShellProps {
@@ -104,10 +105,7 @@ export function KioskShell({
             )}
             data-testid="kiosk-header-row"
           >
-            <div className="flex items-center gap-3 text-k-lead font-bold text-primary">
-              <span className="inline-block size-8 rounded-control bg-primary" aria-hidden="true" />
-              Interim check-in
-            </div>
+            <BrandLockup size="md" suffix="check-in" className="text-k-lead" />
             {statusLine && (
               <p
                 className="m-0 text-k-disclaimer text-muted-foreground"

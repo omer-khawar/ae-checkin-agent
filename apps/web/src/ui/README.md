@@ -20,12 +20,12 @@ component written once (`bg-surface text-foreground rounded-panel`) renders corr
 
 | Scope                                         | Where                                  | Font                  | Root type             | Radius sm / md / lg | Focus ring                |
 | --------------------------------------------- | -------------------------------------- | --------------------- | --------------------- | ------------------- | ------------------------- |
-| `:root`, `[data-surface="console"]` (default) | `/dashboard`, `/admin`, landing, login | Inter variable        | 14px body, 13px table | 6 / 8 / 12          | `#0F766E` 2px, offset 2px |
+| `:root`, `[data-surface="console"]` (default) | `/dashboard`, `/admin`, landing, login | Inter variable        | 14px body, 13px table | 6 / 8 / 12          | `#125D58` 2px, offset 2px |
 | `[data-surface="kiosk"]`                      | `/kiosk`                               | Atkinson Hyperlegible | 20px (`--k-root`)     | 16 / 20 / 28        | `#1E3A8A` 3px, offset 3px |
 
 The kiosk focus ring is blue on purpose (audit): the selected answer is solid teal, so a teal ring
 would read as "selected". The ring is drawn outside the option (offset 3px), on the canvas, where
-it measures 9.8:1. Add `data-text-size="large"` next to `data-surface="kiosk"` (or on a descendant)
+it measures 9.3:1. Add `data-text-size="large"` next to `data-surface="kiosk"` (or on a descendant)
 for the "Larger text" toggle: `--k-root` becomes 24px and every `text-k-*` size scales with it.
 
 The kiosk never shows tier, SAE or AESI colours. Only measured/simulated badges are allowed there.
@@ -74,7 +74,7 @@ ring so the edge reads on a light canvas. Pair it with `rounded-sheet`.
   the fill becomes 96% white with no blur. The fallback is the default rule; blur is added only
   inside `@supports`.
 - **Text on glass:** `text-foreground` and `text-muted-foreground` stay at or above 4.5:1 on
-  `.glass` even when the darkest token colour (`#111827`) sits directly underneath. **Console
+  `.glass` even when the darkest token colour (`#172B2A`) sits directly underneath. **Console
   `text-primary` (teal links, active nav) needs `.glass-strong`** (92% fill), or put the active
   item in an opaque `bg-accent` pill. On `.glass` alone it falls to 3.41:1 over dark content.
 - No glow, gradient text, animated borders, pointer-tracked highlights or SVG distortion
@@ -89,71 +89,65 @@ WCAG 2.x relative-luminance ratios, computed from the hex values in `tokens.css`
 
 | Surface | Foreground                                           | Background                       | Ratio | Needs |      |
 | ------- | ---------------------------------------------------- | -------------------------------- | ----- | ----- | ---- |
-| console | text `#111827`                                       | background `#F3F7F7`             | 16.44 | 4.5   | pass |
-| console | text `#111827`                                       | surface `#FFFFFF`                | 17.74 | 4.5   | pass |
-| console | text `#111827`                                       | surface-subtle `#EEF3F4`         | 15.85 | 4.5   | pass |
-| console | text `#111827`                                       | surface-selected `#E3F1EF`       | 15.29 | 4.5   | pass |
-| console | text-muted `#4B5563`                                 | background `#F3F7F7`             | 7.00  | 4.5   | pass |
-| console | text-muted `#4B5563`                                 | surface `#FFFFFF`                | 7.56  | 4.5   | pass |
-| console | text-muted `#4B5563`                                 | surface-subtle `#EEF3F4`         | 6.75  | 4.5   | pass |
-| console | text-muted `#4B5563`                                 | surface-selected `#E3F1EF`       | 6.51  | 4.5   | pass |
-| console | text-subtle `#5F6B7A`                                | background `#F3F7F7`             | 5.03  | 4.5   | pass |
-| console | text-subtle `#5F6B7A`                                | surface `#FFFFFF`                | 5.43  | 4.5   | pass |
-| console | text-subtle `#5F6B7A`                                | surface-subtle `#EEF3F4`         | 4.85  | 4.5   | pass |
-| console | text-subtle `#5F6B7A`                                | surface-selected `#E3F1EF`       | 4.67  | 4.5   | pass |
-| console | primary (link) `#0F766E`                             | surface `#FFFFFF`                | 5.47  | 4.5   | pass |
-| console | primary (link) `#0F766E`                             | background `#F3F7F7`             | 5.07  | 4.5   | pass |
-| console | primary (link) `#0F766E`                             | surface-subtle `#EEF3F4`         | 4.89  | 4.5   | pass |
-| console | primary-foreground `#FFFFFF`                         | primary `#0F766E`                | 5.47  | 4.5   | pass |
-| console | primary-foreground `#FFFFFF`                         | primary-strong `#115E59`         | 7.58  | 4.5   | pass |
-| console | accent-foreground `#115E59`                          | accent `#E6F2F1`                 | 6.62  | 4.5   | pass |
+| console | text `#172B2A`                                       | background `#F5F3EC`             | 13.36 | 4.5   | pass |
+| console | text `#172B2A`                                       | surface `#FFFFFF`                | 14.84 | 4.5   | pass |
+| console | text `#172B2A`                                       | surface-subtle `#F0EEE6`         | 12.77 | 4.5   | pass |
+| console | text `#172B2A`                                       | surface-selected `#E4EDE7`       | 12.41 | 4.5   | pass |
+| console | text-muted `#425A56`                                 | background `#F5F3EC`             | 6.69  | 4.5   | pass |
+| console | text-muted `#425A56`                                 | surface `#FFFFFF`                | 7.42  | 4.5   | pass |
+| console | text-muted `#425A56`                                 | surface-subtle `#F0EEE6`         | 6.39  | 4.5   | pass |
+| console | text-muted `#425A56`                                 | surface-selected `#E4EDE7`       | 6.21  | 4.5   | pass |
+| console | text-subtle `#566B67`                                | background `#F5F3EC`             | 5.12  | 4.5   | pass |
+| console | text-subtle `#566B67`                                | surface `#FFFFFF`                | 5.68  | 4.5   | pass |
+| console | text-subtle `#566B67`                                | surface-subtle `#F0EEE6`         | 4.89  | 4.5   | pass |
+| console | text-subtle `#566B67`                                | surface-selected `#E4EDE7`       | 4.75  | 4.5   | pass |
+| console | primary (link) `#125D58`                             | surface `#FFFFFF`                | 7.69  | 4.5   | pass |
+| console | primary (link) `#125D58`                             | background `#F5F3EC`             | 6.92  | 4.5   | pass |
+| console | primary (link) `#125D58`                             | surface-subtle `#F0EEE6`         | 6.62  | 4.5   | pass |
+| console | primary-foreground `#FFFFFF`                         | primary `#125D58`                | 7.69  | 4.5   | pass |
+| console | primary-foreground `#FFFFFF`                         | primary-strong `#0E4A46`         | 10.06 | 4.5   | pass |
+| console | accent-foreground `#125D58`                          | accent `#E4EDE7`                 | 6.43  | 4.5   | pass |
 | console | destructive-foreground `#FFFFFF`                     | destructive `#B91C1C`            | 6.47  | 4.5   | pass |
 | console | destructive (text) `#B91C1C`                         | surface `#FFFFFF`                | 6.47  | 4.5   | pass |
-| console | input / border-strong (non-text) `#7B8794`           | surface `#FFFFFF`                | 3.66  | 3     | pass |
-| console | ring (non-text) `#0F766E`                            | background `#F3F7F7`             | 5.07  | 3     | pass |
-| console | ring (non-text) `#0F766E`                            | surface `#FFFFFF`                | 5.47  | 3     | pass |
-| kiosk   | text `#0F172A`                                       | background `#F5F9F9`             | 16.83 | 4.5   | pass |
-| kiosk   | text `#0F172A`                                       | surface `#FFFFFF`                | 17.85 | 4.5   | pass |
-| kiosk   | text `#0F172A`                                       | surface-subtle `#EEF4F4`         | 16.05 | 4.5   | pass |
-| kiosk   | text `#0F172A`                                       | accent `#E6F2F1`                 | 15.59 | 4.5   | pass |
-| kiosk   | text-muted `#334155`                                 | background `#F5F9F9`             | 9.76  | 4.5   | pass |
-| kiosk   | text-muted `#334155`                                 | surface `#FFFFFF`                | 10.35 | 4.5   | pass |
-| kiosk   | text-muted `#334155`                                 | surface-subtle `#EEF4F4`         | 9.31  | 4.5   | pass |
-| kiosk   | text-muted `#334155`                                 | accent `#E6F2F1`                 | 9.04  | 4.5   | pass |
-| kiosk   | primary-foreground (selected option, Next) `#FFFFFF` | primary `#115E59`                | 7.58  | 4.5   | pass |
-| kiosk   | primary-foreground `#FFFFFF`                         | primary-strong (hover) `#134E4A` | 9.48  | 4.5   | pass |
-| kiosk   | primary (text) `#115E59`                             | surface `#FFFFFF`                | 7.58  | 4.5   | pass |
+| console | input / border-strong (non-text) `#7A8884`           | surface `#FFFFFF`                | 3.70  | 3     | pass |
+| console | ring (non-text) `#125D58`                            | background `#F5F3EC`             | 6.92  | 3     | pass |
+| console | ring (non-text) `#125D58`                            | surface `#FFFFFF`                | 7.69  | 3     | pass |
+| kiosk   | text `#172B2A`                                       | background `#F5F3EC`             | 13.36 | 4.5   | pass |
+| kiosk   | text `#172B2A`                                       | surface `#FFFFFF`                | 14.84 | 4.5   | pass |
+| kiosk   | text `#172B2A`                                       | surface-subtle `#F0EEE6`         | 12.77 | 4.5   | pass |
+| kiosk   | text `#172B2A`                                       | accent `#E4EDE7`                 | 12.41 | 4.5   | pass |
+| kiosk   | text-muted `#2E4542`                                 | background `#F5F3EC`             | 9.24  | 4.5   | pass |
+| kiosk   | text-muted `#2E4542`                                 | surface `#FFFFFF`                | 10.26 | 4.5   | pass |
+| kiosk   | text-muted `#2E4542`                                 | surface-subtle `#F0EEE6`         | 8.84  | 4.5   | pass |
+| kiosk   | text-muted `#2E4542`                                 | accent `#E4EDE7`                 | 8.59  | 4.5   | pass |
+| kiosk   | primary-foreground (selected option, Next) `#FFFFFF` | primary `#125D58`                | 7.69  | 4.5   | pass |
+| kiosk   | primary-foreground `#FFFFFF`                         | primary-strong (hover) `#0E4A46` | 10.06 | 4.5   | pass |
+| kiosk   | primary (text) `#125D58`                             | surface `#FFFFFF`                | 7.69  | 4.5   | pass |
 | kiosk   | destructive (validation text) `#991B1B`              | surface `#FFFFFF`                | 8.31  | 4.5   | pass |
-| kiosk   | input / border-strong (option edge) `#64748B`        | surface `#FFFFFF`                | 4.76  | 3     | pass |
-| kiosk   | ring (non-text, outside the option) `#1E3A8A`        | background `#F5F9F9`             | 9.77  | 3     | pass |
+| kiosk   | input / border-strong (option edge) `#637571`        | surface `#FFFFFF`                | 4.87  | 3     | pass |
+| kiosk   | ring (non-text, outside the option) `#1E3A8A`        | background `#F5F3EC`             | 9.33  | 3     | pass |
 | kiosk   | ring (non-text, outside the option) `#1E3A8A`        | surface `#FFFFFF`                | 10.36 | 3     | pass |
 
 ### Text on glass
 
 The composite colour is the glass fill blended over what is underneath. "Over canvas" is the
-normal case; "worst case" assumes the darkest token colour (`#111827`) directly beneath with no
+normal case; "worst case" assumes the darkest token colour (`#172B2A`) directly beneath with no
 blur, which overstates the real risk (blur averages it with lighter pixels).
 
-| Surface | Fill              | Text                 | Over canvas | Over worst case (`#111827` beneath)   |
-| ------- | ----------------- | -------------------- | ----------- | ------------------------------------- |
-| console | .glass 78%        | text `#111827`       | 17.41       | 11.05 pass                            |
-| console | .glass 78%        | text-muted `#4B5563` | 7.42        | 4.71 pass                             |
-| console | .glass 78%        | primary `#0F766E`    | 5.37        | 3.41 **below 4.5: use .glass-strong** |
-| kiosk   | .glass 78%        | text `#0F172A`       | 17.67       | 11.12 pass                            |
-| kiosk   | .glass 78%        | text-muted `#334155` | 10.25       | 6.45 pass                             |
-| kiosk   | .glass 78%        | primary `#115E59`    | 7.51        | 4.72 pass                             |
-| console | .glass-strong 92% | text `#111827`       | 17.59       | 15.13 pass                            |
-| console | .glass-strong 92% | text-muted `#4B5563` | 7.49        | 6.45 pass                             |
-| console | .glass-strong 92% | primary `#0F766E`    | 5.43        | 4.67 pass                             |
-| kiosk   | .glass-strong 92% | text `#0F172A`       | 17.82       | 15.23 pass                            |
-| kiosk   | .glass-strong 92% | text-muted `#334155` | 10.34       | 8.83 pass                             |
-| kiosk   | .glass-strong 92% | primary `#115E59`    | 7.57        | 6.47 pass                             |
-| console | fallback 96%      | text `#111827`       | 17.74       | 16.38 pass                            |
-| console | fallback 96%      | text-muted `#4B5563` | 7.56        | 6.98 pass                             |
-| console | fallback 96%      | primary `#0F766E`    | 5.47        | 5.06 pass                             |
-| kiosk   | fallback 96%      | text `#0F172A`       | 17.85       | 16.49 pass                            |
-| kiosk   | fallback 96%      | text-muted `#334155` | 10.35       | 9.56 pass                             |
-| kiosk   | fallback 96%      | primary `#115E59`    | 7.58        | 7.00 pass                             |
+| Surface | Fill              | Text                 | Over canvas | Over worst case (`#172B2A` beneath) |
+| ------- | ----------------- | -------------------- | ----------- | ----------------------------------- |
+| console | .glass 78%        | text `#172B2A`       | 14.48       | 9.54 pass                           |
+| console | .glass 78%        | text-muted `#425A56` | 7.25        | 4.77 pass                           |
+| console | .glass 78%        | primary `#125D58`    | 7.50        | 4.94 pass                           |
+| kiosk   | .glass 78%        | text `#172B2A`       | 14.48       | 9.54 pass                           |
+| kiosk   | .glass 78%        | text-muted `#2E4542` | 10.02       | 6.60 pass                           |
+| kiosk   | .glass 78%        | primary `#125D58`    | 7.50        | 4.94 pass                           |
+| console | .glass-strong 92% | text `#172B2A`       | 14.70       | 12.74 pass                          |
+| console | .glass-strong 92% | text-muted `#425A56` | 7.36        | 6.37 pass                           |
+| console | .glass-strong 92% | primary `#125D58`    | 7.62        | 6.60 pass                           |
+| kiosk   | .glass-strong 92% | text `#172B2A`       | 14.70       | 12.74 pass                          |
+| kiosk   | .glass-strong 92% | text-muted `#2E4542` | 10.17       | 8.81 pass                           |
+| kiosk   | .glass-strong 92% | primary `#125D58`    | 7.62        | 6.60 pass                           |
 
 ### Status chips
 

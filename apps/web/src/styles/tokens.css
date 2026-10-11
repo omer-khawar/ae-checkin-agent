@@ -11,6 +11,11 @@
  * Hyperlegible (kiosk). The theme's dark block is not carried over: light only
  * (DECISIONS.md D-006). Contrast for every text pair: src/ui/README.md.
  *
+ * Brand identity (D-044): Ivory #F5F3EC canvas, Deep Teal #125D58 primary, Near-Black
+ * #172B2A text, Sage #B8CDBE supporting, Apricot #E5AF88 accent (highlight only, never
+ * text). Manrope for headings (console), Inter for body; the kiosk keeps Atkinson
+ * Hyperlegible for every word a participant reads. Ratios below are WCAG 2.x.
+ *
  * Colour tokens are space-separated RGB channels so Tailwind can add alpha:
  *   colors.background = "rgb(var(--background) / <alpha-value>)".
  *
@@ -28,32 +33,36 @@
     "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* Headings (h1-h3) and the wordmark. */
+  --font-display:
+    "Manrope Variable", "Manrope", "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
 
   /* Canvas and opaque surfaces */
-  --background: 243 247 247; /* #F3F7F7 cool off-white, faint teal tint */
-  --foreground: 17 24 39; /* #111827 */
+  --background: 245 243 236; /* #F5F3EC brand ivory */
+  --foreground: 23 43 42; /* #172B2A brand near-black */
   --surface: 255 255 255; /* #FFFFFF panels, tables, forms (opaque) */
-  --surface-subtle: 238 243 244; /* #EEF3F4 table head, row hover */
-  --surface-selected: 227 241 239; /* #E3F1EF focused / selected row */
+  --surface-subtle: 240 238 230; /* #F0EEE6 table head, row hover (warm) */
+  --surface-selected: 228 237 231; /* #E4EDE7 focused / selected row (sage tint) */
 
   /* Text */
-  --text: 17 24 39; /* #111827 17.74:1 on surface */
-  --text-muted: 75 85 99; /* #4B5563 7.56:1 on surface */
-  --text-subtle: 95 107 122; /* #5F6B7A lightest text allowed, 5.43:1 */
+  --text: 23 43 42; /* #172B2A 14.84:1 on surface, 13.36:1 on ivory */
+  --text-muted: 66 90 86; /* #425A56 7.42:1 on surface, 6.69:1 on ivory, 4.77:1 on .glass worst case */
+  --text-subtle: 86 107 103; /* #566B67 lightest text allowed, 5.6:1 on surface, 4.6:1 on #F0EEE6 */
 
   /* Lines */
-  --border: 213 219 225; /* #D5DBE1 dividers (decorative) */
-  --border-strong: 123 135 148; /* #7B8794 inputs, switches (3.66:1, WCAG 1.4.11) */
+  --border: 222 218 207; /* #DEDACF dividers (decorative) */
+  --border-strong: 122 136 132; /* #7A8884 inputs, switches (3.70:1, WCAG 1.4.11) */
 
-  /* Accent: one teal */
-  --accent: 15 118 110; /* #0F766E primary buttons, links, active nav (5.47:1) */
-  --accent-strong: 17 94 89; /* #115E59 hover/pressed, selected fill (7.58:1 white on it) */
+  /* Accent: brand deep teal */
+  --accent: 18 93 88; /* #125D58 primary buttons, links, active nav (7.69:1 on white) */
+  --accent-strong: 14 74 70; /* #0E4A46 hover/pressed, selected fill (10.06:1 white on it) */
   --accent-fg: 255 255 255;
-  --accent-subtle: 230 242 241; /* #E6F2F1 hover / highlighted item fill */
-  --accent-subtle-fg: 17 94 89; /* #115E59 6.62:1 on accent-subtle */
+  --accent-subtle: 228 237 231; /* #E4EDE7 sage tint: hover / highlighted item fill */
+  --accent-subtle-fg: 18 93 88; /* #125D58 6.43:1 on accent-subtle */
 
   /* Focus ring */
-  --focus: 15 118 110; /* #0F766E */
+  --focus: 18 93 88; /* #125D58 */
   --focus-width: 2px;
   --focus-offset: 2px;
 
@@ -71,13 +80,13 @@
   --glass-border: 255 255 255; /* hairline light edge, used at 70% */
   --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.85);
   --glass-shadow:
-    0 0 0 1px rgb(15 23 42 / 0.06), 0 2px 6px -1px rgb(15 23 42 / 0.06),
-    0 16px 40px -12px rgb(15 23 42 / 0.18);
+    0 0 0 1px rgb(23 43 42 / 0.06), 0 2px 6px -1px rgb(23 43 42 / 0.06),
+    0 16px 40px -12px rgb(23 43 42 / 0.18);
 
   /* Elevation (audit console scale; data panels stay flat) */
-  --elev-1: 0 1px 0 rgb(213 219 225);
-  --elev-2: 0 4px 12px rgb(17 24 39 / 0.12);
-  --elev-3: 0 12px 32px rgb(17 24 39 / 0.2);
+  --elev-1: 0 1px 0 rgb(222 218 207);
+  --elev-2: 0 4px 12px rgb(23 43 42 / 0.12);
+  --elev-3: 0 12px 32px rgb(23 43 42 / 0.2);
 
   /* Radius: console 6 / 8 / 12 */
   --radius-sm: 6px; /* buttons, inputs, chips */
@@ -115,25 +124,27 @@
   --font-sans:
     "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  /* The kiosk keeps one legible face for headings too. */
+  --font-display: var(--font-sans);
 
-  --background: 245 249 249; /* #F5F9F9 */
-  --foreground: 15 23 42; /* #0F172A */
+  --background: 245 243 236; /* #F5F3EC brand ivory */
+  --foreground: 23 43 42; /* #172B2A brand near-black */
   --surface: 255 255 255;
-  --surface-subtle: 238 244 244; /* #EEF4F4 */
-  --surface-selected: 230 242 241; /* #E6F2F1 */
+  --surface-subtle: 240 238 230; /* #F0EEE6 */
+  --surface-selected: 228 237 231; /* #E4EDE7 */
 
-  --text: 15 23 42; /* #0F172A 17.85:1 */
-  --text-muted: 51 65 85; /* #334155 lightest kiosk text, 10.35:1 */
-  --text-subtle: 51 65 85; /* same: the kiosk has no lighter text */
+  --text: 23 43 42; /* #172B2A 14.84:1 */
+  --text-muted: 46 69 66; /* #2E4542 lightest kiosk text, 10.26:1 on white, 9.24:1 on ivory */
+  --text-subtle: 46 69 66; /* same: the kiosk has no lighter text */
 
-  --border: 226 232 240; /* #E2E8F0 decorative only */
-  --border-strong: 100 116 139; /* #64748B option / input boundary, 4.76:1 */
+  --border: 228 224 213; /* #E4E0D5 decorative only */
+  --border-strong: 99 117 113; /* #637571 option / input boundary, 4.87:1 */
 
-  --accent: 17 94 89; /* #115E59 Next + selected option fill, 7.58:1 white on it */
-  --accent-strong: 19 78 74; /* #134E4A hover, 9.48:1 white on it */
+  --accent: 18 93 88; /* #125D58 Next + selected option fill, 7.69:1 white on it */
+  --accent-strong: 14 74 70; /* #0E4A46 hover, 10.06:1 white on it */
   --accent-fg: 255 255 255;
-  --accent-subtle: 230 242 241;
-  --accent-subtle-fg: 17 94 89;
+  --accent-subtle: 228 237 231;
+  --accent-subtle-fg: 18 93 88;
 
   /* Blue so focus never reads as "selected" (selected = solid teal). The ring sits
      outside the option (offset 3px), on the canvas: 10.4:1. */
@@ -191,6 +202,14 @@
 
 /* Status colours (global). Every chip pairs the colour with an icon and a word. */
 :root {
+  /* Brand palette (D-044): the logo, wordmark and graphic pattern. Apricot is a highlight
+     only (the logo dot, a rule, a wave line), never text. */
+  --brand-ivory: 245 243 236; /* #F5F3EC */
+  --brand-teal: 18 93 88; /* #125D58 */
+  --brand-ink: 23 43 42; /* #172B2A */
+  --brand-sage: 184 205 190; /* #B8CDBE */
+  --brand-apricot: 229 175 136; /* #E5AF88 */
+
   /* Generic UI feedback (toasts, banners). Not a clinical meaning. */
   --info-fg: 30 64 175; /* #1E40AF */
   --info-bg: 239 246 255; /* #EFF6FF */

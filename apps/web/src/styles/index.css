@@ -2,12 +2,14 @@
  * Global stylesheet. Imported once from main.tsx.
  *
  * 1. Self-hosted fonts (@fontsource, OFL; no network fetch, works offline):
- *    Inter variable for the console and landing, Atkinson Hyperlegible for the kiosk.
+ *    Inter variable for the console and landing, Manrope variable for headings (brand),
+ *    Atkinson Hyperlegible for the kiosk.
  * 2. Design tokens (CSS variables, two surfaces): ./tokens.css.
  * 3. Tailwind layers + a few token-driven utilities (.glass, .tabular, .focus-ring).
  * See src/ui/README.md for the rules (glass is for chrome only) and contrast table.
  */
 @import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/manrope/wght.css";
 @import "@fontsource/atkinson-hyperlegible/400.css";
 @import "@fontsource/atkinson-hyperlegible/700.css";
 @import "./tokens.css";
@@ -31,6 +33,13 @@
 
   body {
     @apply min-h-screen font-sans;
+  }
+
+  /* Brand: headings in Manrope (console). The kiosk's --font-display is its own face. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
   }
 
   /* A surface root re-declares the font, canvas and text colour so a subtree
