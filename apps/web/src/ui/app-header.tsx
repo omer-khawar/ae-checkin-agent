@@ -35,10 +35,11 @@
  *   <main id="main">…</main>
  */
 import { Slot, Slottable } from "@radix-ui/react-slot";
-import { ClipboardCheck } from "lucide-react";
+
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { BrandSymbol } from "@/ui/brand";
 
 /* ---------------------------------------------------------------------------------------- */
 /* AppHeader                                                                                */
@@ -142,17 +143,14 @@ export const AppHeaderBrand = React.forwardRef<HTMLElement, AppHeaderBrandProps>
         data-slot="app-header-brand"
         className={cn(
           "transition-calm inline-flex items-center gap-2 rounded-control px-1.5 py-1",
-          "text-title font-semibold text-foreground no-underline",
+          "font-brand text-[17px] font-extrabold tracking-tight text-foreground no-underline",
           asChild && "hover:bg-accent",
           className,
         )}
         {...props}
       >
-        <span
-          aria-hidden="true"
-          className="inline-flex size-6 items-center justify-center rounded-control bg-primary text-primary-foreground [&_svg]:size-4"
-        >
-          {logo ?? <ClipboardCheck strokeWidth={2.25} />}
+        <span aria-hidden="true" className="inline-flex size-7 items-center justify-center">
+          {logo ?? <BrandSymbol className="size-7" />}
         </span>
         <Slottable>{children ?? "Interim"}</Slottable>
       </Comp>

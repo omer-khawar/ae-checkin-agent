@@ -87,6 +87,13 @@ export default {
         sae: status("sae"),
         aesi: status("aesi"),
         neutral: status("neutral"),
+        brand: {
+          ivory: v("brand-ivory"),
+          teal: v("brand-teal"),
+          ink: v("brand-ink"),
+          sage: v("brand-sage"),
+          apricot: v("brand-apricot"),
+        },
       },
       fontFamily: {
         // Follows the surface: Inter on the console, Atkinson Hyperlegible on the kiosk.
@@ -109,6 +116,10 @@ export default {
           "sans-serif",
         ],
         mono: ["var(--font-mono)"],
+        // Headings and the wordmark: Manrope on the console; the kiosk maps it to its own face.
+        display: ["var(--font-display)"],
+        // The wordmark is a logo: Manrope on every surface, the kiosk included.
+        brand: ['"Manrope Variable"', "Manrope", '"Inter Variable"', "system-ui", "sans-serif"],
       },
       fontSize: {
         // Console scale (never below 12px).

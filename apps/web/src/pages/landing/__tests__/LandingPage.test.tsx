@@ -26,7 +26,7 @@ describe("LandingPage", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Side effects between visits often reach the trial record late.",
+        name: "Between visits. Every detail matters.",
       }),
     ).toBeInTheDocument();
     for (const name of [

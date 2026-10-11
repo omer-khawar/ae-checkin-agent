@@ -9,25 +9,34 @@
  */
 import { ArrowRight } from "lucide-react";
 
+import { BrandDescriptor, BrandWaves } from "@/ui/brand";
+
 import { HERO, ROUTES } from "../content";
 import { ButtonLink, GlassPanel } from "../primitives";
 
 export function Hero() {
   return (
-    <section aria-labelledby="hero-title" className="px-4 pb-12 pt-12 sm:px-6 sm:pt-20 lg:pb-16">
+    <section
+      aria-labelledby="hero-title"
+      className="relative isolate px-4 pb-36 pt-12 sm:px-6 sm:pb-48 sm:pt-20 lg:pb-56"
+    >
+      <BrandWaves className="absolute inset-x-0 bottom-0 -z-10 h-36 w-full sm:h-48 lg:h-56" />
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,6fr)_minmax(0,7fr)] lg:gap-12">
         <div className="flex flex-col gap-6">
-          <p className="w-fit rounded-full border border-primary/20 bg-surface/80 px-3 py-1 text-xs font-semibold text-primary">
-            For clinical trial sites
-          </p>
+          <BrandDescriptor className="text-primary" />
           <h1
             id="hero-title"
-            className="text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl"
+            className="text-balance text-4xl font-bold leading-[1.06] tracking-tight text-foreground sm:text-5xl lg:text-[3.25rem]"
           >
-            {HERO.headline}
+            {HERO.headline.split(". ").map((line, i, all) => (
+              <span key={line} className="block">
+                {i < all.length - 1 ? `${line}. ` : line}
+              </span>
+            ))}
           </h1>
+          <span aria-hidden="true" className="h-0.5 w-12 rounded-full bg-brand-apricot" />
           <p className="text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
-            {HERO.subhead}
+            <strong className="font-semibold text-foreground">{HERO.problem}</strong> {HERO.subhead}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <ButtonLink to={ROUTES.login}>

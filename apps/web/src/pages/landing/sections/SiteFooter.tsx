@@ -24,7 +24,7 @@ export function SiteFooter() {
           <div className="flex max-w-md flex-col gap-4">
             <Link
               to="/"
-              className="inline-flex w-fit items-center gap-2 text-base font-semibold tracking-tight text-foreground"
+              className="inline-flex w-fit items-center gap-2 font-brand text-lg font-extrabold tracking-tight text-foreground"
             >
               <BrandMark />
               Interim

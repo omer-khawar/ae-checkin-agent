@@ -46,7 +46,7 @@ import {
 } from "./series";
 
 // Colours (hex because SVG attributes cannot read Tailwind classes).
-const LINE_BRAND = "#0f766e"; // brand-700
+const LINE_BRAND = "#125d58"; // brand deep teal (D-044)
 const LINE_MUTED = "#64748b"; // slate-500 (>= 3:1 on white)
 const GRID = "#e2e8f0"; // slate-200
 const AXIS_TEXT = "#475569"; // slate-600

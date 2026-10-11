@@ -6,6 +6,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import { BRAND_TAGLINE, BrandLockup, BrandWaves } from "@/ui/brand";
 import { Button } from "@/ui/button";
 import { GlassCard, GlassCardDescription, GlassCardTitle } from "@/ui/glass-card";
 import { cn } from "@/lib/cn";
@@ -44,15 +45,12 @@ export function Login() {
   return (
     <div
       data-surface="console"
-      className="login relative flex min-h-screen flex-col overflow-hidden bg-background text-foreground"
+      className="login relative isolate flex min-h-screen flex-col overflow-hidden bg-background text-foreground"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-32 left-1/2 h-96 w-[48rem] max-w-full -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
-      />
+      <BrandWaves className="absolute inset-x-0 bottom-0 -z-10 h-[34vh] w-full" />
       <main
         id="main"
-        className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10"
+        className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10"
       >
         <Link
           to="/"
@@ -63,13 +61,10 @@ export function Login() {
 
         <GlassCard as="form" strength="strong" onSubmit={submit} className="shadow-elev-2">
           <div>
-            <div className="flex items-center gap-2 text-display font-semibold text-foreground">
-              <span
-                className="inline-block h-7 w-7 rounded-control bg-primary"
-                aria-hidden="true"
-              />
-              Interim
-            </div>
+            <BrandLockup size="lg" />
+            <p className="mt-3 font-display text-title font-semibold text-foreground">
+              {BRAND_TAGLINE}
+            </p>
             <GlassCardTitle className="mt-3 text-title">
               Sign in to the safety-data desk
             </GlassCardTitle>

@@ -6,18 +6,13 @@
 import { Github } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { BrandSymbol } from "@/ui/brand";
+
 import { LINKS, NAV, ROUTES } from "../content";
 import { ButtonLink } from "../primitives";
 
 export function BrandMark() {
-  return (
-    <span
-      aria-hidden="true"
-      className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-[13px] font-bold text-primary-foreground"
-    >
-      I
-    </span>
-  );
+  return <BrandSymbol className="h-8 w-8" />;
 }
 
 export function SiteHeader() {
@@ -29,7 +24,7 @@ export function SiteHeader() {
       <div className="glass mx-auto flex max-w-6xl items-center gap-3 rounded-full py-2 pl-4 pr-2 sm:gap-6">
         <Link
           to="/"
-          className="flex items-center gap-2 rounded-full text-base font-semibold tracking-tight text-foreground"
+          className="flex items-center gap-2 rounded-full font-brand text-lg font-extrabold tracking-tight text-foreground"
         >
           <BrandMark />
           Interim

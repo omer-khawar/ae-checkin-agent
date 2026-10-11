@@ -23,7 +23,7 @@ describe("routes", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Side effects between visits often reach the trial record late.",
+        name: "Between visits. Every detail matters.",
       }),
     ).toBeInTheDocument();
   });
@@ -42,7 +42,7 @@ describe("routes", () => {
       screen.getByRole("heading", { name: "Sign in to the safety-data desk" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { level: 1, name: /Side effects between visits/ }),
+      screen.queryByRole("heading", { level: 1, name: /Between visits\. Every detail matters/ }),
     ).toBeNull();
   });
 
