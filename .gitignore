@@ -43,3 +43,6 @@ Thumbs.db
 
 # Scratch
 tmp/
+
+# Browser-automation scratch (Playwright MCP)
+.playwright-mcp/
