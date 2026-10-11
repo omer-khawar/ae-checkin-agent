@@ -38,6 +38,13 @@ export interface SaeClockRowExt extends Omit<SAEClockRow, "session_id"> {
   /** Server-side snapshot; the page recomputes from `due_at` live. */
   overdue?: boolean;
   created_at?: IsoUtc | null;
+  /** R3.2: `sae` (suspected serious event) or `aesi` (possible event of special interest). */
+  kind?: "sae" | "aesi" | string | null;
+  /** The report packet already opened for this clock, when the API joins it. */
+  packet_id?: Ulid | null;
+  /** Optional hints (newer API): whether an AE draft exists to attribute instead. */
+  ae_draft_ids?: Ulid[] | null;
+  has_ae_draft?: boolean | null;
 }
 
 export interface PageEventRow extends PageEvent {

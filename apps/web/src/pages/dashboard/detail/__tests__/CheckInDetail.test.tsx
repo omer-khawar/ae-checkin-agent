@@ -103,7 +103,12 @@ function renderPage() {
   );
 }
 
-const aeCard = () => screen.getByRole("heading", { name: /AE 1 · Dyspnea/ }).closest("section")!;
+/** The rule row buttons for a rule id (rule ids sit one click deeper, so select by data attribute). */
+const ruleButtons = (ruleId: string) =>
+  Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-rule-id="${ruleId}"] > button`));
+
+const aeCard = () =>
+  screen.getByRole("heading", { name: /Side effect: Dyspnea/ }).closest("section")!;
 
 describe("CheckInDetail", () => {
   beforeEach(() => signIn("coordinator"));
@@ -129,15 +134,17 @@ describe("CheckInDetail", () => {
     expect(within(vitals).getByText(/never averaged away/)).toBeInTheDocument();
 
     // Middle: AE / VS / CM groups, provisional label on AETOXGR, follow-up link.
-    expect(screen.getByRole("heading", { name: /AE 1 · Dyspnea/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /VS · PULSE/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /CM · loratadine/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Side effect: Dyspnea/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /VS PULSE/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Medication change: loratadine/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("provisional, investigator to confirm").length,
     ).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/Follow-up of open AE/)).toBeInTheDocument();
+    expect(screen.getByText(/Follow-up of a side effect already on record/)).toBeInTheDocument();
     // The VS number itself carries the SIMULATED word, not only the method row and the title.
-    const vsCard = screen.getByRole("heading", { name: /VS · PULSE/ }).closest("section")!;
+    const vsCard = screen.getByRole("heading", { name: /VS PULSE/ }).closest("section")!;
     const vsorres = vsCard.querySelector('tr[data-field="VSORRES"]')!;
     expect(vsorres).toHaveTextContent("73");
     expect(within(vsorres as HTMLElement).getByText("SIMULATED")).toBeInTheDocument();
@@ -154,8 +161,8 @@ describe("CheckInDetail", () => {
       "listitem",
     );
     expect(rules).toHaveLength(6);
-    expect(rules[0]).toHaveTextContent("score.composite.shortness_of_breath");
-    expect(rules[5]).toHaveTextContent("conmed.exact");
+    expect(rules[0]).toHaveAttribute("data-rule-id", "score.composite.shortness_of_breath");
+    expect(rules[5]).toHaveAttribute("data-rule-id", "conmed.exact");
 
     // Coordinator sees attribution read-only.
     expect(within(aeCard()).getByText(/investigator only/)).toBeInTheDocument();
@@ -168,9 +175,9 @@ describe("CheckInDetail", () => {
     renderPage();
     await screen.findByRole("heading", { name: /P-007/ });
 
-    await user.click(within(aeCard()).getByRole("button", { name: /^AETOXGR: show evidence/ }));
+    await user.click(within(aeCard()).getByRole("button", { name: /\(AETOXGR\): show evidence/ }));
     const panel = await screen.findByTestId("evidence-panel");
-    expect(panel).toHaveTextContent("Evidence for AETOXGR");
+    expect(panel).toHaveTextContent("Evidence for Severity grade (provisional) (AETOXGR)");
     expect(within(panel).getAllByTestId("evidence-row")).toHaveLength(3);
     expect(panel).toHaveTextContent("shortness_of_breath.severity = 2 (Moderate)");
 
@@ -189,7 +196,7 @@ describe("CheckInDetail", () => {
     );
 
     // Selecting a rule highlights the samples it cites.
-    await user.click(screen.getByRole("button", { name: /vitals\.simulated_ignored/ }));
+    await user.click(ruleButtons("vitals.simulated_ignored")[0]);
     expect(document.querySelector(`[data-sample-id="${S1}"]`)).toHaveAttribute(
       "data-highlighted",
       "true",
@@ -210,7 +217,7 @@ describe("CheckInDetail", () => {
     expect(document.querySelectorAll('[data-rule-id="vitals.implausible"]')).toHaveLength(2);
 
     // The second draft.ae (cough) highlights the cough answer, not the dyspnea answers.
-    const draftAe = within(list).getAllByRole("button", { name: /draft\.ae/ });
+    const draftAe = ruleButtons("draft.ae");
     expect(draftAe).toHaveLength(2);
     await user.click(draftAe[1]);
     expect(draftAe[1]).toHaveAttribute("aria-expanded", "true");
@@ -224,7 +231,7 @@ describe("CheckInDetail", () => {
       "false",
     );
     // Each implausible-sample rule points at its own sample.
-    const implausible = within(list).getAllByRole("button", { name: /vitals\.implausible/ });
+    const implausible = ruleButtons("vitals.implausible");
     await user.click(implausible[0]);
     expect(rows[6]).toHaveTextContent(`sample_id${S3}`);
     await user.click(implausible[1]);
@@ -261,7 +268,9 @@ describe("CheckInDetail", () => {
     renderPage();
     await screen.findByRole("heading", { name: /P-007/ });
 
-    const cmCard = screen.getByRole("heading", { name: /CM · loratadine/ }).closest("section")!;
+    const cmCard = screen
+      .getByRole("heading", { name: /Medication change: loratadine/ })
+      .closest("section")!;
     await user.click(within(aeCard()).getByRole("button", { name: "Confirm" }));
     await user.click(within(cmCard).getByRole("button", { name: "Confirm" }));
     const fields = screen.getAllByLabelText("Confirm this draft");
@@ -352,7 +361,9 @@ describe("CheckInDetail", () => {
     );
     expect(within(aeCard()).getByText("Confirmed")).toBeInTheDocument();
 
-    const cmCard = screen.getByRole("heading", { name: /CM · loratadine/ }).closest("section")!;
+    const cmCard = screen
+      .getByRole("heading", { name: /Medication change: loratadine/ })
+      .closest("section")!;
     await user.click(within(cmCard).getByRole("button", { name: "Reject" }));
     const rejectBtn = screen.getByRole("button", { name: "Reject draft" });
     expect(rejectBtn).toBeDisabled();
@@ -393,7 +404,7 @@ describe("CheckInDetail", () => {
     await screen.findByRole("heading", { name: /P-007/ });
 
     await user.click(within(aeCard()).getByRole("button", { name: "Edit" }));
-    const grade = screen.getByRole("textbox", { name: /^AETOXGR/ });
+    const grade = screen.getByRole("textbox", { name: /AETOXGR/ });
     await user.clear(grade);
     await user.type(grade, "4");
     expect(screen.getByText(/never assigns a grade above 3/)).toBeInTheDocument();
@@ -516,7 +527,9 @@ describe("CheckInDetail", () => {
       AEREL: "POSSIBLE",
     });
     // The reload after attribution shows the stopped clock.
-    const saeCard = screen.getByRole("heading", { name: "SAE clock" }).closest("section")!;
+    const saeCard = screen
+      .getByRole("heading", { name: /Serious-event report clock/ })
+      .closest("section")!;
     await waitFor(() => expect(saeCard).toHaveTextContent("stopped"));
     expect(saeCard).toHaveTextContent(/by investigator/);
     // 24 h window from 18:05 the day before, stopped at 18:12: 23h 53m were left.
@@ -580,6 +593,6 @@ describe("CheckInDetail", () => {
     expect(screen.getByText(/No drafts were generated/)).toBeInTheDocument();
     expect(screen.getByText("No rules fired.")).toBeInTheDocument();
     expect(screen.getByText(/No escalation was raised/)).toBeInTheDocument();
-    expect(screen.getByText(/No SAE clock/)).toBeInTheDocument();
+    expect(screen.getByText(/No 24-hour report clock/)).toBeInTheDocument();
   });
 });

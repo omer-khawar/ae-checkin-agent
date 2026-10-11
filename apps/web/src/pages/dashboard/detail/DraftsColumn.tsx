@@ -18,15 +18,8 @@ import { ErrorBanner } from "../../../components/ErrorBanner";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { getDraftVersions } from "../../../lib/api";
 import { cx, Time } from "../../../lib/format";
-import type {
-  AttributionRequest,
-  CheckInDetail,
-  CtcaeTerm,
-  Draft,
-  Evidence,
-  Role,
-} from "../../../lib/types";
-import { Chip, Disclosure, EvidenceList } from "./bits";
+import type { CheckInDetail, CtcaeTerm, Draft, Evidence, Role } from "../../../lib/types";
+import { Chip, Disclosure, EvidenceList, SdtmBadge } from "./bits";
 import {
   AEREL_OPTIONS,
   AESER_OPTIONS,
@@ -46,6 +39,7 @@ import {
   gradeHover,
   groupDrafts,
   highlightClass,
+  IRAE_OPTIONS,
   isEditable,
   MAX_ASSIGNABLE_GRADE,
   orderedFieldNames,
@@ -53,17 +47,38 @@ import {
   type Selection,
   vsDraftIsMeasured,
 } from "./model";
+import {
+  AESI_BANNER,
+  attributionClockHint,
+  clocksForDraft,
+  clocksOf,
+  cmMissingText,
+  fieldLabel,
+  flagForDraft,
+  gradeWord,
+  IDENTITY_FIELDS,
+  isAesiDraft,
+  isProvenanceField,
+  plainDraftTitle,
+  plainValue,
+  protocolChip,
+  sdtmBadge,
+  type Labels,
+} from "./plain";
+import type { AttributionRequestR4, CheckInDetailR3 } from "./r34Types";
 import { ReferencePanel } from "./ReferencePanel";
 
 export interface DraftActions {
   confirm: (draft: Draft, note: string) => Promise<void>;
   reject: (draft: Draft, reason: string) => Promise<void>;
   patch: (draft: Draft, fields: Record<string, unknown>, note: string) => Promise<void>;
-  attribution: (draft: Draft, body: AttributionRequest) => Promise<void>;
+  attribution: (draft: Draft, body: AttributionRequestR4) => Promise<void>;
 }
 
 export interface DraftsColumnProps {
   detail: CheckInDetail;
+  /** Item id for an AEDECOD (to match the protocol's `aesi_items`); optional. */
+  itemIdForTerm?: (aedecod: string) => string | null;
   role: Role | null;
   ctcae: CtcaeTerm[] | null;
   selection: Selection;
@@ -114,6 +129,7 @@ type Mode = "view" | "edit" | "reject" | "confirm";
 function DraftCard({
   draft,
   detail,
+  itemIdForTerm,
   role,
   ctcae,
   selection,
@@ -149,7 +165,10 @@ function DraftCard({
       data-draft-id={draft.id}
       title={
         <span className="flex flex-wrap items-center gap-2">
-          <span>{draftTitle(draft)}</span>
+          <span>{plainDraftTitle(draft.domain, draft.fields)}</span>
+          <SdtmBadge title="SDTM domain and record number">
+            {sdtmBadge(draft.domain, draft.fields)}
+          </SdtmBadge>
           <Chip className={status.className} title={`Draft status: ${status.label}`}>
             {status.label}
           </Chip>
@@ -159,7 +178,7 @@ function DraftCard({
               className="bg-slate-100 text-slate-700 border-slate-300"
               title="Where this draft came from"
             >
-              {source === "chart_note" ? "from chart note" : "from check-in"}
+              {sourceLabel(source)}
             </Chip>
           )}
           {draft.domain === "VS" && (
@@ -194,7 +213,7 @@ function DraftCard({
     >
       {(draft.is_followup || followupOf) && (
         <p className="border-b border-slate-100 bg-indigo-50 px-4 py-2 text-xs text-indigo-900">
-          Follow-up of open AE{" "}
+          Follow-up of a side effect already on record{" "}
           <span className="font-mono">{followupOf ?? "(id not provided)"}</span>
           {link?.first_session_id && (
             <>
@@ -208,9 +227,11 @@ function DraftCard({
               </Link>
             </>
           )}
-          . No new AE was created (7-day de-duplication window).
+          . No new record was created (7-day de-duplication window).
         </p>
       )}
+
+      <ProtocolNotes draft={draft} detail={detail} itemIdForTerm={itemIdForTerm} />
 
       {mode === "edit" ? (
         <EditForm
@@ -266,6 +287,9 @@ function DraftCard({
         <AttributionBlock
           draft={draft}
           role={role}
+          clockHint={attributionClockHint(
+            clocksForDraft(clocksOf(detail as unknown as CheckInDetailR3), draft),
+          )}
           onSave={(body) => run(() => actions.attribution(draft, body))}
           busy={busy}
         />
@@ -298,145 +322,276 @@ function FieldTable({
   onFocusEvidence: (e: Evidence) => void;
 }) {
   const [showDefs, setShowDefs] = useState(false);
+  const [showMoreState, setShowMore] = useState(false);
   const hover = gradeHover(defs);
+  const r3 = detail as unknown as CheckInDetailR3;
+  const labels: Labels = r3.labels;
+  // Plain-language first: the record's own fields lead; identity and INTERIM_*
+  // provenance fields sit one click deeper (never removed).
+  const names = orderedFieldNames(draft);
+  const isMore = (n: string) => isProvenanceField(n) || IDENTITY_FIELDS.has(n);
+  const main = names.filter((n) => !isMore(n));
+  const more = names.filter(isMore);
+  const selectedHere =
+    selection?.kind === "field" && selection.draftId === draft.id ? selection.field : null;
+  // A selected provenance field (e.g. from an evidence click) must stay visible.
+  const forcedOpen = selectedHere !== null && more.includes(selectedHere);
+  const showMore = showMoreState || forcedOpen;
+  const flag = draft.domain === "CM" ? flagForDraft(draft.fields, r3.protocol) : null;
+
+  const row = (name: string) => {
+    const value = draft.fields[name];
+    const selected = selectedHere === name;
+    const evidence = draft.evidence?.[name] ?? [];
+    const isGrade = name === "AETOXGR";
+    const isAttr = name === "AESER" || name === "AEREL" || name === "INTERIM_IRAE";
+    const plain = fieldLabel(name, labels);
+    const plainVal = plainValue(name, value, labels);
+    const chip = name === "INTERIM_PROTOCOL_FLAG" ? protocolChip(value, flag) : null;
+    const word = isGrade ? gradeWord(value) : null;
+    // The measured/simulated word sits beside the vitals number itself
+    // (VSORRES) and beside the method string, never only in the title.
+    const vsBadge =
+      draft.domain === "VS" &&
+      ((name === "VSORRES" && value !== null && value !== undefined) ||
+        (name === "VSMETHOD" && typeof value === "string"));
+    return (
+      <Fragment key={name}>
+        <tr
+          data-field={name}
+          data-selected={selected ? "true" : "false"}
+          className={cx("border-t border-slate-100", highlightClass(selected))}
+        >
+          <td className="w-44 px-4 py-1.5 align-top">
+            <button
+              type="button"
+              onClick={() => onSelectField(draft.id, name)}
+              aria-expanded={selected}
+              aria-label={`${plain} (${name}): show evidence (${evidence.length} pointer${evidence.length === 1 ? "" : "s"})`}
+              className="w-full rounded text-left hover:text-brand-800 hover:underline"
+              title={`Show evidence for ${plain} (${name})`}
+            >
+              <span className="block text-xs font-medium text-slate-800">{plain}</span>
+              <span className="font-mono text-[10px] text-slate-500">{name}</span>
+              {evidence.length > 0 && (
+                <span
+                  className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600"
+                  aria-hidden="true"
+                >
+                  {evidence.length}
+                </span>
+              )}
+            </button>
+          </td>
+          <td className="px-4 py-1.5 align-top">
+            <button
+              type="button"
+              onClick={() => onSelectField(draft.id, name)}
+              tabIndex={-1}
+              className="w-full break-words rounded text-left text-slate-900 hover:bg-slate-50"
+            >
+              {chip ? (
+                <Chip className={chip.className} title={chip.title}>
+                  {chip.text}
+                </Chip>
+              ) : isGrade && typeof value === "number" ? (
+                <span className="tnum font-semibold" title={hover}>
+                  <span>{`Grade ${value}`}</span>
+                  {word && <span className="font-normal text-slate-700">{` · ${word}`}</span>}
+                </span>
+              ) : (
+                <span
+                  className={cx(value === null || value === undefined ? "text-slate-500" : "")}
+                  title={plainVal !== null ? `Stored value: ${formatValue(value)}` : undefined}
+                >
+                  {plainVal ?? formatValue(value)}
+                </span>
+              )}
+              {isGrade && (
+                <Chip className="ml-2 bg-amber-50 text-amber-900 border-amber-300">
+                  {PROVISIONAL_LABEL}
+                </Chip>
+              )}
+              {isAttr && (value === null || value === undefined) && (
+                <span className="ml-2 text-xs text-slate-500">the investigator decides</span>
+              )}
+              {vsBadge && (
+                <MeasuredBadge isMeasured={vsDraftIsMeasured(draft.fields)} className="ml-2" />
+              )}
+              {name === "CMDECOD" && (value === null || value === undefined) && (
+                <span className="ml-2 text-xs text-slate-500">
+                  not recognized · kept as typed for the coordinator
+                </span>
+              )}
+            </button>
+            {isGrade && defs && (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDefs((v) => !v)}
+                  aria-expanded={showDefs}
+                  className="text-xs text-brand-700 underline"
+                >
+                  {showDefs ? "Hide" : "Show"} CTCAE v5.0 grade definitions
+                </button>
+                {showDefs && (
+                  <dl className="mt-1 space-y-0.5 rounded bg-slate-50 p-2 text-xs text-slate-700">
+                    {Object.entries(defs)
+                      .sort(([a], [b]) => Number(a) - Number(b))
+                      .map(([g, t]) => (
+                        <div
+                          key={g}
+                          className={cx(
+                            "flex gap-2",
+                            Number(g) > MAX_ASSIGNABLE_GRADE && "text-slate-500",
+                          )}
+                        >
+                          <dt className="tnum w-8 shrink-0 font-semibold">G{g}</dt>
+                          <dd>
+                            {t}
+                            {Number(g) > MAX_ASSIGNABLE_GRADE && " (never assigned by Interim)"}
+                          </dd>
+                        </div>
+                      ))}
+                  </dl>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+        {selected && (
+          <tr className="bg-amber-50/60">
+            <td colSpan={2} className="px-4 pb-3 pt-1" data-testid="evidence-panel">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Evidence for {plain} <span className="font-mono normal-case">({name})</span>
+              </div>
+              <EvidenceList
+                evidence={evidence}
+                detail={detail}
+                onFocusEvidence={onFocusEvidence}
+                compact
+              />
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
+
   return (
     <table className="w-full text-sm" aria-label={`${draftTitle(draft)} fields`}>
       <tbody>
-        {orderedFieldNames(draft).map((name) => {
-          const value = draft.fields[name];
-          const selected =
-            selection?.kind === "field" &&
-            selection.draftId === draft.id &&
-            selection.field === name;
-          const evidence = draft.evidence?.[name] ?? [];
-          const isGrade = name === "AETOXGR";
-          const isAttr = name === "AESER" || name === "AEREL";
-          // The measured/simulated word sits beside the vitals number itself
-          // (VSORRES) and beside the method string, never only in the title.
-          const vsBadge =
-            draft.domain === "VS" &&
-            ((name === "VSORRES" && value !== null && value !== undefined) ||
-              (name === "VSMETHOD" && typeof value === "string"));
-          return (
-            <Fragment key={name}>
-              <tr
-                data-field={name}
-                data-selected={selected ? "true" : "false"}
-                className={cx("border-t border-slate-100", highlightClass(selected))}
+        {main.map(row)}
+        {more.length > 0 && (
+          <tr className="border-t border-slate-100">
+            <td colSpan={2} className="px-4 py-1.5">
+              <button
+                type="button"
+                onClick={() => setShowMore((v) => !v)}
+                aria-expanded={showMore}
+                disabled={forcedOpen}
+                className="text-xs font-medium text-brand-700 underline disabled:no-underline disabled:opacity-60"
               >
-                <td className="w-40 px-4 py-1.5 align-top">
-                  <button
-                    type="button"
-                    onClick={() => onSelectField(draft.id, name)}
-                    aria-expanded={selected}
-                    aria-label={`${name}: show evidence (${evidence.length} pointer${evidence.length === 1 ? "" : "s"})`}
-                    className="w-full rounded text-left font-mono text-xs text-slate-700 hover:text-brand-800 hover:underline"
-                    title={`Show evidence for ${name}`}
-                  >
-                    {name}
-                    {evidence.length > 0 && (
-                      <span
-                        className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600"
-                        aria-label={`${evidence.length} evidence pointers`}
-                      >
-                        {evidence.length}
-                      </span>
-                    )}
-                  </button>
-                </td>
-                <td className="px-4 py-1.5 align-top">
-                  <button
-                    type="button"
-                    onClick={() => onSelectField(draft.id, name)}
-                    className="w-full break-words rounded text-left text-slate-900 hover:bg-slate-50"
-                  >
-                    <span
-                      className={cx(
-                        value === null || value === undefined ? "text-slate-500" : "",
-                        isGrade && "tnum font-semibold",
-                      )}
-                      title={isGrade ? hover : undefined}
-                    >
-                      {isGrade && typeof value === "number" ? `Grade ${value}` : formatValue(value)}
-                    </span>
-                    {isGrade && (
-                      <Chip className="ml-2 bg-amber-50 text-amber-900 border-amber-300">
-                        {PROVISIONAL_LABEL}
-                      </Chip>
-                    )}
-                    {isAttr && (value === null || value === undefined) && (
-                      <span className="ml-2 text-xs text-slate-500">
-                        null until the investigator decides
-                      </span>
-                    )}
-                    {vsBadge && (
-                      <MeasuredBadge
-                        isMeasured={vsDraftIsMeasured(draft.fields)}
-                        className="ml-2"
-                      />
-                    )}
-                    {name === "CMDECOD" && (value === null || value === undefined) && (
-                      <span className="ml-2 text-xs text-slate-500">
-                        unmatched · kept verbatim for the coordinator
-                      </span>
-                    )}
-                  </button>
-                  {isGrade && defs && (
-                    <div className="mt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowDefs((v) => !v)}
-                        aria-expanded={showDefs}
-                        className="text-xs text-brand-700 underline"
-                      >
-                        {showDefs ? "Hide" : "Show"} CTCAE v5.0 grade definitions
-                      </button>
-                      {showDefs && (
-                        <dl className="mt-1 space-y-0.5 rounded bg-slate-50 p-2 text-xs text-slate-700">
-                          {Object.entries(defs)
-                            .sort(([a], [b]) => Number(a) - Number(b))
-                            .map(([g, t]) => (
-                              <div
-                                key={g}
-                                className={cx(
-                                  "flex gap-2",
-                                  Number(g) > MAX_ASSIGNABLE_GRADE && "text-slate-500",
-                                )}
-                              >
-                                <dt className="tnum w-8 shrink-0 font-semibold">G{g}</dt>
-                                <dd>
-                                  {t}
-                                  {Number(g) > MAX_ASSIGNABLE_GRADE &&
-                                    " (never assigned by Interim)"}
-                                </dd>
-                              </div>
-                            ))}
-                        </dl>
-                      )}
-                    </div>
-                  )}
-                </td>
-              </tr>
-              {selected && (
-                <tr className="bg-amber-50/60">
-                  <td colSpan={2} className="px-4 pb-3 pt-1" data-testid="evidence-panel">
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Evidence for {name}
-                    </div>
-                    <EvidenceList
-                      evidence={evidence}
-                      detail={detail}
-                      onFocusEvidence={onFocusEvidence}
-                      compact
-                    />
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          );
-        })}
+                {showMore ? "Hide" : "Show"} {more.length} more field{more.length === 1 ? "" : "s"}{" "}
+                (record ids and where the draft came from)
+              </button>
+            </td>
+          </tr>
+        )}
+        {showMore && more.map(row)}
       </tbody>
     </table>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Protocol notes above the fields (R3.1 / R3.2)
+// ---------------------------------------------------------------------------
+
+/** "from check-in" / "from chart note" / "from phone call". */
+function sourceLabel(source: string): string {
+  if (source === "chart_note") return "from chart note";
+  if (source === "phone_call") return "from phone call";
+  if (source === "check_in") return "from check-in";
+  return `from ${source.replace(/_/g, " ")}`;
+}
+
+/**
+ * What the study protocol says about this draft, in plain words:
+ *  - AE: "Possible special-interest event (report within 24 h, investigator to confirm)"
+ *  - CM: "Prohibited by protocol §7.7.1" / "Discouraged by protocol §7.7.2" (exception on hover)
+ *  - CM: "Still needed for the medication form: dose, frequency, indication"
+ */
+function ProtocolNotes({
+  draft,
+  detail,
+  itemIdForTerm,
+}: {
+  draft: Draft;
+  detail: CheckInDetail;
+  itemIdForTerm?: (aedecod: string) => string | null;
+}) {
+  const r3 = detail as unknown as CheckInDetailR3;
+  const protocol = r3.protocol ?? null;
+  if (draft.domain === "AE") {
+    if (!isAesiDraft(draft.fields, protocol, itemIdForTerm)) return null;
+    return (
+      <p
+        className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-900"
+        data-testid="aesi-banner"
+      >
+        {AESI_BANNER}
+        <span className="ml-2 font-normal text-red-800/80">protocol §9.4.3, p. 92</span>
+      </p>
+    );
+  }
+  if (draft.domain !== "CM") return null;
+  const flag = flagForDraft(draft.fields, protocol);
+  const chip = protocolChip(draft.fields.INTERIM_PROTOCOL_FLAG ?? flag?.level, flag);
+  const fromCheckIn = draftSource(draft) !== "chart_note";
+  const missing = cmMissingText(
+    draft.fields.INTERIM_CM_MISSING_FIELDS ?? (fromCheckIn ? protocol?.cm_missing_fields : null),
+  );
+  if (!chip && !missing) return null;
+  const exceptionId = `exception-${draft.id}`;
+  const exception = chip?.level === "discouraged" ? flag?.exception_text?.trim() : null;
+  return (
+    <div
+      className="space-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm"
+      data-testid="cm-protocol"
+    >
+      {chip && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={cx(
+              "inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold",
+              chip.className,
+            )}
+            title={chip.title}
+            tabIndex={chip.title ? 0 : undefined}
+            aria-describedby={exception ? exceptionId : undefined}
+            data-testid="protocol-chip"
+          >
+            {chip.text}
+          </span>
+          {chip.level === "prohibited" && (
+            <span className="text-xs text-red-800">
+              possible protocol deviation · coordinator to confirm
+            </span>
+          )}
+          {exception && (
+            <span id={exceptionId} className="sr-only">
+              Protocol exception: {exception}
+            </span>
+          )}
+        </div>
+      )}
+      {missing && (
+        <p className="text-xs text-slate-800" data-testid="cm-missing">
+          {missing}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -488,8 +643,9 @@ function EditForm({
           const id = `edit-${draft.id}-${n}`;
           return (
             <div key={n}>
-              <label htmlFor={id} className="block font-mono text-xs text-slate-700">
-                {n}
+              <label htmlFor={id} className="block text-xs text-slate-700">
+                <span className="font-medium">{fieldLabel(n)}</span>{" "}
+                <span className="font-mono text-[10px] text-slate-500">{n}</span>
                 {n === "AETOXGR" && (
                   <span className="ml-1 font-sans text-slate-500">
                     (0–{MAX_ASSIGNABLE_GRADE}, {PROVISIONAL_LABEL})
@@ -637,52 +793,65 @@ function NoteForm({
 function AttributionBlock({
   draft,
   role,
+  clockHint,
   busy,
   onSave,
 }: {
   draft: Draft;
   role: Role | null;
+  /** Which answer stops which running clock (plain.ts attributionClockHint); null = none running. */
+  clockHint: string | null;
   busy: boolean;
-  onSave: (body: AttributionRequest) => void;
+  onSave: (body: AttributionRequestR4) => void;
 }) {
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
   const current = {
-    AESER: typeof draft.fields.AESER === "string" ? draft.fields.AESER : "",
-    AEREL: typeof draft.fields.AEREL === "string" ? draft.fields.AEREL : "",
+    AESER: str(draft.fields.AESER),
+    AEREL: str(draft.fields.AEREL),
+    INTERIM_IRAE: str(draft.fields.INTERIM_IRAE),
   };
   const [aeser, setAeser] = useState(current.AESER);
   const [aerel, setAerel] = useState(current.AEREL);
+  const [irae, setIrae] = useState(current.INTERIM_IRAE);
   const [note, setNote] = useState("");
   const investigator = role === "investigator";
-  // Attribution is a decision, not a draft field: once recorded it can be
-  // changed to another option but not un-decided, and the blank choice is
-  // never sent (see attributionBody).
-  const body = attributionBody(current, { AESER: aeser, AEREL: aerel }, note);
+  // Attribution is a decision, not a draft field: AESER/AEREL once recorded can
+  // be changed to another option but not un-decided, and their blank choice is
+  // never sent. "Immune-related?" may go back to "Not decided" (R4.3 accepts
+  // null). See attributionBody.
+  const body = attributionBody(current, { AESER: aeser, AEREL: aerel, INTERIM_IRAE: irae }, note);
   const changed = body !== null;
+  const selectClass = "mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm";
+
+  const label = (id: string, plain: string, sdtm: string) => (
+    <label htmlFor={id} className="block text-xs text-slate-700">
+      <span className="font-medium">{plain}</span>{" "}
+      <span className="rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-600">{sdtm}</span>
+    </label>
+  );
 
   return (
     <div className="border-t border-slate-100 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-800">Investigator attribution</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Investigator assessment</h3>
         {!investigator && (
           <Chip
             className="bg-slate-100 text-slate-700 border-slate-300"
-            title="Only the investigator role can set AESER and AEREL"
+            title="Only the investigator role can set seriousness, relatedness and immune-related"
           >
             investigator only · read-only for your role
           </Chip>
         )}
       </div>
-      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      <div className="mt-2 grid gap-3 sm:grid-cols-3">
         <div>
-          <label htmlFor={`aeser-${draft.id}`} className="block font-mono text-xs text-slate-700">
-            AESER <span className="font-sans text-slate-500">(serious?)</span>
-          </label>
+          {label(`aeser-${draft.id}`, "Serious?", "AESER")}
           {investigator ? (
             <select
               id={`aeser-${draft.id}`}
               value={aeser}
               onChange={(e) => setAeser(e.target.value)}
-              className="mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+              className={selectClass}
               disabled={busy}
             >
               <option value="" disabled={current.AESER !== ""}>
@@ -690,24 +859,24 @@ function AttributionBlock({
               </option>
               {AESER_OPTIONS.map((o) => (
                 <option key={o} value={o}>
-                  {o === "Y" ? "Y — serious" : "N — not serious"}
+                  {o === "Y" ? "Yes, serious" : "No, not serious"}
                 </option>
               ))}
             </select>
           ) : (
-            <div className="mt-0.5 text-sm text-slate-900">{formatValue(draft.fields.AESER)}</div>
+            <div className="mt-0.5 text-sm text-slate-900">
+              {plainValue("AESER", draft.fields.AESER) ?? "not decided"}
+            </div>
           )}
         </div>
         <div>
-          <label htmlFor={`aerel-${draft.id}`} className="block font-mono text-xs text-slate-700">
-            AEREL <span className="font-sans text-slate-500">(causality)</span>
-          </label>
+          {label(`aerel-${draft.id}`, "Related to the study drug?", "AEREL")}
           {investigator ? (
             <select
               id={`aerel-${draft.id}`}
               value={aerel}
               onChange={(e) => setAerel(e.target.value)}
-              className="mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+              className={selectClass}
               disabled={busy}
             >
               <option value="" disabled={current.AEREL !== ""}>
@@ -715,15 +884,44 @@ function AttributionBlock({
               </option>
               {AEREL_OPTIONS.map((o) => (
                 <option key={o} value={o}>
-                  {o}
+                  {o.charAt(0) + o.slice(1).toLowerCase()}
                 </option>
               ))}
             </select>
           ) : (
-            <div className="mt-0.5 text-sm text-slate-900">{formatValue(draft.fields.AEREL)}</div>
+            <div className="mt-0.5 text-sm text-slate-900">
+              {typeof draft.fields.AEREL === "string" ? draft.fields.AEREL : "not decided"}
+            </div>
+          )}
+        </div>
+        <div>
+          {label(`irae-${draft.id}`, "Immune-related?", "INTERIM_IRAE")}
+          {investigator ? (
+            <select
+              id={`irae-${draft.id}`}
+              value={irae}
+              onChange={(e) => setIrae(e.target.value)}
+              className={selectClass}
+              disabled={busy}
+            >
+              <option value="">Not decided</option>
+              {IRAE_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o === "Y" ? "Yes" : "No"}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="mt-0.5 text-sm text-slate-900">
+              {plainValue("INTERIM_IRAE", draft.fields.INTERIM_IRAE) ?? "Not decided"}
+            </div>
           )}
         </div>
       </div>
+      <p className="mt-1 text-xs text-slate-500">
+        The protocol asks the investigator to assess whether a side effect is immune-related
+        (protocol p. 91).
+      </p>
       {investigator && (
         <div className="mt-2 space-y-2">
           <div>
@@ -752,9 +950,11 @@ function AttributionBlock({
             >
               Save attribution
             </Button>
-            <span className="text-xs text-slate-600">
-              Setting AESER stops this session&apos;s SAE clock.
-            </span>
+            {clockHint && (
+              <span className="text-xs text-slate-600" data-testid="attribution-clock-hint">
+                {clockHint}
+              </span>
+            )}
           </div>
         </div>
       )}

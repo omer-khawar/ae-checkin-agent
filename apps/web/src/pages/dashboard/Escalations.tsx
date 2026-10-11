@@ -3,7 +3,10 @@
  * (CLAUDE.md §3.7.4), the SAE clocks (§3.4(f)) and the mock pager log.
  *
  * Data: GET /escalations, POST /escalations/{id}/ack, GET /sae-clocks, GET /pages
- * (CONTRACTS.md §2.2). Nothing on this page is computed by a model: tiers and
+ * (CONTRACTS.md §2.2). R3.2 / R4.3: each 24-hour clock shows its kind (SAE or
+ * possible AESI), "Open report packet" (POST /packets) and, for the
+ * investigator, "Record seriousness decision" (PATCH /sae-clocks/{id}/stop)
+ * when no side-effect record exists to attribute. Nothing on this page is computed by a model: tiers and
  * reasons come verbatim from the rules engine via the API; the only arithmetic
  * here is elapsed time and a median.
  *
@@ -45,10 +48,11 @@ const FILTERS: Array<{ id: AckFilter; label: string }> = [
 const PAGER_PAGE_SIZE = 10;
 
 export function Escalations() {
-  const { data, errors, allFailed, loading, reload, replaceEscalation } = useEscalationsData();
+  const { data, errors, allFailed, loading, reload, replaceEscalation, replaceClock } =
+    useEscalationsData();
   const nowMs = useNow(1000);
   const toast = useToast();
-  const { hasRole } = useAuth();
+  const { hasRole, role } = useAuth();
   // CLAUDE.md §3.1: the investigator is read-only except AESER/AEREL in v1.
   const canAck = hasRole("coordinator", "admin");
 
@@ -236,10 +240,11 @@ export function Escalations() {
 
           <Card
             flush
-            title="SAE clocks"
+            title="24-hour report clocks (SAE and possible AESI)"
             aside={
               <span className="text-xs text-slate-600">
-                Site obligation: report to sponsor within 24 h of becoming aware
+                Site obligation: report to sponsor within 24 h of becoming aware (protocol §9.4.2,
+                §9.4.3)
               </span>
             }
           >
@@ -253,10 +258,17 @@ export function Escalations() {
             ) : clocks.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-slate-600">
                 No SAE clock has been started. One starts when a participant answers yes to the
-                hospital / emergency-room question, or a chart note records a hospitalisation.
+                hospital / emergency-room question, a chart note or call records a hospitalisation,
+                or a possible special-interest event (grade 3 on a potentially immune-related
+                symptom) is reported.
               </p>
             ) : (
-              <SaeClocksTable rows={clocks} nowMs={nowMs} />
+              <SaeClocksTable
+                rows={clocks}
+                nowMs={nowMs}
+                role={role}
+                onClockStopped={replaceClock}
+              />
             )}
           </Card>
 

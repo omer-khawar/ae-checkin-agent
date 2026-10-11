@@ -10,13 +10,23 @@
  *   AEs        AEDECOD, first/last session links, ongoing vs resolved (the
  *              header chip and the card both count ongoing as "open")
  *   con-meds   verbatim CMTRT, matched CMDECOD, direction, match confidence
- *   notes      chart notes (R2.4) with date, author, type
+ *   notes      chart notes (R2.4) and logged phone calls (R4.1, phone icon +
+ *              "Phone call" + who called), with date, author, type
  *   sessions   every check-in with its tier chip and vitals status
  *
  * Every derived value says where it came from (grade = participant answers via
  * the composite→grade table; vitals = median of eligible samples; CMDECOD = a
  * deterministic string match, not RxNorm), and every row links to the check-in
  * detail page where the full evidence lives. Nothing here is clinical advice.
+ *
+ * Header actions (CONTRACTS.md R3.3 / R4.1): "Visit brief" opens the
+ * printable pre-visit brief (/dashboard/participants/:usubjid/brief, owned by
+ * the brief page) and "Log a call" opens the quick call form for this
+ * participant; a logged call is scanned like a chart note and the timeline
+ * reloads so it appears under "Chart notes and calls".
+ *
+ * Plain words lead (CLAUDE.md §00): "Side effects", "Medication changes";
+ * the SDTM names (AEDECOD, CMTRT, CMDECOD) stay as small badges.
  *
  * `GET /items` (no token needed) is fetched alongside the timeline only to
  * label the sparklines with the real short labels and CTCAE terms; when it
@@ -32,6 +42,9 @@ import { TierChip } from "../../components/TierChip";
 import { getItems, getTimeline } from "../../lib/api";
 import { cx, formatConfidence, Time, vitalsStatusLabel } from "../../lib/format";
 import type { Item, Session } from "../../lib/types";
+import { briefPath } from "./detail/r34Api";
+import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
+import { callSummary } from "./notes/phoneCallLabels";
 import { SymptomSparkline, VitalsCharts } from "./timeline/charts";
 import {
   buildSymptomSeries,
@@ -58,6 +71,7 @@ export function ParticipantTimeline() {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [items, setItems] = useState<Item[] | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [callOpen, setCallOpen] = useState(false);
 
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -181,13 +195,45 @@ export function ParticipantTimeline() {
             </dd>
           </dl>
         </div>
-        <ul className="flex flex-wrap gap-2 text-sm" aria-label="Summary">
-          <SummaryChip label="check-ins" value={sessions.length} />
-          <SummaryChip label="open AEs" value={openAes.length} />
-          <SummaryChip label="con-med changes" value={conmeds.length} />
-          <SummaryChip label="chart notes" value={notes.length} />
-        </ul>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={briefPath(participant?.usubjid ?? usubjid)}
+              className="inline-flex min-h-9 items-center rounded-xl border border-brand-800 bg-brand-700 px-3 text-sm font-semibold text-white hover:bg-brand-800 focus-visible:ring-4"
+              title="Everything since the last visit, on one printable page"
+            >
+              Visit brief
+            </Link>
+            <button
+              type="button"
+              onClick={() => setCallOpen((v) => !v)}
+              aria-expanded={callOpen}
+              aria-controls="timeline-log-call"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus-visible:ring-4"
+            >
+              <PhoneGlyph />
+              {callOpen ? "Close call form" : "Log a call"}
+            </button>
+          </div>
+          <ul className="flex flex-wrap gap-2 text-sm" aria-label="Summary">
+            <SummaryChip label="check-ins" value={sessions.length} />
+            <SummaryChip label="open side effects" value={openAes.length} />
+            <SummaryChip label="medication changes" value={conmeds.length} />
+            <SummaryChip label="notes and calls" value={notes.length} />
+          </ul>
+        </div>
       </header>
+
+      {callOpen && (
+        <Card title={`Log a call about ${label}`} id="timeline-log-call">
+          <LogCallForm
+            usubjid={participant?.usubjid ?? usubjid}
+            displayLabel={label}
+            idPrefix="timeline-call"
+            onLogged={() => retry()}
+          />
+        </Card>
+      )}
 
       {/* Symptoms ---------------------------------------------------------- */}
       <Card
@@ -247,7 +293,7 @@ export function ParticipantTimeline() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Open AEs -------------------------------------------------------- */}
         <Card
-          title="Adverse events (open and resolved)"
+          title="Side effects (open and resolved)"
           aside={
             <span className="tnum text-xs text-slate-600" data-testid="ae-count">
               {openAes.length} open
@@ -264,7 +310,9 @@ export function ParticipantTimeline() {
                   <div className="min-w-0">
                     <div className="font-semibold text-slate-900">
                       {ae.aedecod || "—"}{" "}
-                      <span className="text-xs font-normal text-slate-500">(AEDECOD)</span>
+                      <span className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] font-normal text-slate-500">
+                        AEDECOD
+                      </span>
                     </div>
                     <div className="mt-0.5 text-xs text-slate-600">
                       First reported{" "}
@@ -314,7 +362,7 @@ export function ParticipantTimeline() {
         </Card>
 
         {/* Con-meds -------------------------------------------------------- */}
-        <Card title="Concomitant medication changes" aside={<Count n={conmeds.length} />}>
+        <Card title="Medication changes" aside={<Count n={conmeds.length} />}>
           {conmeds.length === 0 ? (
             <Empty>No medication changes reported.</Empty>
           ) : (
@@ -327,10 +375,11 @@ export function ParticipantTimeline() {
                       When
                     </th>
                     <th scope="col" className="py-1 pr-3 font-medium">
-                      Reported (CMTRT, verbatim)
+                      As reported, word for word{" "}
+                      <span className="font-mono text-[10px]">CMTRT</span>
                     </th>
                     <th scope="col" className="py-1 pr-3 font-medium">
-                      Matched (CMDECOD)
+                      Standard name <span className="font-mono text-[10px]">CMDECOD</span>
                     </th>
                     <th scope="col" className="py-1 pr-3 font-medium">
                       Direction
@@ -390,9 +439,9 @@ export function ParticipantTimeline() {
       </div>
 
       {/* Chart notes --------------------------------------------------------- */}
-      <Card title="Chart notes" aside={<Count n={notes.length} />}>
+      <Card title="Chart notes and calls" aside={<Count n={notes.length} />}>
         {notes.length === 0 ? (
-          <Empty>No chart notes ingested for this participant.</Empty>
+          <Empty>No chart notes or phone calls yet for this participant.</Empty>
         ) : (
           <ul className="divide-y divide-slate-100" data-testid="chart-notes">
             {notes.map((n) => (
@@ -403,15 +452,21 @@ export function ParticipantTimeline() {
                   </span>
                   <span className="text-slate-700">{n.author || "Unknown author"}</span>
                   {n.note_type && (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
-                      {n.note_type}
+                    <NoteTypeLabel
+                      noteType={n.note_type}
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                    />
+                  )}
+                  {callSummary(n.caller, n.call_direction) && (
+                    <span className="text-xs text-slate-600">
+                      {callSummary(n.caller, n.call_direction)}
                     </span>
                   )}
                   {typeof n.escalation_tier === "number" && (
                     <TierChip tier={n.escalation_tier} short />
                   )}
                   <Link to={notePath(n.id)} className="text-xs text-brand-700 underline">
-                    Open note
+                    {n.note_type === "phone_call" ? "Open call" : "Open note"}
                   </Link>
                 </div>
                 {n.ingested_at && (
@@ -485,6 +540,15 @@ export function ParticipantTimeline() {
 // ---------------------------------------------------------------------------
 // Small presentational pieces
 // ---------------------------------------------------------------------------
+
+/** Small decorative phone glyph for the "Log a call" button (the text carries the meaning). */
+function PhoneGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
+      <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148a1.5 1.5 0 0 1 1.465 1.175l.513 2.31a1.5 1.5 0 0 1-1.02 1.756l-.97.323a11.04 11.04 0 0 0 6.1 6.1l.323-.97a1.5 1.5 0 0 1 1.756-1.02l2.31.513A1.5 1.5 0 0 1 18 13.352V14.5a1.5 1.5 0 0 1-1.5 1.5H15C8.096 16 2.5 10.404 2.5 3.5V3.5Z" />
+    </svg>
+  );
+}
 
 function SummaryChip({ label, value }: { label: string; value: number }) {
   return (

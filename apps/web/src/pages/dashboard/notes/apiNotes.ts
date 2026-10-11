@@ -5,6 +5,7 @@
  *   POST /notes          ingest + scan + drafts
  *   GET  /notes          paginated list
  *   GET  /notes/{id}     note + scan + drafts
+ *   POST /notes          note_type "phone_call" + caller + call_direction (R4.1)
  *
  * `src/lib/api.ts` does not export its private `request()` helper and is owned
  * by another wave, so the minimal fetch is replicated here with the same
@@ -23,6 +24,7 @@ import {
   NetworkError,
   parseProblem,
 } from "../../../lib/api";
+import { PHONE_CALL_NOTE_TYPE, type CallDirection, type CallerKind } from "../detail/r34Types";
 import { normalizeNoteDetail, normalizeNotesPage, normalizeScan } from "./normalize";
 import type {
   NoteDetailResponse,
@@ -88,4 +90,21 @@ export async function listNotes(q: NotesQuery = {}): Promise<NotesPage> {
 export async function getNote(noteId: string): Promise<NoteDetailResponse> {
   const raw = await request<unknown>(`/notes/${encodeURIComponent(noteId)}`);
   return normalizeNoteDetail(raw);
+}
+
+/** R4.1 "Log a call": the coordinator's call summary, scanned exactly like a chart note. */
+export interface PhoneCallRequest {
+  usubjid: string;
+  /** YYYY-MM-DD the call took place. */
+  note_date: string;
+  /** Who logged it (the signed-in user's display name). */
+  author: string;
+  caller: CallerKind;
+  call_direction: CallDirection;
+  /** The call summary, stored verbatim. */
+  text: string;
+}
+
+export function logPhoneCall(body: PhoneCallRequest): Promise<NoteIngestResponse> {
+  return ingestNote({ ...body, note_type: PHONE_CALL_NOTE_TYPE });
 }

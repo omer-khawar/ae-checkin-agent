@@ -232,6 +232,15 @@ describe("model helpers", () => {
       AEREL: "PROBABLE",
     });
     expect(attributionBody(none, { AESER: "", AEREL: "" }, "just a note")).toBeNull();
+    // R4.3 immune-related: "" (not decided) is a real answer, so Y → "" sends null.
+    const irae = { AESER: "", AEREL: "", INTERIM_IRAE: "Y" };
+    expect(attributionBody(irae, { ...irae, INTERIM_IRAE: "" }, "")).toEqual({
+      INTERIM_IRAE: null,
+    });
+    expect(attributionBody(irae, { ...irae, INTERIM_IRAE: "N" }, "")).toEqual({
+      INTERIM_IRAE: "N",
+    });
+    expect(attributionBody(irae, irae, "")).toBeNull();
   });
 
   it("lists version differences field by field", () => {

@@ -10,6 +10,10 @@
  *   when a Tier 3 item that was not in the previous fetch appears: that is the
  *   dashboard half of the mock pager.
  * - Every countdown chip ticks from one shared clock (`useNow`).
+ * - Stage 2 (CONTRACTS R3.3 / R4): a "Since you were last here" row on top
+ *   (`queue/SinceLastHere`), serious-event vs special-interest report chips,
+ *   a "Phone call" source, and a "Brief" link per participant. Plain language
+ *   leads; SDTM codes and tier numbers stay one step deeper.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -25,6 +29,7 @@ import { DEFAULT_PAGE_SIZE, fetchAllPages, listParticipants } from "../../lib/ap
 import { cx, formatLocal, formatUtc } from "../../lib/format";
 import type { Participant } from "../../lib/types";
 import { buildQueueQuery, hasNarrowingFilter } from "./queue/normalize";
+import { SinceLastHere } from "./queue/SinceLastHere";
 import { QueueFilters } from "./queue/QueueFilters";
 import { QueueTable } from "./queue/QueueTable";
 import type { QueueFilterState, QueueRow } from "./queue/types";
@@ -119,8 +124,9 @@ export function Queue({
   );
 
   // Mock pager, dashboard side: a Tier 3 row that was not in the previous fetch
-  // of the same query is a new urgent check-in (the API already wrote the page
-  // event and the kiosk showed the stop screen).
+  // of the same query is a new urgent item (for a check-in, the API already
+  // wrote the page event and the kiosk showed the stop screen). Title and body
+  // both name the item's real source: check-in, chart note or phone call.
   const onRefresh = useCallback(
     (next: QueueRow[], prev: QueueRow[]) => {
       const seen = new Set(prev.map((r) => r.key));
@@ -128,8 +134,8 @@ export function Queue({
         if (row.tier === 3 && !seen.has(row.key)) {
           toast.push({
             kind: "warning",
-            title: "Page: Tier 3 urgent check-in",
-            message: `${row.display_label} · ${row.source === "chart_note" ? "chart note" : "check-in"} completed ${formatLocal(row.completed_at, "time") || "just now"}. Open the queue row to acknowledge.`,
+            title: `Page: new urgent ${SOURCE_WORD[row.source]} (Tier 3)`,
+            message: `${row.display_label} · ${SOURCE_WORD[row.source]} completed ${formatLocal(row.completed_at, "time") || "just now"}. Open the queue row to acknowledge.`,
             durationMs: 15_000,
           });
         }
@@ -144,10 +150,17 @@ export function Queue({
     enabled: queueEnabled,
   });
 
-  const anyClock = Boolean(data?.items.some((r) => r.has_sae_clock && !r.sae_stopped));
+  const anyClock = Boolean(data?.items.some((r) => r.clocks.some((c) => !c.stopped)));
   const now = useNow(anyClock);
 
   const rows = data?.items ?? [];
+
+  // The Refresh button re-counts the "since you were last here" row too.
+  const [summaryKey, setSummaryKey] = useState(0);
+  const refreshAll = useCallback(() => {
+    refresh();
+    setSummaryKey((k) => k + 1);
+  }, [refresh]);
 
   return (
     <div className="space-y-4">
@@ -155,8 +168,8 @@ export function Queue({
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Queue</h1>
           <p className="mt-0.5 text-sm text-slate-600">
-            Sorted by escalation tier (highest first), then most recent. Server order; nothing is
-            re-ranked in the browser.
+            Everything that needs a look, most urgent first, then most recent. Order comes from the
+            rules engine on the server; nothing is re-ranked in the browser.
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm text-slate-600">
@@ -173,11 +186,13 @@ export function Queue({
             {updatedAt ? `updated ${formatLocal(updatedAt, "time")}` : "not yet updated"}
             {refreshing && <span className="ml-1 text-slate-400">· refreshing…</span>}
           </span>
-          <Button size="sm" variant="secondary" onClick={refresh} busy={loading}>
+          <Button size="sm" variant="secondary" onClick={refreshAll} busy={loading}>
             Refresh
           </Button>
         </div>
       </div>
+
+      <SinceLastHere refreshKey={summaryKey} />
 
       <Card>
         <QueueFilters value={filters} participants={participants} onChange={patchFilters} />
@@ -191,7 +206,7 @@ export function Queue({
               ? "Could not refresh the queue; showing the last result"
               : "Could not load the queue"
           }
-          onRetry={refresh}
+          onRetry={refreshAll}
         />
       ) : null}
 
@@ -242,7 +257,7 @@ function EmptyState({ filters }: { filters: QueueFilterState }) {
         : "No items for this participant / minimum tier. Clear filters to see everything.";
   } else if (filters.status === "open") {
     detail =
-      "Open items are check-ins and chart notes with drafts still awaiting review. Switch Status to All to see confirmed and rejected ones.";
+      "Open items are check-ins, chart notes and phone calls with drafts still awaiting review. Switch Status to All to see confirmed and rejected ones.";
   } else {
     detail = "Nothing has been recorded yet. Start a check-in from the kiosk.";
   }
@@ -257,6 +272,13 @@ function EmptyState({ filters }: { filters: QueueFilterState }) {
     </div>
   );
 }
+
+/** Lower-case source words for the pager toast (title and body). */
+const SOURCE_WORD: Record<QueueRow["source"], string> = {
+  check_in: "check-in",
+  chart_note: "chart note",
+  phone_call: "phone call",
+};
 
 /** What the chips mean, so a first-time reader never has to guess. */
 function Legend() {
@@ -273,6 +295,11 @@ function Legend() {
       <span className="inline-flex items-center gap-1.5">
         <MeasuredBadge isMeasured={false} /> mock source; never used for rules unless the admin demo
         toggle is on
+      </span>
+      <span>
+        <span className="font-medium text-slate-700">Report due</span>: a serious event (SAE) or
+        special-interest event (AESI) must reach the sponsor within 24 hours (protocol
+        §9.4.2–9.4.3).
       </span>
       <span>Grades are provisional (participant answers only); vitals never change a grade.</span>
     </div>

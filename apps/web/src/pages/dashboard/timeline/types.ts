@@ -29,6 +29,9 @@ export interface ChartNoteSummary {
   draft_count?: number | null;
   drafts?: unknown[] | null;
   escalation_tier?: number | null;
+  /** R4.1 phone calls (note_type "phone_call"): who called and which way. */
+  caller?: string | null;
+  call_direction?: string | null;
 }
 
 /**

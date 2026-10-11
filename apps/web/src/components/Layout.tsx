@@ -1,7 +1,8 @@
 /**
  * Dashboard chrome: header with the demo study (GET /study), the synthetic-data
- * note, navigation, the signed-in role, and the persistent disclaimer footer.
- * Pages render into <Outlet/>.
+ * note, navigation, the signed-in role, the "time saved this week (estimate)"
+ * strip (CLAUDE.md §00.5; hidden when the metric is unavailable), and the
+ * persistent disclaimer footer. Pages render into <Outlet/>.
  */
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
@@ -12,11 +13,14 @@ import { cx } from "../lib/format";
 import type { Study } from "../lib/types";
 import { Button } from "./Button";
 import { Disclaimer } from "./Disclaimer";
+import { TimeSavedStrip } from "./TimeSavedStrip";
 
 const NAV: Array<{ to: string; label: string; end?: boolean }> = [
   { to: "/dashboard", label: "Queue", end: true },
   { to: "/dashboard/escalations", label: "Escalations" },
   { to: "/dashboard/notes", label: "Notes" },
+  // Sponsor queries (CONTRACTS R4.4, step 7 of a side effect's life).
+  { to: "/dashboard/queries", label: "Queries" },
   { to: "/dashboard/audit", label: "Audit" },
   { to: "/dashboard/eval", label: "Eval" },
 ];
@@ -84,7 +88,7 @@ export function Layout() {
             </div>
           </div>
 
-          <nav aria-label="Dashboard" className="flex items-center gap-1">
+          <nav aria-label="Dashboard" className="flex flex-wrap items-center gap-1">
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
@@ -134,6 +138,10 @@ export function Layout() {
               Open kiosk
             </Link>
           </div>
+        </div>
+        {/* `empty:hidden`: when the strip renders nothing, the row takes no space. */}
+        <div className="mx-auto flex max-w-7xl justify-end px-4 pb-2 empty:hidden">
+          <TimeSavedStrip />
         </div>
       </header>
 

@@ -84,9 +84,13 @@ describe("NoteDetail page", () => {
     await screen.findByText("Scanner findings");
     const ae = screen.getByTestId("draft-AE");
 
-    await user.click(within(ae).getByRole("button", { name: /^AETOXGR: 2/ }));
+    await user.click(
+      within(ae).getByRole("button", {
+        name: /^Severity grade \(provisional\) \(AETOXGR\): Grade 2/,
+      }),
+    );
     const evidence = within(ae).getByTestId("evidence-list");
-    expect(evidence).toHaveTextContent("chart_note");
+    expect(evidence).toHaveTextContent("Chart note");
     expect(evidence).toHaveTextContent("provisional grade 2");
     const { span_start, span_end } = span("increasing SOB");
     expect(evidence).toHaveTextContent(`chars ${span_start}–${span_end}`);
@@ -98,7 +102,7 @@ describe("NoteDetail page", () => {
     expect(selected).toBe("increasing SOB");
 
     // A field whose evidence is a rule (no span) shows the evidence but clears the outline.
-    await user.click(within(ae).getByRole("button", { name: /^AESTDTC/ }));
+    await user.click(within(ae).getByRole("button", { name: /^Started on \(AESTDTC\)/ }));
     expect(within(ae).getByTestId("evidence-list")).toHaveTextContent("minus 7 days");
     expect(note.querySelectorAll("[data-selected]")).toHaveLength(0);
   });

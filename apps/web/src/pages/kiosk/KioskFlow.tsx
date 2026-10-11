@@ -1,12 +1,19 @@
 /**
- * The kiosk state machine (CLAUDE.md §3.8, CONTRACTS.md §4):
+ * The kiosk state machine (CLAUDE.md §3.8 as amended by §00, CONTRACTS.md §4 + R3.3):
  *
- *   welcome ─▶ consent ─▶ items (×N) ─▶ gates (×3) ─▶ submitting ─▶ thankyou
- *                                                                └─▶ stop (Tier 3)
+ *   welcome ─▶ items (×N) ─▶ gates (×3) ─▶ submitting ─▶ thankyou
+ *                                                     └─▶ stop (Tier 3)
+ *
+ * There is no per-session camera consent screen any more (D-026): camera use
+ * is covered by the informed consent form signed at enrollment, and the API
+ * records `consent_basis: "enrollment_icf"`. The Welcome screen keeps the
+ * "no video is stored" sentence and an "I'd rather not use the camera" opt-out
+ * (camera on by default), whose value is sent as `consent_camera`.
  *
  * API calls, in order:
  *   GET /items, GET /study             on mount
- *   POST /sessions                     on the consent decision (Yes or No);
+ *   POST /sessions                     on "Start check-in", with consent_camera from
+ *                                      the Welcome opt-out toggle;
  *                                      usubjid = "{study_id}-{typed label}", retried
  *                                      with the bare label on 404 (lib/participant.ts)
  *   POST /sessions/{id}/answers        on every option tap (idempotent per item+attribute);
@@ -16,7 +23,7 @@
  *   POST /sessions/{id}/answers        again for any answer the API never acknowledged
  *   POST /sessions/{id}/complete       after the bridge's post-flush idle (≤ 2.5 s)
  *
- * Bridge: `start` right after the session exists (consent = Yes; re-sent by the
+ * Bridge: `start` right after the session exists (camera left on; re-sent by the
  * client on reconnect), `stop` before `/complete`. The participant never sees a
  * tier, a grade, or any rule output.
  */
@@ -47,7 +54,6 @@ import type {
   Session,
   Study,
 } from "../../lib/types";
-import { Consent } from "./Consent";
 import { GateScreen } from "./GateScreen";
 import { ItemScreen } from "./ItemScreen";
 import { KioskShell } from "./KioskShell";
@@ -56,7 +62,7 @@ import { Submitting } from "./Submitting";
 import { ThankYou } from "./ThankYou";
 import { Welcome } from "./Welcome";
 
-type Step = "welcome" | "consent" | "items" | "gates" | "submitting" | "thankyou" | "stop";
+type Step = "welcome" | "items" | "gates" | "submitting" | "thankyou" | "stop";
 
 /** How long we give the bridge to flush its buffer after `stop` (CONTRACTS.md §4). */
 export const BRIDGE_FLUSH_TIMEOUT_MS = 2500;
@@ -112,13 +118,18 @@ export function KioskFlow() {
 
   // ---- flow state ----------------------------------------------------------
   const [step, setStep] = useState<Step>("welcome");
-  /** The label the participant typed (e.g. "P-007"); the USUBJID is composed on consent. */
+  /** The label the participant typed (e.g. "P-007"); the USUBJID is composed on start. */
   const [typedId, setTypedId] = useState("");
   const [session, setSession] = useState<Session | null>(null);
-  const [consent, setConsent] = useState<boolean | null>(null);
+  /** Camera on for this session (Welcome opt-out not ticked). Sent as `consent_camera`. */
+  const [cameraOn, setCameraOn] = useState(true);
+  /** Unknown study ID (404 / 422): a "check your ID" message, no retry. */
   const [startError, setStartError] = useState<unknown>(null);
-  const [consentError, setConsentError] = useState<unknown>(null);
-  const [consentBusy, setConsentBusy] = useState(false);
+  /** Anything else (network, 5xx): a generic message with "Try again". */
+  const [startFailure, setStartFailure] = useState<unknown>(null);
+  const [startBusy, setStartBusy] = useState(false);
+  /** Guards against a double submit before `startBusy` re-renders. */
+  const startingRef = useRef(false);
 
   const [itemIndex, setItemIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -145,10 +156,10 @@ export function KioskFlow() {
 
   // ---- bridge --------------------------------------------------------------
   // Connect as soon as the kiosk loads so the socket is warm by the time the
-  // participant consents. `start` is only sent after consent = Yes. The card is
-  // hidden once capture has been stopped (submitting onward).
+  // participant presses Start. `start` is only sent when the camera is left on.
+  // The card is hidden once capture has been stopped (submitting onward).
   const bridge = useBridge();
-  const showVitals = consent === true && (step === "items" || step === "gates");
+  const showVitals = cameraOn && session !== null && (step === "items" || step === "gates");
 
   const bridgeStop = bridge.stop;
   const reset = useCallback(() => {
@@ -157,10 +168,11 @@ export function KioskFlow() {
     setStep("welcome");
     setTypedId("");
     setSession(null);
-    setConsent(null);
+    setCameraOn(true);
     setStartError(null);
-    setConsentError(null);
-    setConsentBusy(false);
+    setStartFailure(null);
+    setStartBusy(false);
+    startingRef.current = false;
     setItemIndex(0);
     setAnswers({});
     setTempC("");
@@ -179,49 +191,45 @@ export function KioskFlow() {
     submittingRef.current = false;
   }, [bridgeStop]);
 
-  // ---- welcome → consent ---------------------------------------------------
-  function onStart(id: string) {
-    setTypedId(id);
-    setStartError(null);
-    setStep("consent");
-  }
-
-  // ---- consent → session → items -------------------------------------------
-  const decideConsent = useCallback(
-    async (value: boolean) => {
-      setConsent(value);
-      setConsentBusy(true);
-      setConsentError(null);
+  // ---- welcome → session → items -------------------------------------------
+  const startSession = useCallback(
+    async (id: string, useCamera: boolean) => {
+      if (startingRef.current) return;
+      startingRef.current = true;
+      setTypedId(id);
+      setCameraOn(useCamera);
+      setStartBusy(true);
+      setStartError(null);
+      setStartFailure(null);
       try {
         // CONTRACTS.md §5: USUBJID = "{study_id}-P-xxx". Compose it from the loaded
         // study; if the API resolves display labels instead, the 404 retry covers it.
-        const { primary, fallback } = resolveUsubjid(typedId, study?.study_id);
+        const { primary, fallback } = resolveUsubjid(id, study?.study_id);
         let s: Session;
         try {
-          s = await createSession({ usubjid: primary, consent_camera: value });
+          s = await createSession({ usubjid: primary, consent_camera: useCamera });
         } catch (e) {
           if (fallback && isApiError(e) && e.isNotFound) {
-            s = await createSession({ usubjid: fallback, consent_camera: value });
+            s = await createSession({ usubjid: fallback, consent_camera: useCamera });
           } else {
             throw e;
           }
         }
         setSession(s);
-        if (value) bridge.start(s.id, scenarioOverride);
+        if (useCamera) bridge.start(s.id, scenarioOverride);
+        setItemIndex(0);
         setStep("items");
       } catch (e) {
-        // Unknown study ID → back to Welcome with a friendly message.
-        if (isApiError(e) && (e.isNotFound || e.isValidation)) {
-          setStartError(e);
-          setStep("welcome");
-        } else {
-          setConsentError(e);
-        }
+        // Unknown study ID → stay on Welcome with a friendly "check your ID" message;
+        // anything else → a generic message with "Try again".
+        if (isApiError(e) && (e.isNotFound || e.isValidation)) setStartError(e);
+        else setStartFailure(e);
       } finally {
-        setConsentBusy(false);
+        startingRef.current = false;
+        setStartBusy(false);
       }
     },
-    [typedId, study, bridge, scenarioOverride],
+    [study, bridge, scenarioOverride],
   );
 
   // ---- items ---------------------------------------------------------------
@@ -362,7 +370,7 @@ export function KioskFlow() {
         }
       }
       // Tell the bridge to stop and wait for its post-flush idle (≤ 2.5 s), then complete regardless.
-      if (consent === true) await bridge.stopAndFlush(BRIDGE_FLUSH_TIMEOUT_MS);
+      if (cameraOn) await bridge.stopAndFlush(BRIDGE_FLUSH_TIMEOUT_MS);
       const res = await completeSession(session.id, { ts_client: nowIso() });
       setComplete(res);
       setStep(res.stop_screen ? "stop" : "thankyou");
@@ -371,11 +379,11 @@ export function KioskFlow() {
     } finally {
       submittingRef.current = false;
     }
-  }, [session, consent, bridge, answers, ackedKeys, pendingKeys, sendAnswer]);
+  }, [session, cameraOn, bridge, answers, ackedKeys, pendingKeys, sendAnswer]);
 
   useEffect(() => {
     if (step === "submitting" && !completeError) void runComplete();
-    // runComplete is stable per session/consent; we deliberately run once per entry into "submitting".
+    // runComplete is stable per session/camera choice; we deliberately run once per entry into "submitting".
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
@@ -401,19 +409,11 @@ export function KioskFlow() {
           loading={loading}
           loadError={loadError}
           onRetryLoad={load}
+          busy={startBusy}
           startError={startError}
+          startFailure={startFailure}
           initialId={typedId}
-          onStart={onStart}
-        />
-      )}
-
-      {step === "consent" && (
-        <Consent
-          usubjid={typedId}
-          busy={consentBusy}
-          error={consentError}
-          onRetry={() => consent !== null && void decideConsent(consent)}
-          onDecide={(v) => void decideConsent(v)}
+          onStart={(id, useCamera) => void startSession(id, useCamera)}
         />
       )}
 

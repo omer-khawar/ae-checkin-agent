@@ -14,10 +14,16 @@ import type {
   Evidence,
   IsoUtc,
   Paginated,
-  RuleFired,
   SAEClockRow,
   Ulid,
 } from "../../../lib/types";
+import type {
+  CallDirection,
+  CallerKind,
+  ClockKind,
+  ProtocolAssessment,
+  RuleFiredPlain,
+} from "../detail/r34Types";
 
 /** NegEx-style reasons a mention is excluded from drafting (R2.4). */
 export type ExcludedReason =
@@ -89,6 +95,10 @@ export interface ChartNote {
   ingested_at: IsoUtc;
   ingested_by: string;
   tier?: number | null;
+  /** R4.1 phone calls: who called. */
+  caller?: CallerKind | string | null;
+  /** R4.1 phone calls: who placed the call. */
+  call_direction?: CallDirection | string | null;
 }
 
 /** A row of `GET /notes`. Counts are optional: the page falls back to the scan. */
@@ -111,7 +121,7 @@ export interface NoteEvidence extends Omit<Evidence, "kind"> {
 export interface NoteDraft extends Omit<Draft, "evidence"> {
   evidence: Record<string, NoteEvidence[]>;
   note_id?: Ulid | null;
-  source?: "check_in" | "chart_note";
+  source?: "check_in" | "chart_note" | "phone_call";
 }
 
 export interface NoteEscalation extends Escalation {
@@ -121,6 +131,12 @@ export interface NoteEscalation extends Escalation {
 
 export interface NoteSAEClock extends SAEClockRow {
   note_id?: Ulid | null;
+  /** R3.2: `sae` or `aesi`. */
+  kind?: ClockKind | string | null;
+  /** The report packet already opened for this clock, when the API joins it. */
+  packet_id?: Ulid | null;
+  ae_draft_ids?: Ulid[] | null;
+  has_ae_draft?: boolean | null;
 }
 
 export interface ScanRequest {
@@ -135,6 +151,9 @@ export interface NoteIngestRequest {
   author: string;
   note_type: string;
   text: string;
+  /** R4.1: only with note_type "phone_call". */
+  caller?: CallerKind;
+  call_direction?: CallDirection;
 }
 
 /** `POST /notes` response (R2.4). */
@@ -144,8 +163,12 @@ export interface NoteIngestResponse {
   drafts: NoteDraft[];
   escalation: NoteEscalation | null;
   sae_clock: NoteSAEClock | null;
-  rules_fired: RuleFired[];
+  rules_fired: RuleFiredPlain[];
   why: string[];
+  /** R3.2: SDTM variable → plain label, when the API sends it. */
+  labels?: Record<string, string> | null;
+  /** R3.1: protocol assessment for the note's findings, when the API sends it. */
+  protocol?: ProtocolAssessment | null;
 }
 
 /** `GET /notes/{id}` response: the note, its stored scan and drafts. */

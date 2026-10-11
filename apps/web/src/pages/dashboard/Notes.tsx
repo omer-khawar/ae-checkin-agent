@@ -9,7 +9,10 @@
  * Tier-2 escalation or start the SAE clock.
  * Right: the note with highlighted spans, the findings tables and, after an
  * ingest, the drafts / escalation / Why list.
- * Below: the paginated list of ingested notes.
+ * Then: "Log a call" (CONTRACTS.md R4.1): a call summary is stored as a note
+ * with note_type "phone_call" and scanned exactly like a chart note.
+ * Below: the paginated list of ingested notes and calls (calls carry a phone
+ * icon and the words "Phone call").
  *
  * No LLM is involved anywhere: every highlight is a regex match from
  * `chartscan_lexicon.json`, and every exclusion names its NegEx cue.
@@ -31,6 +34,7 @@ import { ingestNote, listNotes, scanNote } from "./notes/apiNotes";
 import { DraftsPanel } from "./notes/DraftsPanel";
 import { HighlightedNote } from "./notes/HighlightedNote";
 import { Outcome } from "./notes/Outcome";
+import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
 import { DEFAULT_SAMPLE, NOTE_TYPES, SAMPLE_NOTES, type SampleNote } from "./notes/sampleNotes";
 import { ScanTables } from "./notes/ScanTables";
 import type { NoteIngestResponse, NotesPage, ScanResult } from "./notes/types";
@@ -281,9 +285,9 @@ export function Notes() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Chart notes</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
-          Paste a clinic note and the deterministic scanner (regex + NegEx exclusions, no language
-          model) proposes AE and con-med drafts with the exact words each one came from. Everything
-          stays a draft until a coordinator confirms it.{" "}
+          Paste a clinic note, or log a phone call, and the deterministic scanner (regex + NegEx
+          exclusions, no language model) proposes AE and con-med drafts with the exact words each
+          one came from. Everything stays a draft until a coordinator confirms it.{" "}
           <span className="font-medium text-violet-800">
             All notes and participants are synthetic.
           </span>
@@ -560,9 +564,27 @@ export function Notes() {
         </Card>
       </div>
 
+      {/* ------------------------------------------------------- log a call */}
+      <Card
+        title={
+          <span className="flex items-center gap-2">
+            Log a call
+            <span className="text-xs font-normal text-slate-500">
+              participant or caregiver phone call (stored as a phone-call note)
+            </span>
+          </span>
+        }
+      >
+        <LogCallForm
+          participants={participants}
+          idPrefix="notes-call"
+          onLogged={() => setListVersion((v) => v + 1)}
+        />
+      </Card>
+
       {/* --------------------------------------------------------------- list */}
       <Card
-        title="Ingested notes"
+        title="Ingested notes and calls"
         aside={
           <label className="flex items-center gap-2 text-xs text-slate-600">
             <span>Participant</span>
@@ -633,7 +655,9 @@ export function Notes() {
                     </td>
                     <td className="tnum px-4 py-2">{n.note_date || "—"}</td>
                     <td className="px-4 py-2">{n.author || "—"}</td>
-                    <td className="px-4 py-2 text-slate-700">{n.note_type || "—"}</td>
+                    <td className="px-4 py-2 text-slate-700">
+                      {n.note_type ? <NoteTypeLabel noteType={n.note_type} /> : "—"}
+                    </td>
                     <td className="tnum px-4 py-2 text-right">{n.n_symptoms ?? "—"}</td>
                     <td className="tnum px-4 py-2 text-right">{n.n_meds ?? "—"}</td>
                     <td className="tnum px-4 py-2 text-right">{n.n_red_flags ?? "—"}</td>

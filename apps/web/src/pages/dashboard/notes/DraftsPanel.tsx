@@ -3,11 +3,30 @@
  * every field is a button; the selected field lists its `Evidence[]` and tells
  * the parent which words of the note to outline. Optional Confirm / Reject
  * actions call back into the page (which owns the API call and the toast).
+ *
+ * Plain language first (CLAUDE.md §00, R3.3): each field leads with its plain
+ * label ("Severity grade (provisional)") and keeps the SDTM variable in a small
+ * monospace line beneath; protocol flags (possible AESI, prohibited /
+ * discouraged medication, missing medication-form fields) sit above the fields.
  */
 import { useState } from "react";
 
 import { Button } from "../../../components/Button";
 import { cx, Time } from "../../../lib/format";
+import {
+  AESI_BANNER,
+  cmMissingText,
+  evidenceKindName,
+  fieldLabel,
+  flagForDraft,
+  gradeWord,
+  plainDraftTitle,
+  plainValue,
+  protocolChip,
+  sdtmBadge,
+  type Labels,
+} from "../detail/plain";
+import type { ProtocolAssessment } from "../detail/r34Types";
 import { rangeForEvidence } from "./highlight";
 import type { NoteDraft, NoteEvidence } from "./types";
 
@@ -22,13 +41,11 @@ export interface DraftsPanelProps {
   onReject?: (draft: NoteDraft, reason: string) => Promise<void> | void;
   /** Id of a draft currently being confirmed/rejected (disables its buttons). */
   busyDraftId?: string | null;
+  /** R3.2 plain labels from the API (local table otherwise). */
+  labels?: Labels;
+  /** R3.1 protocol assessment, when the API sends one for the note. */
+  protocol?: ProtocolAssessment | null;
 }
-
-const DOMAIN_LABEL: Record<string, string> = {
-  AE: "Adverse event (AE)",
-  CM: "Concomitant medication (CM)",
-  VS: "Vital signs (VS)",
-};
 
 const STATUS_CLASS: Record<string, string> = {
   draft: "bg-amber-100 text-amber-900 border-amber-300",
@@ -86,8 +103,11 @@ function EvidenceList({ items }: { items: NoteEvidence[] }) {
     <ul className="space-y-1.5" data-testid="evidence-list">
       {items.map((e, i) => (
         <li key={`${e.kind}-${e.id}-${i}`} className="text-xs text-slate-700">
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">
-            {e.kind}
+          <span
+            className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-700"
+            title={e.kind}
+          >
+            {evidenceKindName(e.kind)}
           </span>{" "}
           <span className="font-mono text-[11px] text-slate-500">{e.id}</span>
           {e.ts && (
@@ -115,9 +135,13 @@ function DraftCard({
   onConfirm,
   onReject,
   busy,
+  labels,
+  protocol,
 }: {
   draft: NoteDraft;
   noteText: string;
+  labels?: Labels;
+  protocol?: ProtocolAssessment | null;
   onSelectRange?: (range: Range | null) => void;
   onConfirm?: DraftsPanelProps["onConfirm"];
   onReject?: DraftsPanelProps["onReject"];
@@ -148,6 +172,7 @@ function DraftCard({
   };
 
   const fields = orderedFields(draft.fields);
+  const flag = draft.domain === "CM" ? flagForDraft(draft.fields, protocol) : null;
   const canAct = draft.status === "draft" && (onConfirm || onReject);
 
   return (
@@ -159,7 +184,13 @@ function DraftCard({
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-slate-900">
-            {DOMAIN_LABEL[draft.domain] ?? draft.domain}
+            {plainDraftTitle(draft.domain, draft.fields)}
+          </span>
+          <span
+            className="rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] text-slate-600"
+            title="SDTM domain"
+          >
+            {sdtmBadge(draft.domain, draft.fields)}
           </span>
           <span
             className={cx(
@@ -179,7 +210,7 @@ function DraftCard({
                   : "Linked to an existing open AE"
               }
             >
-              Follow-up of open AE
+              Follow-up of a side effect already on record
             </span>
           )}
         </div>
@@ -195,11 +226,21 @@ function DraftCard({
         click target for the value, out of the tab order so each field is one
         tab stop.
       */}
+      <ProtocolNotes draft={draft} protocol={protocol} />
+
       <dl className="divide-y divide-slate-100">
         {fields.map(([name, value]) => {
           const ev = draft.evidence[name] ?? [];
           const sel = selectedField === name;
-          const shown = valueText(value);
+          const plain = fieldLabel(name, labels);
+          const chip = name === "INTERIM_PROTOCOL_FLAG" ? protocolChip(value, flag) : null;
+          const word = name === "AETOXGR" ? gradeWord(value) : null;
+          const shown =
+            name === "AETOXGR" && typeof value === "number"
+              ? `Grade ${value}${word ? ` · ${word}` : ""}`
+              : chip
+                ? chip.text
+                : (plainValue(name, value, labels) ?? valueText(value));
           return (
             <div
               key={name}
@@ -212,11 +253,12 @@ function DraftCard({
                   type="button"
                   onClick={() => select(name)}
                   aria-pressed={sel}
-                  aria-label={`${name}: ${shown}. Show evidence`}
-                  title={`Show evidence for ${name}`}
-                  className="w-full rounded text-left font-mono text-xs text-slate-600 hover:text-brand-800 hover:underline focus-visible:ring-4"
+                  aria-label={`${plain} (${name}): ${shown}. Show evidence`}
+                  title={`Show evidence for ${plain} (${name})`}
+                  className="w-full rounded text-left hover:text-brand-800 hover:underline focus-visible:ring-4"
                 >
-                  {name}
+                  <span className="block text-xs font-medium text-slate-800">{plain}</span>
+                  <span className="font-mono text-[10px] text-slate-500">{name}</span>
                   <span className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600">
                     {ev.length} ev
                   </span>
@@ -227,12 +269,26 @@ function DraftCard({
                   type="button"
                   tabIndex={-1}
                   onClick={() => select(name)}
-                  aria-label={`Value of ${name}: ${shown}. Show evidence`}
+                  aria-label={`Value of ${plain} (${name}): ${shown}. Show evidence`}
                   className="w-full break-words rounded text-left text-sm text-slate-900 hover:bg-slate-50"
                 >
-                  {shown}
+                  {chip ? (
+                    <span
+                      className={cx(
+                        "inline-flex rounded-md border px-1.5 py-0.5 text-xs font-semibold",
+                        chip.className,
+                      )}
+                      title={chip.title}
+                    >
+                      {chip.text}
+                    </span>
+                  ) : (
+                    shown
+                  )}
                   {name === "AETOXGR" && value !== null && value !== undefined && value !== "" && (
-                    <span className="ml-1 text-xs text-slate-500">(provisional)</span>
+                    <span className="ml-1 text-xs text-slate-500">
+                      (provisional, investigator to confirm)
+                    </span>
                   )}
                 </button>
                 {sel && (
@@ -304,6 +360,8 @@ export function DraftsPanel({
   onConfirm,
   onReject,
   busyDraftId,
+  labels,
+  protocol,
 }: DraftsPanelProps) {
   if (drafts.length === 0) {
     return (
@@ -327,8 +385,66 @@ export function DraftsPanel({
           onConfirm={onConfirm}
           onReject={onReject}
           busy={busyDraftId === d.id}
+          labels={labels}
+          protocol={protocol}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * What the study protocol says about a note's draft (R3.1), in plain words:
+ * the possible-AESI banner on an AE, the prohibited / discouraged chip (with
+ * the protocol's exception text on hover) and the missing medication-form
+ * fields on a CM.
+ */
+function ProtocolNotes({
+  draft,
+  protocol,
+}: {
+  draft: NoteDraft;
+  protocol?: ProtocolAssessment | null;
+}) {
+  if (draft.domain === "AE") {
+    if (draft.fields.INTERIM_AESI_SUSPECTED !== true) return null;
+    return (
+      <p
+        className="border-b border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-900"
+        data-testid="aesi-banner"
+      >
+        {AESI_BANNER}
+      </p>
+    );
+  }
+  if (draft.domain !== "CM") return null;
+  const flag = flagForDraft(draft.fields, protocol);
+  const chip = protocolChip(draft.fields.INTERIM_PROTOCOL_FLAG ?? flag?.level, flag);
+  const missing = cmMissingText(draft.fields.INTERIM_CM_MISSING_FIELDS);
+  if (!chip && !missing) return null;
+  return (
+    <div
+      className="space-y-1 border-b border-slate-100 bg-slate-50 px-3 py-2"
+      data-testid="cm-protocol"
+    >
+      {chip && (
+        <span
+          className={cx(
+            "inline-flex rounded-md border px-1.5 py-0.5 text-xs font-semibold",
+            chip.className,
+          )}
+          title={chip.title}
+          tabIndex={chip.title ? 0 : undefined}
+          data-testid="protocol-chip"
+        >
+          {chip.text}
+        </span>
+      )}
+      {missing && (
+        <p className="text-xs text-slate-800" data-testid="cm-missing">
+          {missing}
+        </p>
+      )}
     </div>
   );
 }

@@ -10,10 +10,21 @@
  *   /dashboard/eval
  *   /dashboard/notes                    chart notes (ingest + list, R2.4)
  *   /dashboard/notes/:noteId            chart note detail
+ *   /dashboard/packets/:id              serious-event report packet (R3.2/R3.3)
+ *   /dashboard/participants/:usubjid/brief   visit-prep brief (R3.3)
+ *   /dashboard/queries                  sponsor queries (R4.4)
  *   /admin                              admin only
  *
  * `AppRoutes` is router-agnostic so tests can mount it in a MemoryRouter.
+ *
+ * The three stage-2 pages are code-split and loaded through `import.meta.glob`
+ * rather than a plain `import()`: Vite resolves a glob to `{}` when the file
+ * does not exist yet, so the shell (and its tests) keep working while those
+ * pages are still being written, and the route shows a clear "not available in
+ * this build" panel instead of crashing. Once all three files exist this is
+ * equivalent to `lazy(() => import("./pages/dashboard/packets/PacketPage"))`.
  */
+import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
@@ -32,6 +43,94 @@ import { KioskFlow } from "./pages/kiosk/KioskFlow";
 import { Login } from "./pages/Login";
 import { NotFound } from "./pages/NotFound";
 
+// ---------------------------------------------------------------------------
+// Lazily loaded stage-2 pages
+// ---------------------------------------------------------------------------
+
+type PageModule = { default?: ComponentType; [name: string]: unknown };
+
+/** Every candidate module, keyed by path; a missing file is simply absent. */
+const STAGE2_PAGES = import.meta.glob<PageModule>([
+  "./pages/dashboard/packets/PacketPage.tsx",
+  "./pages/dashboard/brief/BriefPage.tsx",
+  "./pages/dashboard/queries/QueriesPage.tsx",
+]);
+
+/** Shown when a page module is not in this build (or exports no component). */
+function PageUnavailable({ name }: { name: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-700" role="status">
+      <h1 className="text-lg font-semibold text-slate-900">{name} is not available yet</h1>
+      <p className="mt-1 text-sm">
+        This page is not part of the current build. The rest of the dashboard works as usual.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * `React.lazy` over the glob: prefers the default export, then a named export
+ * matching the file name (e.g. `export function PacketPage`), else the
+ * "not available" panel.
+ */
+function lazyPage(path: string, exportName: string, displayName: string) {
+  return lazy(async () => {
+    const load = STAGE2_PAGES[path];
+    const Fallback = () => <PageUnavailable name={displayName} />;
+    if (!load) return { default: Fallback };
+    try {
+      const mod = await load();
+      // Read the named export only when there is no default (a module mock throws
+      // on access to an export it does not define).
+      const pickNamed = () => {
+        const named = mod[exportName];
+        return typeof named === "function" ? (named as ComponentType) : undefined;
+      };
+      const Comp = mod.default ?? pickNamed();
+      return { default: Comp ?? Fallback };
+    } catch (e) {
+      // A page that fails to load must not take the dashboard down; say why in the console.
+      console.error(`Could not load ${path}`, e);
+      return { default: Fallback };
+    }
+  });
+}
+
+const PacketPage = lazyPage(
+  "./pages/dashboard/packets/PacketPage.tsx",
+  "PacketPage",
+  "The report packet page",
+);
+const BriefPage = lazyPage(
+  "./pages/dashboard/brief/BriefPage.tsx",
+  "BriefPage",
+  "The visit brief page",
+);
+const QueriesPage = lazyPage(
+  "./pages/dashboard/queries/QueriesPage.tsx",
+  "QueriesPage",
+  "The sponsor queries page",
+);
+
+/** Suspense boundary with the dashboard's loading look. */
+function Lazy({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-4 py-12 text-center text-slate-600" role="status">
+          <span
+            aria-hidden="true"
+            className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent align-middle"
+          />
+          Loading page…
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -49,6 +148,30 @@ export function AppRoutes() {
         <Route index element={<Queue />} />
         <Route path="checkins/:sessionId" element={<CheckInDetail />} />
         <Route path="participants/:usubjid" element={<ParticipantTimeline />} />
+        <Route
+          path="participants/:usubjid/brief"
+          element={
+            <Lazy>
+              <BriefPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="packets/:id"
+          element={
+            <Lazy>
+              <PacketPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="queries"
+          element={
+            <Lazy>
+              <QueriesPage />
+            </Lazy>
+          }
+        />
         <Route path="escalations" element={<Escalations />} />
         <Route path="audit" element={<Audit />} />
         <Route path="eval" element={<Eval />} />

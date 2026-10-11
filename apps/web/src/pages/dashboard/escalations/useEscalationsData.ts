@@ -42,6 +42,8 @@ export interface UseEscalationsData {
   reload: () => void;
   /** Replace one escalation in place (after an acknowledgement). */
   replaceEscalation: (next: EscalationRow) => void;
+  /** Replace one clock in place (after a seriousness decision, R4.3). */
+  replaceClock: (next: SaeClockRowExt) => void;
 }
 
 const NO_ERRORS: SectionErrors = { escalations: null, clocks: null, pages: null };
@@ -111,7 +113,18 @@ export function useEscalationsData(): UseEscalationsData {
     );
   }, []);
 
+  const replaceClock = useCallback((next: SaeClockRowExt) => {
+    setData((prev) =>
+      prev && prev.clocks
+        ? {
+            ...prev,
+            clocks: prev.clocks.map((c) => (c.id === next.id ? { ...c, ...next } : c)),
+          }
+        : prev,
+    );
+  }, []);
+
   const allFailed = errors.escalations !== null && errors.clocks !== null && errors.pages !== null;
 
-  return { data, errors, allFailed, loading, reload, replaceEscalation };
+  return { data, errors, allFailed, loading, reload, replaceEscalation, replaceClock };
 }

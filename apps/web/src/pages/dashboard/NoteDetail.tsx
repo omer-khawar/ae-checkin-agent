@@ -7,6 +7,12 @@
  *         check-in detail page). Confirm / Reject go through the shared
  *         `/drafts/{id}` endpoints so the audit trail is identical.
  * Right: the Why panel (every rule fired, plain English, inputs).
+ *
+ * R3/R4 additions: phone calls (note_type "phone_call", R4.1) are labeled with
+ * a phone icon and "Phone call" plus who called; draft fields lead with plain
+ * labels (SDTM names one click deeper); a 24-hour report clock offers "Open
+ * report packet" and, for the investigator when the note drafted no side
+ * effect, "Record seriousness decision" (R4.3).
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -18,11 +24,14 @@ import { useToast } from "../../components/Toast";
 import { confirmDraft, describeError, rejectDraft } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Time } from "../../lib/format";
+import { ClockActions } from "./detail/ClockActions";
 import { getNote } from "./notes/apiNotes";
 import { DraftsPanel } from "./notes/DraftsPanel";
 import { HighlightedNote } from "./notes/HighlightedNote";
 import { normalizeDraft } from "./notes/normalize";
 import { Outcome } from "./notes/Outcome";
+import { NoteTypeLabel } from "./notes/PhoneCall";
+import { callSummary, isPhoneCall } from "./notes/phoneCallLabels";
 import { ScanTables } from "./notes/ScanTables";
 import type { NoteDetailResponse, NoteDraft } from "./notes/types";
 import { WhyPanel } from "./notes/WhyPanel";
@@ -32,7 +41,7 @@ type Range = { start: number; end: number };
 export function NoteDetail() {
   const { noteId = "" } = useParams<{ noteId: string }>();
   const toast = useToast();
-  const { hasRole } = useAuth();
+  const { hasRole, role } = useAuth();
   const canReview = hasRole("coordinator", "investigator", "admin");
 
   const [data, setData] = useState<NoteDetailResponse | null>(null);
@@ -130,6 +139,17 @@ export function NoteDetail() {
 
   const { note, scan, drafts, escalation, sae_clock, rules_fired, why } = data;
   const label = note.display_label ?? note.usubjid;
+  const phone = isPhoneCall(note.note_type);
+  const caller = callSummary(note.caller, note.call_direction);
+  // Whether an AE draft exists that the investigator can attribute instead of
+  // recording the decision on the clock itself (R4.3).
+  const hasAeDraft =
+    sae_clock?.has_ae_draft ??
+    (sae_clock?.ae_draft_ids
+      ? sae_clock.ae_draft_ids.length > 0
+      : drafts.some(
+          (d) => d.domain === "AE" && d.status !== "rejected" && d.status !== "superseded",
+        ));
 
   return (
     <div className="space-y-4">
@@ -137,7 +157,8 @@ export function NoteDetail() {
         <div>
           {backLink}
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            Chart note <span className="font-normal text-slate-600">for</span>{" "}
+            {phone ? "Phone call" : "Chart note"}{" "}
+            <span className="font-normal text-slate-600">{phone ? "about" : "for"}</span>{" "}
             <Link
               to={`/dashboard/participants/${encodeURIComponent(note.usubjid)}`}
               className="text-brand-700 underline"
@@ -148,7 +169,7 @@ export function NoteDetail() {
           </h1>
           <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-700">
             <div>
-              <dt className="inline text-slate-500">Note date </dt>
+              <dt className="inline text-slate-500">{phone ? "Call date " : "Note date "}</dt>
               <dd className="tnum inline">{note.note_date || "—"}</dd>
             </div>
             <div>
@@ -157,8 +178,16 @@ export function NoteDetail() {
             </div>
             <div>
               <dt className="inline text-slate-500">Type </dt>
-              <dd className="inline">{note.note_type || "—"}</dd>
+              <dd className="inline">
+                {note.note_type ? <NoteTypeLabel noteType={note.note_type} /> : "—"}
+              </dd>
             </div>
+            {caller && (
+              <div>
+                <dt className="inline text-slate-500">Call </dt>
+                <dd className="inline">{caller}</dd>
+              </div>
+            )}
             <div>
               <dt className="inline text-slate-500">Ingested </dt>
               <dd className="inline">
@@ -174,7 +203,7 @@ export function NoteDetail() {
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-violet-300 bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800">
-            Synthetic note
+            {phone ? "Synthetic call" : "Synthetic note"}
           </span>
           {escalation ? (
             <TierChip tier={escalation.tier} />
@@ -193,6 +222,30 @@ export function NoteDetail() {
             saeClock={sae_clock}
             showDetailLink={false}
           />
+          {sae_clock && (
+            <ClockActions
+              className="mt-3"
+              clock={sae_clock}
+              role={role}
+              hasAeDraft={hasAeDraft}
+              onStopped={(stopped) =>
+                setData((d) =>
+                  d && d.sae_clock
+                    ? {
+                        ...d,
+                        sae_clock: {
+                          ...d.sae_clock,
+                          stopped_at: stopped.stopped_at,
+                          stopped_by: stopped.stopped_by,
+                          decision: stopped.decision,
+                          seconds_remaining: null,
+                        },
+                      }
+                    : d,
+                )
+              }
+            />
+          )}
         </Card>
       )}
 
@@ -230,11 +283,13 @@ export function NoteDetail() {
             onConfirm={canReview ? onConfirm : undefined}
             onReject={canReview ? onReject : undefined}
             busyDraftId={busyDraftId}
+            labels={data.labels}
+            protocol={data.protocol}
           />
         </Card>
 
         <Card title="Why">
-          <WhyPanel why={why} rulesFired={rules_fired} />
+          <WhyPanel why={why} rulesFired={rules_fired} labels={data.labels} isPhoneCall={phone} />
         </Card>
       </div>
     </div>

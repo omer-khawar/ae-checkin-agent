@@ -1,11 +1,16 @@
 /**
- * Queue page against a mocked GET /queue + GET /participants.
- * The API is not running; shapes follow CONTRACTS.md §2.2 and R2.4.
+ * Queue page against a mocked GET /queue + GET /participants (+ GET /queries).
+ * The API is not running; shapes follow CONTRACTS.md §2.2, R2.4, R3.2 and R4.
+ *
+ * The "Since you were last here" row fetches the whole queue with
+ * `status=all&limit=100`; the mock answers those calls from `opts.summary`
+ * without consuming the page sequence, and `queueQueries()` leaves them out so
+ * the main-table assertions see only the table's own requests.
  */
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "../../../../components/Toast";
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
@@ -16,6 +21,7 @@ import {
   type RouteContext,
 } from "../../../../test/mockFetch";
 import { Queue } from "../../Queue";
+import { LAST_SEEN_STORAGE_KEY, MIN_VISIT_MS } from "../lastSeen";
 import type { RawQueueItem } from "../types";
 import { useQueuePolling } from "../useQueuePolling";
 
@@ -92,6 +98,7 @@ function tier3(): RawQueueItem {
     vitals_status: "ok",
     is_measured: true,
     has_sae_clock: true,
+    clock_kind: "sae",
     // 23 h from now → calm amber chip with hours left.
     sae_due_at: new Date(Date.now() + 23 * 3600_000).toISOString(),
     escalation_acked: false,
@@ -108,6 +115,15 @@ interface Options {
   pages?: Array<PageResponse | ((ctx: RouteContext) => PageResponse)>;
   /** Delay GET /participants by this many ms (deep-link resolution tests). */
   participantsDelayMs?: number;
+  /** Rows for the summary fetch (status=all, limit=100). Default: none. */
+  summary?: RawQueueItem[];
+  /** Open-query total for GET /queries; undefined = endpoint missing (404). */
+  openQueries?: number;
+}
+
+/** The summary row's whole-queue fetch, as opposed to the table's own page. */
+function isSummaryCall(sp: URLSearchParams): boolean {
+  return sp.get("limit") === "100" && sp.get("status") === "all";
 }
 
 function page(items: RawQueueItem[], extra: Partial<Paginated<RawQueueItem>> = {}) {
@@ -128,10 +144,25 @@ function routes(opts: Options = {}): MockRoute[] {
         return { json: PARTICIPANTS };
       },
     },
+    ...(opts.openQueries === undefined
+      ? []
+      : [
+          {
+            method: "GET" as const,
+            path: "/api/v1/queries",
+            handler: () => ({
+              json: { items: [], total: opts.openQueries, limit: 1, offset: 0 },
+            }),
+          },
+        ]),
     {
       method: "GET",
       path: "/api/v1/queue",
       handler: (ctx) => {
+        if (isSummaryCall(ctx.url.searchParams)) {
+          const rows = opts.summary ?? [];
+          return { json: { items: rows, total: rows.length, limit: 100, offset: 0 } };
+        }
         const entry = pages[Math.min(n, pages.length - 1)];
         const p = typeof entry === "function" ? entry(ctx) : entry;
         n += 1;
@@ -179,7 +210,16 @@ function renderQueue(initialEntry = "/dashboard", refreshIntervalMs = 60_000) {
 function queueQueries(mock: ReturnType<typeof installMockFetch>): URLSearchParams[] {
   return mock.fn.mock.calls
     .filter((c) => String(c[0]).includes("/api/v1/queue"))
-    .map((c) => new URL(String(c[0]), "http://localhost").searchParams);
+    .map((c) => new URL(String(c[0]), "http://localhost").searchParams)
+    .filter((sp) => !isSummaryCall(sp));
+}
+
+/** The summary row's whole-queue requests only. */
+function queueSummaryCalls(mock: ReturnType<typeof installMockFetch>): URLSearchParams[] {
+  return mock.fn.mock.calls
+    .filter((c) => String(c[0]).includes("/api/v1/queue"))
+    .map((c) => new URL(String(c[0]), "http://localhost").searchParams)
+    .filter(isSummaryCall);
 }
 
 function lastQueueQuery(mock: ReturnType<typeof installMockFetch>): URLSearchParams {
@@ -195,6 +235,7 @@ function setDocumentHidden(hidden: boolean) {
 afterEach(() => {
   // Restore the prototype getter if a test overrode `document.hidden`.
   Reflect.deleteProperty(document, "hidden");
+  localStorage.clear();
 });
 
 describe("Queue page", () => {
@@ -215,11 +256,17 @@ describe("Queue page", () => {
     );
     expect(r1.getByText("Check-in")).toBeInTheDocument();
     expect(r1.getByText("Review within 1 business day")).toBeInTheDocument();
-    expect(r1.getByText(/G2/)).toBeInTheDocument();
+    expect(r1.getByText(/Grade 2/)).toBeInTheDocument();
     expect(r1.getByText("provisional")).toBeInTheDocument();
     expect(r1.getByText("Simulated (ignored for rules)")).toBeInTheDocument();
     expect(r1.getByText("SIMULATED")).toBeInTheDocument();
+    // Plain words first, SDTM domain codes one step deeper.
+    expect(r1.getByText("2 side effects · 2 vital signs · 1 medication")).toBeInTheDocument();
     expect(r1.getByText("AE 2 · VS 2 · CM 1")).toBeInTheDocument();
+    expect(r1.getByRole("link", { name: "Visit brief for P-007" })).toHaveAttribute(
+      "href",
+      `/dashboard/participants/${encodeURIComponent(USUBJID_007)}/brief`,
+    );
     expect(r1.getByText("5 draft")).toBeInTheDocument();
     expect(r1.getByRole("link", { name: "Open check-in for P-007" })).toHaveAttribute(
       "href",
@@ -234,7 +281,7 @@ describe("Queue page", () => {
     expect(r2.getByText("Nurse call today")).toBeInTheDocument();
     expect(r2.queryByText("SIMULATED")).toBeNull();
     expect(r2.queryByText("MEASURED")).toBeNull();
-    expect(r2.getByText("Unacked")).toBeInTheDocument();
+    expect(r2.getByText("Not acknowledged")).toBeInTheDocument();
     expect(r2.getByRole("link", { name: "Open chart note for P-003" })).toHaveAttribute(
       "href",
       "/dashboard/notes/01JNOTE000000000000000001",
@@ -263,10 +310,11 @@ describe("Queue page", () => {
     expect(row).toHaveAttribute("data-tier", "3");
     expect(within(row).getByText("Urgent")).toBeInTheDocument();
     expect(within(row).getByText("MEASURED")).toBeInTheDocument();
-    expect(within(row).getByLabelText(/^SAE report due in 2[23]:\d\d hrs$/)).toHaveAttribute(
-      "data-sae",
-      "running",
-    );
+    const chip = within(row)
+      .getByText(/^Serious event: report due in 2[23] hours \d+ minutes?$/)
+      .closest("[data-sae]");
+    expect(chip).toHaveAttribute("data-sae", "running");
+    expect(chip).toHaveAttribute("data-clock-kind", "sae");
   });
 
   it("applies filters to the request and keeps them in the URL", async () => {
@@ -464,9 +512,9 @@ describe("Queue page", () => {
     renderQueue("/dashboard", 50);
     await screen.findByRole("table");
     // No toast for what was already there on first load.
-    expect(screen.queryByText("Page: Tier 3 urgent check-in")).toBeNull();
+    expect(screen.queryByText("Page: new urgent check-in (Tier 3)")).toBeNull();
 
-    const toast = await screen.findByText("Page: Tier 3 urgent check-in");
+    const toast = await screen.findByText("Page: new urgent check-in (Tier 3)");
     expect(toast.closest("[role=alert]")).not.toBeNull();
     expect(toast.parentElement).toHaveTextContent("P-003");
 
@@ -476,6 +524,301 @@ describe("Queue page", () => {
       expect(within(table).getAllByRole("row")[1]).toHaveAttribute("data-tier", "3"),
     );
     await new Promise((r) => setTimeout(r, 150));
-    expect(screen.getAllByText("Page: Tier 3 urgent check-in")).toHaveLength(1);
+    expect(screen.getAllByText("Page: new urgent check-in (Tier 3)")).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 2 (CONTRACTS R3.3 / R4): since-last-here, report clocks, phone calls, briefs
+// ---------------------------------------------------------------------------
+
+const LAST_SEEN = "2026-10-10T00:00:00.000Z";
+
+/** Monday-morning overnight state, relative to LAST_SEEN. */
+const OVERNIGHT: RawQueueItem[] = [
+  { ...TIER1, completed_at: "2026-10-10T06:00:00.000Z", is_open: true },
+  {
+    ...NOTE,
+    note_id: "01JNOTE0000000000000000ER",
+    note_type: "er_note",
+    completed_at: "2026-10-10T05:00:00.000Z",
+    is_open: true,
+    has_sae_clock: true,
+    sae_due_at: "2099-01-01T00:00:00.000Z",
+  },
+  {
+    ...NOTE,
+    note_id: "01JNOTE00000000000000CALL",
+    note_type: "phone_call",
+    completed_at: "2026-10-10T04:00:00.000Z",
+    is_open: false,
+  },
+  {
+    ...TIER1,
+    session_id: "01JSESSION0000000000000OLD",
+    completed_at: "2026-10-09T09:00:00.000Z",
+    is_open: true,
+    clocks: [{ id: "c-aesi", kind: "aesi", due_at: "2099-01-01T00:00:00.000Z", stopped_at: null }],
+  },
+];
+
+describe("Queue page: since you were last here", () => {
+  it("counts what arrived since the stored last-seen time, with open queries", async () => {
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, LAST_SEEN);
+    const mock = installMockFetch(routes({ summary: OVERNIGHT, openQueries: 2 }));
+    renderQueue();
+    const region = await screen.findByRole("region", { name: /Since you were last here/ });
+    const stats = await within(region).findByRole("list", { name: "What is new" });
+    expect(stats).toHaveTextContent("1 check-in");
+    expect(stats).toHaveTextContent("1 chart note");
+    expect(stats).toHaveTextContent("1 phone call");
+    // The ER note and the new check-in are open; the call was already handled.
+    expect(stats).toHaveTextContent("2 need action");
+    // Clocks count across the whole queue (the older AESI clock included).
+    expect(stats).toHaveTextContent("2 report clocks running");
+    expect(within(stats).getByRole("link", { name: "2 open sponsor queries" })).toHaveAttribute(
+      "href",
+      "/dashboard/queries",
+    );
+    // The whole-queue fetch asks for every status, non-eval, 100 per page.
+    const summaryCall = mock.fn.mock.calls
+      .map((c) => new URL(String(c[0]), "http://localhost"))
+      .find((u) => u.pathname === "/api/v1/queue" && u.searchParams.get("limit") === "100");
+    expect(summaryCall?.searchParams.get("status")).toBe("all");
+    expect(summaryCall?.searchParams.get("include_eval")).toBe("false");
+    const queriesCall = mock.find("GET", "/api/v1/queries")[0];
+    expect(queriesCall.headers.authorization).toBe("Bearer tok");
+  });
+
+  it("hides the open-queries count when GET /queries is unavailable", async () => {
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, LAST_SEEN);
+    installMockFetch(routes({ summary: OVERNIGHT }));
+    renderQueue();
+    const stats = await screen.findByRole("list", { name: "What is new" });
+    expect(stats).toHaveTextContent("1 check-in");
+    expect(within(stats).queryByRole("link")).toBeNull();
+    expect(stats).not.toHaveTextContent("quer");
+  });
+
+  it("defaults to the last 24 hours when nothing is stored", async () => {
+    installMockFetch(routes({ summary: [] }));
+    renderQueue();
+    const region = await screen.findByRole("region", { name: /Since you were last here/ });
+    expect(region).toHaveTextContent("(in the last 24 hours)");
+    expect(await within(region).findByText(/Nothing new has arrived/)).toBeInTheDocument();
+  });
+
+  it("Mark all as seen moves the cut-off to now and stores it", async () => {
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, LAST_SEEN);
+    installMockFetch(routes({ summary: OVERNIGHT }));
+    const user = userEvent.setup();
+    renderQueue();
+    const stats = await screen.findByRole("list", { name: "What is new" });
+    expect(stats).toHaveTextContent("1 check-in");
+    await user.click(screen.getByRole("button", { name: "Mark all as seen" }));
+    await waitFor(() => expect(stats).toHaveTextContent("0 check-ins"));
+    expect(stats).toHaveTextContent("0 need action");
+    const stored = localStorage.getItem(LAST_SEEN_STORAGE_KEY);
+    expect(stored && Date.parse(stored)).toBeGreaterThan(Date.parse(LAST_SEEN));
+  });
+
+  it("records the last-seen time when the page unloads after a real visit", async () => {
+    installMockFetch(routes());
+    renderQueue();
+    await screen.findByRole("table");
+    expect(localStorage.getItem(LAST_SEEN_STORAGE_KEY)).toBeNull();
+    // Pretend the coordinator read the queue for longer than MIN_VISIT_MS.
+    const realNow = Date.now();
+    const spy = vi.spyOn(Date, "now").mockReturnValue(realNow + MIN_VISIT_MS + 1_000);
+    try {
+      act(() => {
+        window.dispatchEvent(new Event("pagehide"));
+      });
+    } finally {
+      spy.mockRestore();
+    }
+    const stored = localStorage.getItem(LAST_SEEN_STORAGE_KEY);
+    expect(stored).not.toBeNull();
+    expect(Math.abs(Date.parse(stored ?? "") - Date.now())).toBeLessThan(5_000);
+  });
+
+  it("a reload (a short visit) does not wipe the overnight view", async () => {
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, LAST_SEEN);
+    installMockFetch(routes({ summary: OVERNIGHT }));
+    const first = renderQueue();
+    await screen.findByRole("list", { name: "What is new" });
+    // Reload straight away: pagehide fires seconds after mount.
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(localStorage.getItem(LAST_SEEN_STORAGE_KEY)).toBe(LAST_SEEN);
+    first.unmount();
+    renderQueue();
+    const stats = await screen.findByRole("list", { name: "What is new" });
+    expect(stats).toHaveTextContent("1 check-in");
+    expect(stats).toHaveTextContent("1 chart note");
+    expect(stats).toHaveTextContent("1 phone call");
+  });
+
+  it("Show last 24 hours restores the overnight view after a later last-seen time", async () => {
+    // A rehearsal left "last here" AFTER the overnight items (e.g. the presenter
+    // opened the dashboard, then ran a demo reset that reseeded them earlier).
+    const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, ago(60_000));
+    const overnightNow: RawQueueItem[] = [
+      { ...OVERNIGHT[0], completed_at: ago(2 * 3600_000) },
+      { ...OVERNIGHT[1], completed_at: ago(3 * 3600_000) },
+      { ...OVERNIGHT[2], completed_at: ago(4 * 3600_000) },
+    ];
+    installMockFetch(routes({ summary: overnightNow }));
+    const user = userEvent.setup();
+    renderQueue();
+    const region = await screen.findByRole("region", { name: /Since you were last here/ });
+    const stats = await within(region).findByRole("list", { name: "What is new" });
+    expect(stats).toHaveTextContent("0 check-ins");
+    expect(within(region).getByText(/Nothing new has arrived/)).toBeInTheDocument();
+
+    await user.click(within(region).getByRole("button", { name: "Show last 24 hours" }));
+    await waitFor(() => expect(stats).toHaveTextContent("1 check-in"));
+    expect(stats).toHaveTextContent("1 chart note");
+    expect(stats).toHaveTextContent("1 phone call");
+    expect(region).toHaveTextContent("(in the last 24 hours)");
+    expect(localStorage.getItem(LAST_SEEN_STORAGE_KEY)).toBeNull();
+    // Already on the default window: the reset control is gone.
+    expect(within(region).queryByRole("button", { name: "Show last 24 hours" })).toBeNull();
+    // Leaving right after the reset does not overwrite it either.
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(localStorage.getItem(LAST_SEEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("offers no reset when the 24-hour default is already in use", async () => {
+    installMockFetch(routes({ summary: [] }));
+    renderQueue();
+    const region = await screen.findByRole("region", { name: /Since you were last here/ });
+    expect(within(region).queryByRole("button", { name: "Show last 24 hours" })).toBeNull();
+    expect(within(region).getByRole("button", { name: "Mark all as seen" })).toBeInTheDocument();
+  });
+
+  it("re-counts when Refresh is pressed", async () => {
+    const mock = installMockFetch(routes({ summary: [] }));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findByRole("table");
+    const summaryCalls = () => queueSummaryCalls(mock).length;
+    await waitFor(() => expect(summaryCalls()).toBe(1));
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(summaryCalls()).toBe(2));
+  });
+});
+
+describe("Queue page: report clocks, phone calls", () => {
+  it("shows a special-interest clock chip, a phone-call source and a brief link", async () => {
+    const call: RawQueueItem = {
+      ...NOTE,
+      note_id: "01JNOTE00000000000000CALL",
+      note_type: "phone_call",
+    };
+    const aesi: RawQueueItem = {
+      ...TIER1,
+      tier: 2,
+      tier_name: "Nurse call today",
+      max_grade: 3,
+      clocks: [
+        {
+          id: "clk-1",
+          kind: "aesi",
+          due_at: new Date(Date.now() + 20 * 3600_000).toISOString(),
+          stopped_at: null,
+          packet_id: "01JPACKET0000000000000001",
+        },
+      ],
+    };
+    installMockFetch(routes({ pages: [page([aesi, call])] }));
+    renderQueue();
+    const table = await screen.findByRole("table");
+    const [r1, r2] = within(table).getAllByRole("row").slice(1);
+
+    const chip = within(r1)
+      .getByText(/^Special-interest event: report due in \d+ hours/)
+      .closest("[data-sae]");
+    expect(chip).toHaveAttribute("data-clock-kind", "aesi");
+    expect(chip).toHaveTextContent("AESI");
+    // One click from the clock to its report packet.
+    expect(within(r1).getByRole("link", { name: /Special-interest event/ })).toHaveAttribute(
+      "href",
+      "/dashboard/packets/01JPACKET0000000000000001",
+    );
+    expect(within(r1).getByText(/Grade 3/)).toBeInTheDocument();
+
+    expect(r2).toHaveAttribute("data-source", "phone_call");
+    expect(within(r2).getByTestId("source-chip")).toHaveTextContent("Phone call");
+    expect(within(r2).getByRole("link", { name: "Open phone call for P-003" })).toHaveAttribute(
+      "href",
+      "/dashboard/notes/01JNOTE00000000000000CALL",
+    );
+    expect(within(r2).getByRole("link", { name: "Visit brief for P-003" })).toHaveAttribute(
+      "href",
+      `/dashboard/participants/${encodeURIComponent(USUBJID_003)}/brief`,
+    );
+  });
+
+  it("shows a neutral chip when the API sends no clock kind, and opens a packet from a clock id", async () => {
+    const er: RawQueueItem = {
+      ...NOTE,
+      note_id: "01JNOTE0000000000000000ER",
+      note_type: "er_note",
+      has_sae_clock: true,
+      sae_due_at: new Date(Date.now() + 20 * 3600_000).toISOString(),
+    };
+    const withClockId: RawQueueItem = {
+      ...TIER1,
+      clocks: [
+        {
+          id: "01JCLOCK000000000000000001",
+          kind: "sae",
+          due_at: new Date(Date.now() + 10 * 3600_000).toISOString(),
+          stopped_at: null,
+          packet_id: null,
+        },
+      ],
+    };
+    installMockFetch(routes({ pages: [page([withClockId, er])] }));
+    renderQueue();
+    const table = await screen.findByRole("table");
+    const [r1, r2] = within(table).getAllByRole("row").slice(1);
+
+    // No packet yet: one click still opens a pre-filled one for this clock.
+    expect(within(r1).getByRole("link", { name: /Serious event: report due in/ })).toHaveAttribute(
+      "href",
+      "/dashboard/packets/new?clock=01JCLOCK000000000000000001",
+    );
+
+    // Kind not reported: no "Serious event", no SAE badge, no protocol section.
+    const chip = within(r2)
+      .getByText(/^24-hour report: due in \d+ hours/)
+      .closest("[data-sae]");
+    expect(chip).toHaveAttribute("data-clock-kind", "unknown");
+    expect(chip).not.toHaveTextContent(/Serious event|Special-interest|SAE|AESI/);
+    expect((chip as HTMLElement).title).not.toContain("§9.4");
+    // A legacy row carries no clock id, so there is nothing to link to.
+    expect(within(r2).queryByRole("link", { name: /24-hour report/ })).toBeNull();
+  });
+
+  it("names the real source in the pager toast title for an urgent chart note", async () => {
+    const urgentNote: RawQueueItem = {
+      ...NOTE,
+      note_id: "01JNOTE0000000000000URGNT",
+      tier: 3,
+      tier_name: "Urgent",
+      completed_at: new Date().toISOString(),
+    };
+    installMockFetch(routes({ pages: [page([TIER1]), page([urgentNote, TIER1])] }));
+    renderQueue("/dashboard", 50);
+    await screen.findByRole("table");
+    const toast = await screen.findByText("Page: new urgent chart note (Tier 3)");
+    expect(toast.parentElement).toHaveTextContent("P-003 · chart note completed");
+    expect(screen.queryByText(/urgent check-in/)).toBeNull();
   });
 });

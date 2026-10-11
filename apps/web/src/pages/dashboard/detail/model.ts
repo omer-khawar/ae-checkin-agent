@@ -15,7 +15,6 @@ import { DEFAULT_OPTIONS, optionsFor } from "../../../lib/format";
 import type {
   Answer,
   Attribute,
-  AttributionRequest,
   CheckInDetail,
   CtcaeTerm,
   Domain,
@@ -27,6 +26,7 @@ import type {
   RuleCategory,
   RuleFired,
 } from "../../../lib/types";
+import type { AttributionRequestR4 } from "./r34Types";
 
 // ---------------------------------------------------------------------------
 // Answers
@@ -129,10 +129,11 @@ export function describeGate(a: Answer): GateDisplay {
 
 export const DOMAIN_ORDER: Domain[] = ["AE", "VS", "CM"];
 
+/** Plain words first, the SDTM domain code in brackets (CLAUDE.md §00). */
 export const DOMAIN_TITLES: Record<Domain, string> = {
-  AE: "AE — adverse events",
-  VS: "VS — vital signs",
-  CM: "CM — concomitant medications",
+  AE: "Side effects (AE)",
+  VS: "Vital signs (VS)",
+  CM: "Medication changes (CM)",
 };
 
 /**
@@ -156,24 +157,43 @@ export const AEREL_OPTIONS = [
   "RELATED",
 ] as const;
 
+/** R4.3: the investigator's immune-related choice; "" = not decided. */
+export const IRAE_OPTIONS = ["Y", "N"] as const;
+
+export interface AttributionChoice {
+  AESER: string;
+  AEREL: string;
+  /** "Y" | "N" | "" (not decided). Optional so R2-shaped callers still type-check. */
+  INTERIM_IRAE?: string;
+}
+
 /**
  * Body for PATCH /drafts/{id}/attribution. A key is included only when the
  * investigator picked a real option that differs from what is recorded: the
- * blank "— not decided —" choice is never sent (the API would store "" as the
- * SDTM value and still treat AESER as recorded), and an unchanged value is not
- * re-recorded. Returns null when there is nothing to record.
+ * blank "— not decided —" choice is never sent for AESER / AEREL (the API
+ * would store "" as the SDTM value and still treat AESER as recorded), and an
+ * unchanged value is not re-recorded. INTERIM_IRAE (R4.3) is different: "Not
+ * decided" is a real answer, so moving from Y/N back to it sends `null`.
+ * Returns null when there is nothing to record.
  */
 export function attributionBody(
-  current: { AESER: string; AEREL: string },
-  picked: { AESER: string; AEREL: string },
+  current: AttributionChoice,
+  picked: AttributionChoice,
   note: string,
-): AttributionRequest | null {
-  const body: AttributionRequest = {};
+): AttributionRequestR4 | null {
+  const body: AttributionRequestR4 = {};
   const aeser = picked.AESER.trim();
   const aerel = picked.AEREL.trim();
   if (aeser !== "" && aeser !== current.AESER) body.AESER = aeser;
   if (aerel !== "" && aerel !== current.AEREL) body.AEREL = aerel;
-  if (body.AESER === undefined && body.AEREL === undefined) return null;
+  if (picked.INTERIM_IRAE !== undefined) {
+    const irae = picked.INTERIM_IRAE.trim();
+    const was = (current.INTERIM_IRAE ?? "").trim();
+    if (irae !== was) body.INTERIM_IRAE = irae === "Y" || irae === "N" ? irae : null;
+  }
+  if (body.AESER === undefined && body.AEREL === undefined && !("INTERIM_IRAE" in body)) {
+    return null;
+  }
   if (note.trim()) body.note = note.trim();
   return body;
 }
@@ -409,13 +429,14 @@ export function resolveEvidence(e: Evidence, detail: CheckInDetail): Evidence {
   return { ...idx, ...e, note: e.note || idx.note, ts: e.ts ?? idx.ts };
 }
 
-export const EVIDENCE_KIND_LABELS: Record<EvidenceKind | "chart_note", string> = {
+export const EVIDENCE_KIND_LABELS: Record<EvidenceKind | "chart_note" | "protocol", string> = {
   pro_response: "answer",
   gate_answer: "gate answer",
   vitals_sample: "vitals sample",
   rule: "rule",
   table: "table",
   chart_note: "chart note",
+  protocol: "study protocol",
 };
 
 export function evidenceKindLabel(kind: string): string {
@@ -435,9 +456,17 @@ export const RULE_CATEGORY_STYLES: Record<RuleCategory, string> = {
   drafting: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
+/** Categories the R3 rules add (protocol checks, AESI clock) that the shared union does not list yet. */
+const EXTRA_CATEGORY_STYLES: Record<string, string> = {
+  protocol: "bg-teal-100 text-teal-900 border-teal-300",
+  aesi: "bg-red-100 text-red-900 border-red-300",
+  chartscan: "bg-sky-100 text-sky-900 border-sky-300",
+};
+
 export function ruleCategoryClass(category: string): string {
   return (
     (RULE_CATEGORY_STYLES as Record<string, string>)[category] ??
+    EXTRA_CATEGORY_STYLES[category] ??
     "bg-slate-100 text-slate-800 border-slate-300"
   );
 }

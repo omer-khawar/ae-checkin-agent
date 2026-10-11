@@ -314,7 +314,8 @@ describe("Notes page", () => {
     const ingest = screen.getByRole("button", { name: "Ingest" });
     expect(ingest).toBeDisabled();
     expect(ingest).toHaveAttribute("title", expect.stringMatching(/coordinator or admin only/i));
-    expect(screen.getByText(/read-only for your role/)).toBeInTheDocument();
+    // Both the ingest form and the "Log a call" form are gated for the investigator.
+    expect(screen.getAllByText(/read-only for your role/)).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Scan only (dry run)" })).toBeEnabled();
   });
 

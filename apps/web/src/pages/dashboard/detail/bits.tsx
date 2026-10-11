@@ -32,6 +32,32 @@ export function Chip({
   );
 }
 
+/**
+ * The SDTM variable / domain / rule id, one step behind the plain words
+ * (CLAUDE.md §00): small, monospace, never removed.
+ */
+export function SdtmBadge({
+  children,
+  title,
+  className,
+}: {
+  children: ReactNode;
+  title?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1 py-px font-mono text-[10px] font-normal text-slate-600",
+        className,
+      )}
+      title={title}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function CategoryChip({ category }: { category: string }) {
   return <Chip className={ruleCategoryClass(category)}>{category.replace(/_/g, " ")}</Chip>;
 }
@@ -43,6 +69,7 @@ const KIND_CLASS: Record<string, string> = {
   rule: "bg-amber-50 text-amber-900 border-amber-300",
   table: "bg-slate-100 text-slate-700 border-slate-300",
   chart_note: "bg-sky-50 text-sky-900 border-sky-300",
+  protocol: "bg-teal-50 text-teal-900 border-teal-300",
 };
 
 export function KindChip({ kind }: { kind: string }) {

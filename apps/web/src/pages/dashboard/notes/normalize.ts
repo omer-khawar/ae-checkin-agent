@@ -9,6 +9,7 @@
  * invents data: an absent value becomes `null`, `false`, `""` or `[]`.
  */
 import type { Draft, RuleFired } from "../../../lib/types";
+import type { ProtocolAssessment, RuleFiredPlain } from "../detail/r34Types";
 import type {
   ChartNote,
   ChartNoteListItem,
@@ -162,6 +163,8 @@ export function normalizeNote(raw: unknown): ChartNote {
     ingested_at: str(r.ingested_at),
     ingested_by: str(r.ingested_by),
     tier: num(r.tier),
+    caller: typeof r.caller === "string" ? r.caller : null,
+    call_direction: typeof r.call_direction === "string" ? r.call_direction : null,
   };
 }
 
@@ -207,13 +210,20 @@ export function normalizeDraft(raw: unknown): NoteDraft {
     supersedes_id: typeof r.supersedes_id === "string" ? r.supersedes_id : null,
     note: typeof r.note === "string" ? r.note : null,
     note_id: typeof r.note_id === "string" ? r.note_id : null,
-    source: r.source === "check_in" ? "check_in" : "chart_note",
+    source:
+      r.source === "check_in"
+        ? "check_in"
+        : r.source === "phone_call"
+          ? "phone_call"
+          : "chart_note",
   };
 }
 
-function normalizeRule(raw: unknown): RuleFired {
+function normalizeRule(raw: unknown): RuleFiredPlain {
   const r = isRec(raw) ? raw : {};
   return {
+    // R3.1: the API may attach the plain sentence; kept so the Why panel leads with it.
+    ...(typeof r.plain === "string" ? { plain: r.plain } : {}),
     rule_id: str(r.rule_id, "rule"),
     category: str(r.category, "drafting") as RuleFired["category"],
     description: str(r.description),
@@ -278,6 +288,12 @@ export function normalizeSaeClock(raw: unknown): NoteSAEClock | null {
     seconds_remaining: num(raw.seconds_remaining),
     informational,
     note_id: strOrNull(raw.note_id),
+    kind: strOrNull(raw.kind),
+    packet_id: strOrNull(raw.packet_id),
+    ...(Array.isArray(raw.ae_draft_ids)
+      ? { ae_draft_ids: raw.ae_draft_ids.filter((x): x is string => typeof x === "string") }
+      : {}),
+    ...(typeof raw.has_ae_draft === "boolean" ? { has_ae_draft: raw.has_ae_draft } : {}),
   };
 }
 
@@ -301,6 +317,12 @@ export function normalizeNoteDetail(raw: unknown): NoteDetailResponse {
     // When the API omits `why`, fall back to the rules' own descriptions so the
     // panel is never empty while rules exist.
     why: whyRaw.length ? whyRaw : rules.map((x) => x.description).filter(Boolean),
+    labels: isRec(r.labels)
+      ? (Object.fromEntries(
+          Object.entries(r.labels).filter(([, v]) => typeof v === "string"),
+        ) as Record<string, string>)
+      : null,
+    protocol: isRec(r.protocol) ? (r.protocol as ProtocolAssessment) : null,
   };
 }
 

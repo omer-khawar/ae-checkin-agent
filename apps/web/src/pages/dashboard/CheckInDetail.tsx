@@ -11,6 +11,13 @@
  * sample row and rule row lights up when its id is in that set. Clicking an
  * answer or a sample does the reverse: it highlights the rules that cite it.
  *
+ * Plain language first (CLAUDE.md §00, CONTRACTS.md R3.2/R3.3): field labels
+ * come from the API's `labels` map (local fallback table in detail/plain.ts),
+ * SDTM names sit in small monospace badges, and the Why panel leads with one
+ * plain sentence per rule. Protocol flags (possible AESI, prohibited /
+ * discouraged medications, missing medication-form fields), the report packet
+ * entry point and the investigator's immune-related choice (R4.3) are here too.
+ *
  * This file owns the API mutations (confirm / reject / patch / attribution /
  * ack) and the toasts; the columns under ./detail/ only render.
  */
@@ -22,23 +29,10 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { TierChip } from "../../components/TierChip";
 import { useToast } from "../../components/Toast";
-import {
-  ackEscalation,
-  confirmDraft,
-  isApiError,
-  patchAttribution,
-  patchDraft,
-  rejectDraft,
-} from "../../lib/api";
+import { ackEscalation, confirmDraft, isApiError, patchDraft, rejectDraft } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Time, vitalsStatusLabel } from "../../lib/format";
-import type {
-  AttributionRequest,
-  CheckInDetail as CheckInDetailT,
-  Draft,
-  Escalation,
-  Evidence,
-} from "../../lib/types";
+import type { CheckInDetail as CheckInDetailT, Draft, Escalation, Evidence } from "../../lib/types";
 import { AnswersColumn } from "./detail/AnswersColumn";
 import { DraftsColumn, type DraftActions } from "./detail/DraftsColumn";
 import {
@@ -48,6 +42,9 @@ import {
   vitalsProvenance,
   type Selection,
 } from "./detail/model";
+import { attributionClockEffects, clocksForDraft, clocksOf, tierName } from "./detail/plain";
+import { briefPath, patchAttributionR4 } from "./detail/r34Api";
+import type { AttributionRequestR4, CheckInDetailR3 } from "./detail/r34Types";
 import { useCheckIn } from "./detail/useCheckIn";
 import { WhyPanel } from "./detail/WhyPanel";
 
@@ -73,6 +70,16 @@ export function CheckInDetail() {
     }
     return set;
   }, [detail, selection, focusedId]);
+
+  // Item labels for plain rule sentences and the AESI item match (optional data).
+  const itemLabel = useMemo(() => {
+    const byId = new Map((items ?? []).map((i) => [i.id, i.label]));
+    return (id: string) => byId.get(id) ?? id.replace(/_/g, " ");
+  }, [items]);
+  const itemIdForTerm = useMemo(() => {
+    const byTerm = new Map((items ?? []).map((i) => [i.ctcae_term?.toLowerCase(), i.id]));
+    return (term: string) => byTerm.get(term.toLowerCase()) ?? null;
+  }, [items]);
 
   const selectField = (draftId: string, field: string) => {
     setFocusedId(null);
@@ -137,12 +144,19 @@ export function CheckInDetail() {
       toast.push({ kind: "success", title: `${draft.domain} draft saved as v${next.version}` });
       reload();
     },
-    attribution: async (draft, body: AttributionRequest) => {
-      applyDraft(await patchAttribution(draft.id, body));
+    attribution: async (draft, body: AttributionRequestR4) => {
+      // Which running clocks this answer stops, by kind, before the reload
+      // refreshes them (AESER → SAE clock, INTERIM_IRAE = N → AESI clock; API
+      // services/drafts.py). No running clock of that kind → nothing is said.
+      const effects = attributionClockEffects(
+        body,
+        detail ? clocksForDraft(clocksOf(detail as unknown as CheckInDetailR3), draft) : [],
+      );
+      applyDraft(await patchAttributionR4(draft.id, body));
       toast.push({
         kind: "success",
-        title: "Attribution recorded",
-        message: body.AESER ? "The SAE clock for this session has been stopped." : undefined,
+        title: "Investigator assessment recorded",
+        message: effects.length ? effects.join(" ") : undefined,
       });
       reload();
     },
@@ -204,6 +218,7 @@ export function CheckInDetail() {
             detail={detail}
             role={role}
             ctcae={ctcae}
+            itemIdForTerm={itemIdForTerm}
             selection={selection}
             highlight={highlight}
             onSelectField={selectField}
@@ -219,6 +234,9 @@ export function CheckInDetail() {
             onSelectRule={selectRule}
             onFocusEvidence={focusEvidence}
             onAck={ack}
+            role={role}
+            itemLabel={itemLabel}
+            onClockStopped={() => reload()}
           />
         </div>
       </div>
@@ -238,6 +256,9 @@ function Header({
   const s = detail.session;
   const p = detail.participant;
   const tier = detail.result?.escalation_tier ?? s?.tier ?? null;
+  const r3 = detail as unknown as CheckInDetailR3;
+  const consentBasis = r3.session?.consent_basis;
+  const runningClocks = clocksOf(r3).filter((c) => c.stopped_at === null);
   // Same derivation as the Vitals card, so header and card never disagree
   // (the summary is null when no sample was usable, but the samples still
   // carry their own is_measured / source).
@@ -277,7 +298,11 @@ function Header({
           <span>
             Completed <Time iso={s?.completed_at} fallback="not completed" />
           </span>
-          <span>Camera consent: {s?.consent_camera ? "yes" : "no"}</span>
+          <span title={tier !== null ? `Alert level: ${tierName(tier)}` : undefined}>
+            {consentBasis === "enrollment_icf" || consentBasis
+              ? `Consent: enrollment consent form${s?.consent_camera === false ? " · camera off" : ""}`
+              : `Camera consent: ${s?.consent_camera ? "yes" : "no"}`}
+          </span>
           <span>
             Vitals:{" "}
             {vitalsStatusLabel(
@@ -288,11 +313,28 @@ function Header({
             <span className="font-medium text-red-700">Stop screen was shown</span>
           )}
           <span className="text-violet-800">Participant is synthetic</span>
+          {runningClocks.length > 0 && (
+            <span className="font-medium text-red-700">
+              {runningClocks.length === 1
+                ? "A 24-hour report clock is running"
+                : `${runningClocks.length} 24-hour report clocks are running`}
+            </span>
+          )}
         </div>
       </div>
-      <Button size="sm" variant="secondary" onClick={onReload} busy={loading}>
-        Refresh
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {s?.usubjid && (
+          <Link
+            to={briefPath(s.usubjid)}
+            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus-visible:ring-4"
+          >
+            Visit brief
+          </Link>
+        )}
+        <Button size="sm" variant="secondary" onClick={onReload} busy={loading}>
+          Refresh
+        </Button>
+      </div>
     </header>
   );
 }

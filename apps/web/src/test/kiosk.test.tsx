@@ -1,5 +1,9 @@
 /**
  * End-to-end kiosk flow against a mocked API and a fake bridge socket.
+ *
+ * The per-session camera consent screen was removed (CLAUDE.md §00, D-026):
+ * the Welcome screen carries the "no video is stored" line and an
+ * "I'd rather not use the camera" opt-out whose value is sent as consent_camera.
  */
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,6 +12,8 @@ import { describe, expect, it } from "vitest";
 
 import { AppRoutes } from "../App";
 import { DISCLAIMER_TEXT } from "../components/Disclaimer";
+import { SHELL_MAX_W, SIDE_COLUMN_REM } from "../pages/kiosk/KioskShell";
+import { CAMERA_OPT_OUT_LABEL, NO_VIDEO_TEXT } from "../pages/kiosk/Welcome";
 import type { AnswerRequest, CompleteResponse, GatesRequest, ItemsResponse } from "../lib/types";
 import { FakeWebSocket } from "./fakeWebSocket";
 import {
@@ -104,7 +110,7 @@ async function clickOption(user: ReturnType<typeof userEvent.setup>, label: stri
   await user.click(screen.getByRole("button", { name: label }));
 }
 
-/** Welcome → consent decision; returns once the first item heading is on screen. */
+/** Welcome (ID + optional camera opt-out) → Start; returns once the first item heading is on screen. */
 async function startCheckIn(
   user: ReturnType<typeof userEvent.setup>,
   id: string,
@@ -112,17 +118,30 @@ async function startCheckIn(
   firstHeading: string,
 ) {
   await user.type(await screen.findByLabelText("Your study ID"), id);
+  if (!camera) await user.click(screen.getByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL }));
   await user.click(screen.getByRole("button", { name: "Start check-in" }));
-  await user.click(
-    await screen.findByRole("button", {
-      name: camera ? "Yes, use the camera" : "No, continue without it",
-    }),
-  );
   expect(await screen.findByRole("heading", { name: firstHeading })).toBeInTheDocument();
 }
 
+/** Answer every fixture item and gate with "nothing to report" and press Finish. */
+async function answerAllNone(user: ReturnType<typeof userEvent.setup>) {
+  await clickOption(user, "None");
+  await clickOption(user, "Not at all");
+  await user.click(await screen.findByRole("button", { name: "Next" }));
+  await clickOption(user, "None");
+  await clickOption(user, "Not at all");
+  await user.click(await screen.findByRole("button", { name: "Next" }));
+  await clickOption(user, "No");
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await clickOption(user, "No");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await clickOption(user, "No");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+}
+
 describe("kiosk flow", () => {
-  it("runs end-to-end: consent → session → answers → gates → stop bridge → complete → thank-you", async () => {
+  it("runs end-to-end: welcome → session → answers → gates → stop bridge → complete → thank-you", async () => {
     const user = userEvent.setup();
     const mock = installMockFetch(routes());
     renderKiosk();
@@ -134,17 +153,17 @@ describe("kiosk flow", () => {
       (await screen.findAllByText(new RegExp(STUDY.title.slice(0, 20)))).length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(DISCLAIMER_TEXT)).toBeInTheDocument();
+    // The "no video is stored" line and the opt-out toggle, camera on by default.
+    expect(screen.getByText(NO_VIDEO_TEXT)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL })).not.toBeChecked();
 
     await user.type(screen.getByLabelText("Your study ID"), "p-007");
+    expect(mock.find("POST", "/api/v1/sessions")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Start check-in" }));
 
-    // Consent: no session yet; the typed label is echoed.
-    expect(await screen.findByRole("heading", { name: /use the camera/ })).toBeInTheDocument();
-    expect(screen.getByText("P-007")).toBeInTheDocument();
-    expect(mock.find("POST", "/api/v1/sessions")).toHaveLength(0);
-    await user.click(screen.getByRole("button", { name: "Yes, use the camera" }));
-
-    // Session created on consent with the composed USUBJID and consent flag.
+    // No consent screen: Start goes straight to the session with the composed
+    // USUBJID and consent_camera from the (untouched) toggle.
+    expect(screen.queryByRole("heading", { name: /use the camera/ })).not.toBeInTheDocument();
     await waitFor(() => expect(mock.find("POST", "/api/v1/sessions")).toHaveLength(1));
     expect(mock.find("POST", "/api/v1/sessions")[0].body).toEqual({
       usubjid: USUBJID_P007,
@@ -303,19 +322,7 @@ describe("kiosk flow", () => {
       ws.receive({ type: "status", state: "collecting", elapsedS: 1, sessionId: SESSION_ID });
     });
 
-    await clickOption(user, "None");
-    await clickOption(user, "Not at all");
-    await user.click(await screen.findByRole("button", { name: "Next" }));
-    await clickOption(user, "None");
-    await clickOption(user, "Not at all");
-    await user.click(await screen.findByRole("button", { name: "Next" }));
-    await clickOption(user, "No");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await clickOption(user, "No");
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await clickOption(user, "No");
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Finish check-in" }));
+    await answerAllNone(user);
 
     await waitFor(() => expect(ws.sentMessages.some((m) => m.type === "stop")).toBe(true));
     // The source halted (idle) but the bridge still holds the session: last batch not posted yet.
@@ -377,12 +384,8 @@ describe("kiosk flow", () => {
     );
     renderKiosk();
 
-    await user.type(await screen.findByLabelText("Your study ID"), "P-003");
-    await user.click(screen.getByRole("button", { name: "Start check-in" }));
-    // Decline the camera: no vitals panel, no `start` to the bridge.
-    await user.click(await screen.findByRole("button", { name: "No, continue without it" }));
-
-    expect(await screen.findByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
+    // Opt out of the camera on Welcome: no vitals panel, no `start` to the bridge.
+    await startCheckIn(user, "P-003", false, ITEMS.items[0].label);
     expect(screen.queryByTestId("vitals-panel")).not.toBeInTheDocument();
     expect(FakeWebSocket.last?.sentMessages.some((m) => m.type === "start")).toBeFalsy();
 
@@ -417,14 +420,249 @@ describe("kiosk flow", () => {
 
     await user.type(await screen.findByLabelText("Your study ID"), "P-999");
     await user.click(screen.getByRole("button", { name: "Start check-in" }));
-    await user.click(await screen.findByRole("button", { name: "Yes, use the camera" }));
 
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       /couldn't start a check-in with that study ID/,
     );
+    expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/Unknown participant/);
+    // The typed ID stays in the box so the participant can correct it.
+    expect(screen.getByLabelText("Your study ID")).toHaveValue("P-999");
     expect(FakeWebSocket.last?.sentMessages.some((m) => m.type === "start")).toBeFalsy();
+  });
+
+  it("hides the unknown-ID message as soon as the participant corrects the ID", async () => {
+    const user = userEvent.setup();
+    const mock = installMockFetch(routes({ knownUsubjids: [USUBJID_P007] }));
+    renderKiosk();
+
+    const input = await screen.findByLabelText("Your study ID");
+    await user.type(input, "P-999");
+    await user.click(screen.getByRole("button", { name: "Start check-in" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /couldn't start a check-in with that study ID/,
+    );
+
+    // Editing the box: the message no longer describes what is typed, so it goes.
+    await user.clear(input);
+    await user.type(input, "P-007");
+    expect(
+      screen.queryByText(/couldn't start a check-in with that study ID/),
+    ).not.toBeInTheDocument();
+
+    // Typing the rejected ID back (any case) brings it back: it is still the rejected one.
+    await user.clear(input);
+    await user.type(input, "p-999");
+    expect(screen.getByText(/couldn't start a check-in with that study ID/)).toBeInTheDocument();
+
+    // The corrected ID starts normally.
+    await user.clear(input);
+    await user.type(input, "P-007");
+    await user.click(screen.getByRole("button", { name: "Start check-in" }));
+    expect(await screen.findByRole("heading", { name: ITEMS.items[0].label })).toBeInTheDocument();
+    const posts = mock.find("POST", "/api/v1/sessions");
+    expect(posts[posts.length - 1].body).toMatchObject({ usubjid: USUBJID_P007 });
+  });
+
+  describe("camera opt-out toggle (replaces the consent screen)", () => {
+    it("sends consent_camera:false when ticked, shows no vitals card and never starts the bridge", async () => {
+      const user = userEvent.setup();
+      const mock = installMockFetch(routes());
+      renderKiosk();
+
+      const toggle = await screen.findByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL });
+      await user.click(toggle);
+      expect(toggle).toBeChecked();
+      expect(screen.getByText(/The camera will stay off/)).toBeInTheDocument();
+      await user.type(screen.getByLabelText("Your study ID"), "P-007");
+      await user.click(screen.getByRole("button", { name: "Start check-in" }));
+
+      expect(
+        await screen.findByRole("heading", { name: ITEMS.items[0].label }),
+      ).toBeInTheDocument();
+      expect(mock.find("POST", "/api/v1/sessions")[0].body).toEqual({
+        usubjid: USUBJID_P007,
+        consent_camera: false,
+      });
+      expect(screen.queryByTestId("vitals-panel")).not.toBeInTheDocument();
+      expect(FakeWebSocket.last?.sentMessages.some((m) => m.type === "start")).toBeFalsy();
+    });
+
+    it("is keyboard operable: Space toggles it and Enter in the ID box starts the check-in", async () => {
+      const user = userEvent.setup();
+      const mock = installMockFetch(routes());
+      renderKiosk();
+
+      const toggle = await screen.findByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL });
+      toggle.focus();
+      await user.keyboard(" ");
+      expect(toggle).toBeChecked();
+      await user.keyboard(" ");
+      expect(toggle).not.toBeChecked();
+
+      await user.type(screen.getByLabelText("Your study ID"), "P-007{Enter}");
+      expect(
+        await screen.findByRole("heading", { name: ITEMS.items[0].label }),
+      ).toBeInTheDocument();
+      expect(mock.find("POST", "/api/v1/sessions")[0].body).toMatchObject({
+        consent_camera: true,
+      });
+    });
+
+    it("resets to camera on and an empty ID for the next participant after Done", async () => {
+      const user = userEvent.setup();
+      installMockFetch(routes());
+      renderKiosk();
+      await startCheckIn(user, "P-007", false, ITEMS.items[0].label);
+      await answerAllNone(user);
+      await user.click(await screen.findByRole("button", { name: "Done" }));
+
+      expect(await screen.findByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL })).not.toBeChecked();
+      expect(screen.getByLabelText("Your study ID")).toHaveValue("");
+    });
+
+    it("offers Try again on a server error and resends with the same choice", async () => {
+      const user = userEvent.setup();
+      let fail = true;
+      const base = routes();
+      const sessionRoute = base.find((r) => r.method === "POST" && r.path === "/api/v1/sessions")!;
+      const original = sessionRoute.handler;
+      sessionRoute.handler = (ctx) =>
+        fail
+          ? { status: 503, json: { type: "about:blank", title: "Unavailable", status: 503 } }
+          : original(ctx);
+      const mock = installMockFetch(base);
+      renderKiosk();
+
+      await user.type(await screen.findByLabelText("Your study ID"), "P-007");
+      await user.click(screen.getByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL }));
+      await user.click(screen.getByRole("button", { name: "Start check-in" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /couldn't start the check-in\. Please try again/,
+      );
+      expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+
+      fail = false;
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      expect(
+        await screen.findByRole("heading", { name: ITEMS.items[0].label }),
+      ).toBeInTheDocument();
+      const posts = mock.find("POST", "/api/v1/sessions");
+      expect(posts.length).toBeGreaterThanOrEqual(2);
+      expect(posts[posts.length - 1].body).toEqual({
+        usubjid: USUBJID_P007,
+        consent_camera: false,
+      });
+      expect(screen.queryByTestId("vitals-panel")).not.toBeInTheDocument();
+    });
+
+    /** POST /sessions answers 503 while `state.fail` is true. */
+    function failingSessionRoutes(state: { fail: boolean }): Route[] {
+      const base = routes();
+      const sessionRoute = base.find((r) => r.method === "POST" && r.path === "/api/v1/sessions")!;
+      const original = sessionRoute.handler;
+      sessionRoute.handler = (ctx) =>
+        state.fail
+          ? { status: 503, json: { type: "about:blank", title: "Unavailable", status: 503 } }
+          : original(ctx);
+      return base;
+    }
+
+    it("Try again uses the opt-out as it is NOW (ticked after the failure means camera off)", async () => {
+      const user = userEvent.setup();
+      const state = { fail: true };
+      const mock = installMockFetch(failingSessionRoutes(state));
+      renderKiosk();
+
+      // Camera left on for the failed attempt.
+      await user.type(await screen.findByLabelText("Your study ID"), "P-007");
+      await user.click(screen.getByRole("button", { name: "Start check-in" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't start the check-in/);
+      expect(mock.find("POST", "/api/v1/sessions")[0].body).toMatchObject({
+        consent_camera: true,
+      });
+
+      // The participant changes their mind before retrying.
+      await user.click(screen.getByRole("checkbox", { name: CAMERA_OPT_OUT_LABEL }));
+      state.fail = false;
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(
+        await screen.findByRole("heading", { name: ITEMS.items[0].label }),
+      ).toBeInTheDocument();
+      const posts = mock.find("POST", "/api/v1/sessions");
+      expect(posts[posts.length - 1].body).toEqual({
+        usubjid: USUBJID_P007,
+        consent_camera: false,
+      });
+      expect(screen.queryByTestId("vitals-panel")).not.toBeInTheDocument();
+      expect(FakeWebSocket.last?.sentMessages.some((m) => m.type === "start")).toBeFalsy();
+    });
+
+    it("Try again uses the ID as it is NOW (corrected after the failure)", async () => {
+      const user = userEvent.setup();
+      const state = { fail: true };
+      const mock = installMockFetch(failingSessionRoutes(state));
+      renderKiosk();
+
+      const input = await screen.findByLabelText("Your study ID");
+      await user.type(input, "P-070");
+      await user.click(screen.getByRole("button", { name: "Start check-in" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't start the check-in/);
+
+      await user.clear(input);
+      await user.type(input, "P-007");
+      state.fail = false;
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(
+        await screen.findByRole("heading", { name: ITEMS.items[0].label }),
+      ).toBeInTheDocument();
+      const posts = mock.find("POST", "/api/v1/sessions");
+      expect(posts[posts.length - 1].body).toEqual({
+        usubjid: USUBJID_P007,
+        consent_camera: true,
+      });
+    });
+  });
+
+  it("keeps the vitals card in the side column when the camera is on (docs/ISSUES #21)", async () => {
+    const user = userEvent.setup();
+    installMockFetch(routes());
+    renderKiosk();
+    await startCheckIn(user, "P-007", true, ITEMS.items[0].label);
+    const side = await screen.findByTestId("kiosk-side");
+    expect(within(side).getByTestId("vitals-panel")).toBeInTheDocument();
+    // The grid reads its side column from --kiosk-side, which is built from
+    // SIDE_COLUMN_REM: the constant is the only place the width lives.
+    const grid = side.parentElement!;
+    expect(grid.className).toContain("lg:grid-cols-[minmax(0,1fr)_var(--kiosk-side)]");
+    expect(grid.style.getPropertyValue("--kiosk-side")).toBe(`${SIDE_COLUMN_REM}rem`);
+    expect(grid.className).not.toMatch(/grid-cols-\[[^\]]*\d+rem/);
+    // Wide enough that "HRV (RMSSD)" (~79px) and "128 beats/min" (~97px) each
+    // fit one line in the card's 3 metric columns: 16px rem, card p-4 (2 x 16px),
+    // gap-3 (2 x 12px) between the columns.
+    const perMetricPx = (SIDE_COLUMN_REM * 16 - 2 * 16 - 2 * 12) / 3;
+    expect(perMetricPx).toBeGreaterThanOrEqual(97);
+    // Capped when the layout stacks below lg, so the card stays secondary.
+    expect(side.className).toContain("max-w-md");
+  });
+
+  it("keeps the header and main the same width on every step, so nothing jumps (docs/ISSUES #21)", async () => {
+    const user = userEvent.setup();
+    installMockFetch(routes());
+    renderKiosk();
+
+    await screen.findByLabelText("Your study ID");
+    expect(screen.getByTestId("kiosk-header-row").className).toContain(SHELL_MAX_W);
+    expect(screen.getByRole("main").className).toContain(SHELL_MAX_W);
+
+    await startCheckIn(user, "P-007", true, ITEMS.items[0].label);
+    expect(await screen.findByTestId("kiosk-side")).toBeInTheDocument();
+    expect(screen.getByTestId("kiosk-header-row").className).toContain(SHELL_MAX_W);
+    expect(screen.getByRole("main").className).toContain(SHELL_MAX_W);
+    expect(screen.getByRole("main").className).not.toMatch(/max-w-5xl/);
   });
 
   it("blocks Next and offers retry when an answer POST fails, then recovers", async () => {

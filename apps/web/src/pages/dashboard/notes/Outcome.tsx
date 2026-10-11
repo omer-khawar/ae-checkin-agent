@@ -38,7 +38,11 @@ export function SaeClockLine({ clock }: { clock: NoteSAEClock }) {
   const remaining = secondsRemaining(clock, now);
   return (
     <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
-      <div className="font-semibold">SAE clock started (hospitalization mentioned in the note)</div>
+      <div className="font-semibold">
+        {clock.kind === "aesi"
+          ? "Special-interest event clock started (possible AESI, investigator to confirm)"
+          : "SAE clock started (hospital or emergency-room visit mentioned)"}
+      </div>
       <div className="mt-1 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
         <span>
           Site aware: <Time iso={clock.site_awareness_at} />

@@ -50,11 +50,13 @@ describe("DraftsPanel markup", () => {
     // No dt/dd nested inside a button anywhere in the panel.
     expect(ae.querySelector("button dt, button dd")).toBeNull();
 
-    // The dt button keeps the "<name>: <value>. Show evidence" label and is the
+    // The dt button keeps the "<plain label> (<name>): <value>. Show evidence" label and is the
     // single tab stop per field; the dd button is a mouse-only second target.
-    const dtButton = within(ae).getByRole("button", { name: /^AETOXGR: 2/ });
+    const dtButton = within(ae).getByRole("button", {
+      name: /^Severity grade \(provisional\) \(AETOXGR\): Grade 2/,
+    });
     expect(dtButton.closest("dt")).not.toBeNull();
-    const ddButton = within(ae).getByRole("button", { name: /^Value of AETOXGR: 2/ });
+    const ddButton = within(ae).getByRole("button", { name: /^Value of .*\(AETOXGR\): Grade 2/ });
     expect(ddButton.closest("dd")).not.toBeNull();
     expect(ddButton).toHaveAttribute("tabindex", "-1");
 

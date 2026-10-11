@@ -8,6 +8,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { AUTH_STORAGE_KEY } from "../../../../lib/api";
+import { resetAuthCache } from "../../../../lib/auth";
 import { ITEMS } from "../../../../test/fixtures";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import { ParticipantTimeline } from "../../ParticipantTimeline";
@@ -338,7 +340,9 @@ describe("ParticipantTimeline", () => {
     expect(screen.getByText(/No vitals recorded/)).toBeInTheDocument();
     expect(screen.getByText("No AE records.")).toBeInTheDocument();
     expect(screen.getByText("No medication changes reported.")).toBeInTheDocument();
-    expect(screen.getByText("No chart notes ingested for this participant.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No chart notes or phone calls yet for this participant."),
+    ).toBeInTheDocument();
     expect(screen.getByText("No check-ins yet.")).toBeInTheDocument();
   });
 
@@ -431,9 +435,11 @@ describe("ParticipantTimeline", () => {
     renderPage();
     const aes = await screen.findByTestId("open-aes");
     const summary = screen.getByRole("list", { name: "Summary" });
-    expect(within(summary).getByText("open AEs").closest("li")).toHaveTextContent("1 open AEs");
+    expect(within(summary).getByText("open side effects").closest("li")).toHaveTextContent(
+      "1 open side effects",
+    );
     expect(screen.getByTestId("ae-count")).toHaveTextContent("1 open · 1 resolved");
-    expect(screen.getByText("Adverse events (open and resolved)")).toBeInTheDocument();
+    expect(screen.getByText("Side effects (open and resolved)")).toBeInTheDocument();
     // The resolved record is still listed, badged Resolved.
     expect(within(aes).getByText("Rash")).toBeInTheDocument();
     expect(within(aes).getByText("Resolved")).toBeInTheDocument();
@@ -508,5 +514,100 @@ describe("ParticipantTimeline", () => {
     await screen.findByTestId("sessions");
     const call = mock.find("GET", new RegExp(`^/api/v1/participants/${USUBJID}/timeline$`))[0];
     expect(call.headers.authorization).toBe("Bearer tok.coordinator.9999999999.sig");
+  });
+});
+
+describe("ParticipantTimeline · visit brief and phone calls (R3.3 / R4.1)", () => {
+  function signInCoordinator() {
+    sessionStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        token: "t",
+        role: "coordinator",
+        display_name: "Dana",
+        expires_at: "2099-01-01T00:00:00.000Z",
+      }),
+    );
+    resetAuthCache();
+  }
+
+  it("links to the visit brief for this participant", async () => {
+    installMockFetch(routes(timeline()));
+    renderPage();
+    const brief = await screen.findByRole("link", { name: "Visit brief" });
+    expect(brief).toHaveAttribute("href", `/dashboard/participants/${USUBJID}/brief`);
+  });
+
+  it("logs a call for this participant and reloads the timeline", async () => {
+    signInCoordinator();
+    const mock = installMockFetch([
+      ...routes(timeline()),
+      {
+        method: "POST",
+        path: "/api/v1/notes",
+        handler: () => ({
+          json: {
+            note: { id: "01JCALL", usubjid: USUBJID, note_type: "phone_call" },
+            scan: {},
+            drafts: [],
+            escalation: null,
+            sae_clock: null,
+            rules_fired: [],
+            why: [],
+          },
+        }),
+      },
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: /P-007/ });
+    const loadsBefore = mock.find("GET", `/api/v1/participants/${USUBJID}/timeline`).length;
+    await user.click(screen.getByRole("button", { name: "Log a call" }));
+    const form = screen.getByRole("form", { name: "Log a call" });
+    await user.type(
+      within(form).getByRole("textbox", { name: "Call summary" }),
+      "Participant called: itchy rash on both arms.",
+    );
+    await user.click(within(form).getByRole("button", { name: "Log call" }));
+    await waitFor(() => expect(mock.find("POST", "/api/v1/notes")).toHaveLength(1));
+    expect(mock.find("POST", "/api/v1/notes")[0].body).toMatchObject({
+      usubjid: USUBJID,
+      note_type: "phone_call",
+      caller: "participant",
+      call_direction: "inbound",
+      text: "Participant called: itchy rash on both arms.",
+    });
+    await waitFor(() =>
+      expect(mock.find("GET", `/api/v1/participants/${USUBJID}/timeline`).length).toBeGreaterThan(
+        loadsBefore,
+      ),
+    );
+  });
+
+  it("lists a logged call with the phone label and who called", async () => {
+    installMockFetch(
+      routes(
+        timeline({
+          notes: [
+            {
+              id: "01JCALL",
+              note_date: "2026-10-09",
+              author: "Dana",
+              note_type: "phone_call",
+              caller: "caregiver",
+              call_direction: "inbound",
+            },
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    const notes = await screen.findByTestId("chart-notes");
+    expect(within(notes).getByTestId("phone-call-label")).toHaveTextContent("Phone call");
+    expect(within(notes).getByText("Caregiver · they called the site")).toBeInTheDocument();
+    expect(within(notes).getByRole("link", { name: "Open call" })).toHaveAttribute(
+      "href",
+      "/dashboard/notes/01JCALL",
+    );
   });
 });
