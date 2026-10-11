@@ -649,8 +649,14 @@ export function runCustomEval(persona: Persona): Promise<EvalCustomResponse> {
   return request<EvalCustomResponse>("/eval/run-custom", { method: "POST", body: { persona } });
 }
 
-export function getEvalResults(): Promise<EvalResults> {
-  return request<EvalResults>("/eval/results");
+/**
+ * The last stored run, or null when none has run yet. `if_any=true` makes the
+ * API answer 204 instead of 404 in that case, so an empty Eval page does not
+ * log a failed request in the browser console.
+ */
+export async function getEvalResults(): Promise<EvalResults | null> {
+  const r = await request<EvalResults | undefined>("/eval/results?if_any=true");
+  return r ?? null;
 }
 
 // ---- Whole queue (dashboard "Since you were last here" summary) ----------
@@ -742,9 +748,12 @@ export async function patchPacket(packetId: string, body: PatchPacketRequest): P
  * posts the packet to the mock EDC. Nothing is sent anywhere real.
  */
 export async function signPacket(packetId: string): Promise<Packet> {
+  // Called only from the sign confirmation dialog, which shows the narrative and the
+  // missing-information count: confirming there is the investigator's attestation. The
+  // API refuses a signature that does not carry it (422).
   const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}/sign`, {
     method: "POST",
-    body: {},
+    body: { narrative_reviewed: true, missing_info_acknowledged: true },
   });
   return normalizePacket(unwrapPacket(raw));
 }

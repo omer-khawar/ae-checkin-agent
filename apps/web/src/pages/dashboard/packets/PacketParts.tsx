@@ -155,7 +155,11 @@ export function DeadlineBox({
 
   if (signed || deadline.stoppedAt) {
     return (
-      <div className={cx(base, "border-green-300 bg-green-50 text-green-900")} role="status">
+      <div
+        className={cx(base, "border-green-300 bg-green-50 text-green-900")}
+        role="status"
+        data-testid="deadline"
+      >
         <div className="text-xs font-semibold uppercase tracking-wide">24-hour clock</div>
         <div className="mt-0.5 font-semibold">
           {signed ? "Reported (mock)" : (deadline.decision ?? "Stopped")}

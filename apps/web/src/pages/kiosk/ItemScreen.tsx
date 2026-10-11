@@ -24,7 +24,14 @@ export interface ItemScreenProps {
   item: Item;
   /** 0-based position among items. */
   index: number;
+  /** Number of symptom items (decides "Next" vs "Continue" on the last one). */
   total: number;
+  /**
+   * Total screens in the check-in (items + gate questions), so the counter reads
+   * "Question 10 of 13" here and "Question 11 of 13" on the first gate, not "10 of 10".
+   * Defaults to `total`.
+   */
+  screenTotal?: number;
   recallWindow: string;
   values: Partial<Record<Attribute, number>>;
   onSelect: (attribute: Attribute, value: number) => void;
@@ -44,6 +51,7 @@ export function ItemScreen({
   item,
   index,
   total,
+  screenTotal,
   recallWindow,
   values,
   onSelect,
@@ -66,7 +74,7 @@ export function ItemScreen({
   return (
     <div className="mx-auto max-w-3xl">
       <p className="text-base font-medium uppercase tracking-wide text-slate-500">
-        Question {index + 1} of {total}
+        Question {index + 1} of {screenTotal ?? total}
       </p>
       <h1
         id={`item-${item.id}-stem`}

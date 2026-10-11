@@ -564,6 +564,11 @@ export interface QueueItem {
   /** R2.4 / R4.1: chart-note type; "phone_call" marks a logged call. */
   note_type?: string | null;
   note_date?: string | null;
+  /** R4.1: who was on a logged call and which way (phone-call rows only). */
+  caller?: string | null;
+  call_direction?: string | null;
+  /** AE drafts on the item that follow up an already-open AE (dedup, §3.4h). */
+  followup_count?: number | null;
   /** True while drafts await review or an escalation is unacknowledged (API-computed). */
   is_open?: boolean | null;
 }
@@ -676,6 +681,8 @@ export interface Timeline {
   conmed_changes: ConmedChange[];
   /** R2.4: chart notes and logged calls for this participant (shape not pinned). */
   notes?: ChartNoteSummary[];
+  /** Synthea background chart (simulated); read through timeline/BaselineCard#normalizeBaseline. */
+  baseline?: unknown;
 }
 
 export type IraeValue = "Y" | "N";
@@ -1534,6 +1541,8 @@ export interface Brief {
   next_visit?: string | null;
   /** Lookup for evidence chips, keyed by evidence id. */
   evidence?: Record<string, BriefEvidenceRef>;
+  /** Synthea background chart (simulated); see timeline/BaselineCard#normalizeBaseline. */
+  baseline?: unknown;
 }
 
 export interface BriefQuery {

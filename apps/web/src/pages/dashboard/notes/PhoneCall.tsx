@@ -16,7 +16,6 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "../../../components/Button";
-import { ErrorBanner } from "../../../components/ErrorBanner";
 import { TierChip } from "../../../components/TierChip";
 import { useToast } from "../../../components/Toast";
 import { useAuth } from "../../../lib/auth";
@@ -27,6 +26,7 @@ import type {
   NoteIngestResponse,
   Participant,
 } from "../../../lib/types";
+import { NoteErrorBanner } from "./NoteErrorBanner";
 import { CALLER_LABELS, DIRECTION_LABELS, isPhoneCall, noteTypeWords } from "./phoneCallLabels";
 import { logPhoneCall } from "../../../lib/api";
 
@@ -268,7 +268,7 @@ export function LogCallForm({
         </p>
       </div>
 
-      <ErrorBanner error={error} message="The call was not logged" />
+      <NoteErrorBanner error={error} message="The call was not logged" />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" busy={busy} disabled={!ready}>

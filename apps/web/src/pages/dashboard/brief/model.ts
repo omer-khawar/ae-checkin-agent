@@ -230,6 +230,7 @@ export function normalizeBrief(raw: unknown, fallbackUsubjid: string): Brief {
     summary: str(b.summary),
     next_visit: str(b.next_visit),
     evidence: normalizeEvidenceMap(b.evidence),
+    baseline: b.baseline ?? null,
   };
 }
 

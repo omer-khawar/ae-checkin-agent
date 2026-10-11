@@ -1,5 +1,13 @@
 # Interim — the trial coordinator's safety-data desk
 
+[![ci](https://github.com/omer-khawar/ae-checkin-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/omer-khawar/ae-checkin-agent/actions/workflows/ci.yml) · MIT · `docker compose up --build`
+
+**Overnight side-effect reports arrive pre-filled, each field linked to its evidence; the coordinator reviews and confirms instead of retyping.**
+
+![The Monday-morning queue: overnight check-ins, a phone call and hospital notes sorted by urgency, 24-hour report clocks, and the time-saved estimate in the header](docs/screenshots/v2/hero-queue.png)
+
+<sub>The coordinator's queue, captured from the running stack (synthetic participants; the P-007 rows are check-ins added during the browser walkthrough). The strip at the top right is the time-saved **estimate**, computed live from the records confirmed this week; "How is this estimated?" shows every assumption.</sub>
+
 **Side effects between visits rarely reach the chart in time. Interim catches them from kiosk check-ins, chart notes and phone calls, and hands the coordinator ready-to-confirm records, 24-hour reports and visit briefs — rules decide, templates write, people confirm.**
 
 HackRU Fall 2026, Regeneron "Best Clinical Trials Solution" track (starter sheet 08, *"How Are You Feeling?"*, in [`site-sheet-08-how-are-you-feeling.md`](site-sheet-08-how-are-you-feeling.md)). MIT licensed. Every participant is synthetic. The demo study is a real, public Regeneron trial record: EMPOWER-Lung 1, cemiplimab (LIBTAYO) in non-small cell lung cancer.
@@ -23,11 +31,11 @@ A side effect at a trial site goes through eight steps. Interim covers all eight
 | 7 | Sponsor queries come back | Sponsor-side edit checks raise queries on posted records; each query comes with a suggested answer that cites evidence; answer, optionally correcting the field | **Queries** `/dashboard/queries` |
 | 8 | Before the next visit, someone briefs the investigator | One printable page per participant: everything since the last visit, open side effects, medication changes with protocol flags, clocks, notes and calls, and questions to ask, each line linked to its evidence | **Visit brief** `/dashboard/participants/:usubjid/brief` |
 
-Around the eight steps: a **time-saved estimate** strip on every dashboard page (`/metrics/time-saved`, with its basis on hover), a **hash-chained audit log** with one-click verify (`/dashboard/audit`), an **Eval** page where anyone can change the input and watch the output change (`/dashboard/eval`), and a hidden **Admin** page (`/admin`).
+Around the eight steps: a **time-saved estimate** strip on every dashboard page (`/metrics/time-saved`, with its basis on hover; on a fresh seed it reads about 75 minutes for the week, and confirming the overnight records adds about 78 more; every per-field minute is a labeled assumption, see [Data sources](#data-sources)), a **hash-chained audit log** with one-click verify (`/dashboard/audit`), an **Eval** page where anyone can change the input and watch the output change (`/dashboard/eval`), and a hidden **Admin** page (`/admin`).
 
-**How decisions and text are made.** Decisions are rules: grade, urgency tier, who is alerted, whether a 24-hour clock starts, whether a medication goes against the protocol. They live in JSON tables under [`packages/rules/data/`](packages/rules/data/), each with its source and rationale. Generated text (report narratives, visit briefs, suggested query answers) is template-based, and every sentence cites evidence ids that resolve to a stored record. A Claude writer can be switched on with an API key; its text is accepted only if every cited evidence id exists and every quote appears verbatim in the cited source, otherwise the template text is used and the reason is shown. A person reviews every record, report and answer before it leaves the system. Today no key is configured, so everything you see and everything the evaluation measures is the template writer.
+**How decisions and text are made.** No language model runs in what ships: decisions come from rules, text from templates, and a person confirms. Decisions (grade, urgency tier, who is alerted, whether a 24-hour clock starts, whether a medication goes against the protocol) live in JSON tables under [`packages/rules/data/`](packages/rules/data/), each with its source and rationale. Generated text (report narratives, visit briefs, suggested query answers) is assembled by a template writer, and every sentence cites evidence ids that resolve to a stored record; the screen labels it "written by template". A person reviews every record, report and answer before it leaves the system. (The writer sits behind one interface so a validated model writer could replace it later; that path is off, has no key, and is not part of the demo or the evaluation. [`docs/DECISIONS.md`](docs/DECISIONS.md) D-024.)
 
-**Build status (2026-10-10).** The rules package and the API for all eight steps are complete and tested. The new dashboard screens (packets, brief, queries, call intake, time-saved strip) were built against the contract and are being connected to the live API in the current integration pass; see [`docs/ISSUES.md`](docs/ISSUES.md).
+**Status (2026-10-11).** Every screen in the table above reads and writes the live API; there is no fixture data in the shipped web build. The screenshots in [`docs/screenshots/v2/`](docs/screenshots/README.md) were captured from the running stack. Open items, including the clean-machine rehearsal, are in [`docs/ISSUES.md`](docs/ISSUES.md).
 
 ---
 
@@ -36,11 +44,12 @@ Around the eight steps: a **time-saved estimate** strip on every dashboard page 
 ### Docker (what a judge should run)
 
 ```bash
-git clone https://github.com/omer-khawar/ae-checkin-agent.git interim
+git clone -b interim https://github.com/omer-khawar/ae-checkin-agent.git interim
 cd interim
-git checkout interim          # until the pull request is merged into main
 docker compose up --build
 ```
+
+`-b interim` selects the branch with this product; once it is merged into `main` (tracked in [`docs/ISSUES.md`](docs/ISSUES.md) #9), a plain `git clone` gets the same tree. The first build takes a few minutes; after that the API seeds itself and the dashboard is ready when `docker compose` reports all three services healthy.
 
 | What | Where |
 |---|---|
@@ -110,7 +119,7 @@ flowchart LR
     subgraph Server["API (FastAPI) — the only database writer"]
         A["Sessions · notes and calls · drafts · packets<br/>queries · briefs · time saved · exports · audit chain"]
         R["Rules package (pure Python)<br/>grading · tiers · protocol rules · scanner<br/>con-med matcher · dedup · SDTM drafts<br/>template writer · time model"]
-        W["Optional Claude writer<br/>(off without ANTHROPIC_API_KEY;<br/>validated against evidence)"]
+        W["Model-writer slot<br/>(off; no key; not in the demo<br/>or the evaluation)"]
         DB[("SQLite<br/>(Postgres by env)")]
         E["Mock EDC<br/>POST /mock-edc/{domain}<br/>+ sponsor edit checks"]
     end
@@ -203,6 +212,7 @@ The weak numbers are the point of running it. They are explained in [`docs/WHAT_
 
 | Item | Where |
 |---|---|
+| Kubernetes manifests (Kustomize), an Argo CD Application and a Jenkinsfile (test, build, push, GitOps promote); manifests render in CI, not yet applied to a live cluster | [`deploy/README.md`](deploy/README.md), [`deploy/k8s`](deploy/k8s), [`deploy/argocd`](deploy/argocd/application.yaml), [`Jenkinsfile`](Jenkinsfile) |
 | Runs from a clean clone with `docker compose up --build`, and with `make dev` / `npm run dev` | [`docker-compose.yml`](docker-compose.yml), [`Makefile`](Makefile), [`package.json`](package.json) |
 | Multi-stage Docker images for API and web; mock-only bridge image | `apps/*/Dockerfile` |
 | CI on every push and pull request: ruff, mypy `--strict`, pytest (rules with a 95% branch-coverage gate, API, scripts), eslint + `tsc` + tests (web, bridge), offline public-data check, Synthea reproducibility check, deterministic eval, Docker build | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
@@ -232,10 +242,11 @@ The weak numbers are the point of running it. They are explained in [`docs/WHAT_
 | [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Interface contracts between rules, API, bridge and web (Revisions 2–4 win on conflict) |
 | [`docs/VITALS_SOURCES.md`](docs/VITALS_SOURCES.md) | Vitals adapter contract, mock source, Presage source, Arduino slot |
 | [`data/synthetic/README.md`](data/synthetic/README.md) | How the synthetic participants, notes and Monday-morning state are generated |
-| [`docs/screenshots/`](docs/screenshots/README.md) | Screenshots (captured before the stage-2 screens; the kiosk consent screen shown there has since been removed) |
+| [`docs/screenshots/`](docs/screenshots/README.md) | Screenshots from the running stack (`v2/`: kiosk, queue, report packets, queries, visit brief, audit, eval) |
+| [`deploy/README.md`](deploy/README.md) | Compose, Render, and Kubernetes + Argo CD + Jenkins deployment |
 | [`CLAUDE.md`](CLAUDE.md) | The build brief (read §00 first) |
 
-**What it gets wrong.** The composite-to-grade crosswalk is our approximation, not a validated instrument; the scanner finds only what its lexicon names and over-flags templated text; the template writer reads stiffly and cannot infer missing facts; the time-saved number is an estimate built mostly on assumptions; and the Presage source has never seen a live camera. The full list, with examples you can reproduce: [`docs/WHAT_IT_GETS_WRONG.md`](docs/WHAT_IT_GETS_WRONG.md).
+**What it gets wrong.** The composite-to-grade crosswalk is our approximation, not a validated instrument; the scanner finds only what its lexicon names and over-flags templated text; the template writer reads stiffly and cannot infer missing facts; the time-saved number is an estimate built mostly on assumptions (one measured per-field rate; the rest are labeled assumptions); and the Presage source has never seen a live camera. The full list, with examples you can reproduce: [`docs/WHAT_IT_GETS_WRONG.md`](docs/WHAT_IT_GETS_WRONG.md).
 
 ---
 

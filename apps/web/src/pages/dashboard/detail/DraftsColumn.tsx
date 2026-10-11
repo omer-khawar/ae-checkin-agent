@@ -9,7 +9,7 @@
  *
  * The page owns the API calls; this column only renders state and forms.
  */
-import { Fragment, useState } from "react";
+import { createContext, Fragment, useContext, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "../../../components/Button";
@@ -95,35 +95,93 @@ export interface DraftsColumnProps {
   actions: DraftActions;
 }
 
+// ---------------------------------------------------------------------------
+// EDC (SDTM) codes: plain labels lead; the variable names are one click deeper
+// (CLAUDE.md §00 "Speak to non-clinicians first"). When hidden, each code stays
+// in the DOM as screen-reader text and in the field's hover title.
+// ---------------------------------------------------------------------------
+
+const CODES_KEY = "interim.showEdcCodes";
+const ShowCodesContext = createContext(false);
+
+function readShowCodes(): boolean {
+  try {
+    return window.localStorage.getItem(CODES_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** An SDTM variable name beside its plain label: visible only when codes are on. */
+function SdtmCode({ name, boxed }: { name: string; boxed?: boolean }) {
+  const show = useContext(ShowCodesContext);
+  return (
+    <span
+      data-sdtm-code={name}
+      className={
+        show
+          ? boxed
+            ? "rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-600"
+            : "font-mono text-[10px] text-slate-500"
+          : "sr-only"
+      }
+    >
+      {name}
+    </span>
+  );
+}
+
 export function DraftsColumn(props: DraftsColumnProps) {
   const groups = groupDrafts(props.detail.drafts ?? []);
   const total = DOMAIN_ORDER.reduce((n, d) => n + groups[d].length, 0);
+  const [showCodes, setShowCodes] = useState(readShowCodes);
+  const toggleCodes = (on: boolean) => {
+    setShowCodes(on);
+    try {
+      window.localStorage.setItem(CODES_KEY, on ? "1" : "0");
+    } catch {
+      /* per-viewer convenience only */
+    }
+  };
   return (
-    <div className="space-y-4">
-      {total === 0 && (
-        <Card title="Drafts">
-          <p className="text-sm text-slate-500">
-            No drafts were generated for this check-in (no symptom reached provisional grade 1, no
-            vitals, no medication change).
-          </p>
-        </Card>
-      )}
-      {DOMAIN_ORDER.map((domain) =>
-        groups[domain].length === 0 ? null : (
-          <section key={domain} aria-label={DOMAIN_TITLES[domain]} className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              {DOMAIN_TITLES[domain]}
-              <span className="tnum ml-2 font-normal normal-case text-slate-500">
-                ({groups[domain].length})
-              </span>
-            </h2>
-            {groups[domain].map((d) => (
-              <DraftCard key={d.id} draft={d} {...props} />
-            ))}
-          </section>
-        ),
-      )}
-    </div>
+    <ShowCodesContext.Provider value={showCodes}>
+      <div className="space-y-4">
+        {total > 0 && (
+          <label className="flex items-center justify-end gap-1.5 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={showCodes}
+              onChange={(e) => toggleCodes(e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            Show EDC codes (SDTM variable names)
+          </label>
+        )}
+        {total === 0 && (
+          <Card title="Drafts">
+            <p className="text-sm text-slate-500">
+              No drafts were generated for this check-in (no symptom reached provisional grade 1, no
+              vitals, no medication change).
+            </p>
+          </Card>
+        )}
+        {DOMAIN_ORDER.map((domain) =>
+          groups[domain].length === 0 ? null : (
+            <section key={domain} aria-label={DOMAIN_TITLES[domain]} className="space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                {DOMAIN_TITLES[domain]}
+                <span className="tnum ml-2 font-normal normal-case text-slate-500">
+                  ({groups[domain].length})
+                </span>
+              </h2>
+              {groups[domain].map((d) => (
+                <DraftCard key={d.id} draft={d} {...props} />
+              ))}
+            </section>
+          ),
+        )}
+      </div>
+    </ShowCodesContext.Provider>
   );
 }
 
@@ -330,6 +388,7 @@ function FieldTable({
 }) {
   const [showDefs, setShowDefs] = useState(false);
   const [showMoreState, setShowMore] = useState(false);
+  const showCodes = useContext(ShowCodesContext);
   const hover = gradeHover(defs);
   const r3 = detail as unknown as CheckInDetailR3;
   const labels: Labels = r3.labels;
@@ -379,7 +438,7 @@ function FieldTable({
               title={`Show evidence for ${plain} (${name})`}
             >
               <span className="block text-xs font-medium text-slate-800">{plain}</span>
-              <span className="font-mono text-[10px] text-slate-500">{name}</span>
+              <SdtmCode name={name} />
               {evidence.length > 0 && (
                 <span
                   className="tnum ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-600"
@@ -470,7 +529,8 @@ function FieldTable({
           <tr className="bg-amber-50/60">
             <td colSpan={2} className="px-4 pb-3 pt-1" data-testid="evidence-panel">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Evidence for {plain} <span className="font-mono normal-case">({name})</span>
+                Evidence for {plain}{" "}
+                <span className={showCodes ? "font-mono normal-case" : "sr-only"}>({name})</span>
               </div>
               <EvidenceList
                 evidence={evidence}
@@ -651,8 +711,7 @@ function EditForm({
           return (
             <div key={n}>
               <label htmlFor={id} className="block text-xs text-slate-700">
-                <span className="font-medium">{fieldLabel(n)}</span>{" "}
-                <span className="font-mono text-[10px] text-slate-500">{n}</span>
+                <span className="font-medium">{fieldLabel(n)}</span> <SdtmCode name={n} />
                 {n === "AETOXGR" && (
                   <span className="ml-1 font-sans text-slate-500">
                     (0–{MAX_ASSIGNABLE_GRADE}, {PROVISIONAL_LABEL})
@@ -832,8 +891,7 @@ function AttributionBlock({
 
   const label = (id: string, plain: string, sdtm: string) => (
     <label htmlFor={id} className="block text-xs text-slate-700">
-      <span className="font-medium">{plain}</span>{" "}
-      <span className="rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-600">{sdtm}</span>
+      <span className="font-medium">{plain}</span> <SdtmCode name={sdtm} boxed />
     </label>
   );
 

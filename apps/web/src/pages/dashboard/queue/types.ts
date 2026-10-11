@@ -61,6 +61,13 @@ export interface QueueRow {
   escalation_acked: boolean | null;
   draft_counts: Record<Domain, number>;
   draft_status_summary: string;
+  /** Chart-note type (null for check-ins), e.g. "ed_note", "outside_record". */
+  note_type: string | null;
+  /** Phone calls: who was on the call and which way (null when unknown). */
+  caller: string | null;
+  call_direction: string | null;
+  /** AE drafts that follow up an already-open AE instead of opening a new one. */
+  followup_count: number;
   /** Detail route: /dashboard/checkins/:session_id or /dashboard/notes/:note_id. */
   href: string;
 }

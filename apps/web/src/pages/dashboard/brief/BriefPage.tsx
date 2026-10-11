@@ -47,6 +47,7 @@ import {
 import { NarrativePanel } from "./NarrativePanel";
 import { PRINT_CSS } from "./printCss";
 import { QuestionsChecklist } from "./QuestionsChecklist";
+import { BaselineCard } from "../timeline/BaselineCard";
 import type { Brief } from "../../../lib/types";
 
 type LoadState =
@@ -417,6 +418,7 @@ export default function BriefPage() {
             evidence={brief.evidence}
             showTechnical={showTechnical}
           />
+          <BaselineCard baseline={brief.baseline} />
         </div>
       </div>
     </div>

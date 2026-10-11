@@ -178,3 +178,11 @@ describe("plain helpers", () => {
     ).toEqual(["N"]);
   });
 });
+
+describe("investigator decision labels (e2e reporting regression)", () => {
+  it("names every investigator decision field in plain words, INTERIM_IRAE included", () => {
+    expect(fieldLabel("AESER")).toBe("Serious? (investigator decides)");
+    expect(fieldLabel("AEREL")).toBe("Related to the study drug? (investigator decides)");
+    expect(fieldLabel("INTERIM_IRAE")).toBe("Immune-related? (investigator decides)");
+  });
+});

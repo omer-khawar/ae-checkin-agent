@@ -167,6 +167,10 @@ export function normalizeQueueItem(raw: QueueItem): QueueRow {
     draft_counts: counts,
     draft_status_summary:
       typeof raw.draft_status_summary === "string" ? raw.draft_status_summary : "",
+    note_type: asString(raw.note_type),
+    caller: asString(raw.caller),
+    call_direction: asString(raw.call_direction),
+    followup_count: Math.max(0, asNumber(raw.followup_count) ?? 0),
     href: detailHref(source, sessionId, noteId),
   };
 }

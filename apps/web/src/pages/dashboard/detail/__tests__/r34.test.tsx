@@ -139,11 +139,16 @@ describe("CheckInDetail · plain language and protocol (R3)", () => {
       name: /Side effect: Dyspnea, severe \(grade 3, provisional\)/,
     });
     expect(within(heading).getByText("AE 1")).toBeInTheDocument();
-    // The API label wins over the local table; the SDTM name stays visible.
+    // The API label wins over the local table; the SDTM name is one click deeper
+    // ("Show EDC codes"), visually hidden until then but still read aloud.
     const grade = aeCard().querySelector('tr[data-field="AETOXGR"]') as HTMLElement;
     expect(grade).toHaveTextContent("How bad it is (provisional grade)");
-    expect(grade).toHaveTextContent("AETOXGR");
     expect(grade).toHaveTextContent("Grade 3 · severe");
+    const code = () => grade.querySelector('[data-sdtm-code="AETOXGR"]') as HTMLElement;
+    expect(code()).toHaveClass("sr-only");
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: /Show EDC codes/ }));
+    expect(code()).not.toHaveClass("sr-only");
+    expect(code()).toHaveClass("font-mono");
     // A field the API did not label uses the local plain_language.json copy.
     const term = aeCard().querySelector('tr[data-field="AEDECOD"]') as HTMLElement;
     expect(term).toHaveTextContent("Side effect (standard term)");

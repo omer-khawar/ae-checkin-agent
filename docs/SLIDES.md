@@ -64,7 +64,7 @@ Screenshot checklist (1920×1080, light theme, zoom 110%, after `make demo-reset
 **Content**
 - Overnight: 3 kiosk check-ins, 1 caregiver call, 1 urgent-care record, 1 ER note
 - Interim already: found the side effects with exact quotes · merged repeats · started the 24-hour clock · pre-filled the report and drafted its narrative · flagged a discouraged steroid · built tomorrow's visit brief
-- "Twenty minutes of review instead of most of a day"
+- On screen: "≈ N minutes of coordinator time saved this week (estimate)", N read live from the seeded demo (about 75 on a fresh seed, about 150 after confirming the overnight records); basis on hover, one measured rate, the rest labeled assumptions
 - QR code / URL to the repo; `docker compose up`
 
 **Screenshot:** S-queue (large), S-packet (inset).
@@ -79,11 +79,11 @@ Screenshot checklist (1920×1080, light theme, zoom 110%, after `make demo-reset
 | **Rules** (JSON tables, each with source and rationale) | Every decision | Grade 3 + immune-related → 24-hour AESI clock (protocol p. 92) |
 | **Templates** | Every sentence of generated text, each citing its evidence | Each narrative sentence ends in chips that open its sources |
 | **People** | Every confirmation and signature | Only the investigator signs a report |
-- A Claude writer can be switched on with an API key. Its text is used only if every cited source exists and every quote is verbatim; otherwise the template text is used, and the screen says so.
+- No language model runs in the demo or the evaluation. Every decision is a table lookup you can read; every sentence is a template that cites its evidence.
 
 **Screenshot:** S-packet narrative with evidence chips.
 
-**Speaker notes:** No decision depends on generated text. Rules make every decision, from tables anyone can read. Templates write the narratives, and every sentence points to its source. A language model can be plugged in, but its text is checked against the evidence before it is used. And nothing leaves without a person confirming or signing it.
+**Speaker notes:** No decision depends on generated text. Rules make every decision, from tables anyone can read. Templates write the narratives, and every sentence points to its source. No language model runs anywhere in what you are seeing. And nothing leaves without a person confirming or signing it.
 
 ## Slide 6 — It reads the real protocol
 

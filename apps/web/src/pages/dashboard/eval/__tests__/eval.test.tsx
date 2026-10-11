@@ -486,6 +486,19 @@ describe("Eval page (review fixes)", () => {
     expect(screen.queryByText("No run yet.", { exact: false })).not.toBeInTheDocument();
   });
 
+  it("asks for stored results with if_any=true and treats 204 as 'no run yet' (no console 404)", async () => {
+    const mock = installMockFetch(
+      routesWith("GET", "/api/v1/eval/results", ({ url }) => {
+        expect(url.searchParams.get("if_any")).toBe("true");
+        return { status: 204 };
+      }),
+    );
+    renderEval();
+    expect(await screen.findByText("No run yet.", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("Could not load the last stored run")).not.toBeInTheDocument();
+    expect(mock.calls.some((c) => c.path === "/api/v1/eval/results")).toBe(true);
+  });
+
   it("shows 'Loading last run…' and no empty state until GET /eval/results settles", async () => {
     const g = gate();
     installMockFetch(

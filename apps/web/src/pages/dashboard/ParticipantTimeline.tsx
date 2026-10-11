@@ -44,6 +44,7 @@ import { cx, formatConfidence, Time, vitalsStatusLabel } from "../../lib/format"
 import type { AEOpen, ChartNoteSummary, Item, Session, Timeline } from "../../lib/types";
 import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
 import { callSummary } from "./notes/phoneCallLabels";
+import { BaselineCard } from "./timeline/BaselineCard";
 import { SymptomSparkline, VitalsCharts } from "./timeline/charts";
 import {
   buildSymptomSeries,
@@ -233,6 +234,11 @@ export function ParticipantTimeline() {
           />
         </Card>
       )}
+
+      {/* Synthea background chart (simulated) ------------------------------ */}
+      <BaselineCard
+        baseline={data.baseline ?? (participant as { baseline?: unknown } | undefined)?.baseline}
+      />
 
       {/* Symptoms ---------------------------------------------------------- */}
       <Card

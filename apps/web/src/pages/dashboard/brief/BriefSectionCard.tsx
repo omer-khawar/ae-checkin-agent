@@ -285,7 +285,9 @@ export function BriefSectionCard({
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Decorations kind={kind} item={item} showTechnical={showTechnical} />
-                  <span className="min-w-0 flex-1 text-sm leading-6 text-slate-900">
+                  {/* Basis 18rem: when the chips leave less room than that, the text
+                      wraps onto its own line instead of shrinking to one word per line. */}
+                  <span className="min-w-0 flex-[1_1_18rem] text-sm leading-6 text-slate-900">
                     <ItemText item={item} />
                   </span>
                   {item.ts && (

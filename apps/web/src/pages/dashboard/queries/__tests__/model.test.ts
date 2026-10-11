@@ -271,6 +271,20 @@ describe("also_edit field gating", () => {
     expect(queriedFieldBlock(bare, "CM", "CMTRT", "coordinator")?.kind).toBe("not_editable");
   });
 
+  it("offers the fields the query covers even when the record has no key yet (dose missing)", () => {
+    // Regression: the seeded "dose missing" query offered CMDECOD first, so typing a
+    // dose into "Also correct the field" overwrote the drug's standard name.
+    const bare = { ...CM_DRAFT, fields: { CMTRT: "Zofran", CMDECOD: "ondansetron" } };
+    const covered = ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"];
+    const f = editableFields(bare, "CM", "CMDOSE", covered);
+    expect(f[0]).toBe("CMDOSE");
+    expect(f).toEqual(expect.arrayContaining(covered));
+    expect(f).not.toContain("CMTRT");
+    expect(queriedFieldBlock(bare, "CM", "CMDOSE", "coordinator", covered)).toBeNull();
+    // Without the query's coverage the old gate still applies.
+    expect(editableFields(bare, "CM", "CMDOSE")).not.toContain("CMDOSE");
+  });
+
   it("lists every field the query covers, queried field first", () => {
     expect(queryFields({ field: "CMDOSE", fields: ["CMDOSE", "CMDOSU", "CMINDC"] })).toEqual([
       "CMDOSE",
