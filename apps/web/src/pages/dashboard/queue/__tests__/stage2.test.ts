@@ -14,9 +14,9 @@ import {
 } from "../lastSeen";
 import { clockKind, inferSource, needsAction, normalizeQueueItem } from "../normalize";
 import { countLabel, rowsSince, summarizeSince } from "../summary";
-import type { RawQueueItem } from "../types";
+import type { QueueItem } from "../../../../lib/types";
 
-const BASE: RawQueueItem = {
+const BASE: QueueItem = {
   session_id: "01JSESSION00000000000000A",
   usubjid: "R2810-ONC-1624-P-007",
   display_label: "P-007",

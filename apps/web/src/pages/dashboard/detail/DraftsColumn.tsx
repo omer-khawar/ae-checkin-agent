@@ -18,7 +18,15 @@ import { ErrorBanner } from "../../../components/ErrorBanner";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { getDraftVersions } from "../../../lib/api";
 import { cx, Time } from "../../../lib/format";
-import type { CheckInDetail, CtcaeTerm, Draft, Evidence, Role } from "../../../lib/types";
+import type {
+  AttributionRequest,
+  CheckInDetail,
+  CheckInDetailR3,
+  CtcaeTerm,
+  Draft,
+  Evidence,
+  Role,
+} from "../../../lib/types";
 import { Chip, Disclosure, EvidenceList, SdtmBadge } from "./bits";
 import {
   AEREL_OPTIONS,
@@ -65,14 +73,13 @@ import {
   sdtmBadge,
   type Labels,
 } from "./plain";
-import type { AttributionRequestR4, CheckInDetailR3 } from "./r34Types";
 import { ReferencePanel } from "./ReferencePanel";
 
 export interface DraftActions {
   confirm: (draft: Draft, note: string) => Promise<void>;
   reject: (draft: Draft, reason: string) => Promise<void>;
   patch: (draft: Draft, fields: Record<string, unknown>, note: string) => Promise<void>;
-  attribution: (draft: Draft, body: AttributionRequestR4) => Promise<void>;
+  attribution: (draft: Draft, body: AttributionRequest) => Promise<void>;
 }
 
 export interface DraftsColumnProps {
@@ -802,7 +809,7 @@ function AttributionBlock({
   /** Which answer stops which running clock (plain.ts attributionClockHint); null = none running. */
   clockHint: string | null;
   busy: boolean;
-  onSave: (body: AttributionRequestR4) => void;
+  onSave: (body: AttributionRequest) => void;
 }) {
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const current = {

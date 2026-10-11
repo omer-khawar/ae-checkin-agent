@@ -3,9 +3,8 @@
  * offsets are computed from the real text (never hand-typed).
  */
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
-import type { Paginated, Participant } from "../../../../lib/types";
+import type { NoteIngestResponse, Paginated, Participant, ScanResult } from "../../../../lib/types";
 import { SAMPLE_NOTES } from "../sampleNotes";
-import type { NoteIngestResponse, ScanResult } from "../types";
 
 export const N3 = SAMPLE_NOTES.find((s) => s.id === "N3")!;
 export const TEXT = N3.text;

@@ -11,7 +11,6 @@ import { resetAuthCache } from "../../../../lib/auth";
 import { installMockFetch, type Route } from "../../../../test/mockFetch";
 import { Notes } from "../../Notes";
 import { DEFAULT_SAMPLE, SAMPLE_NOTES } from "../sampleNotes";
-import type { NoteIngestRequest, ScanRequest } from "../types";
 import {
   INGEST,
   NOTE_ID,
@@ -22,6 +21,7 @@ import {
   TEXT,
   USUBJID_P003,
 } from "./fixtures";
+import type { NoteIngestRequest, ScanRequest } from "../../../../lib/types";
 
 function routes(opts: { scanStatus?: number } = {}): Route[] {
   return [

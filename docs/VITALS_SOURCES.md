@@ -166,7 +166,7 @@ something to draw; it is cosmetic and is not persisted.
 
 ## 5. Presage SmartSpectra source (IMPLEMENTED; untested against a live camera)
 
-**Status: implemented, untested against a live camera (needs `PRESAGE_API_KEY` and a webcam).**
+**Status (2026-10-10, night): implemented, untested against a live camera (needs `PRESAGE_API_KEY` and a webcam).** Vitals are now optional context, not the headline (D-026): they never change a grade, and the product is demoed with the mock source (SIMULATED). The vendor documents pulse as valid only from 40 to 110 bpm, so the two pulse >= 110 corroboration rules cannot fire on real Presage readings (`docs/WHAT_IT_GETS_WRONG.md` §24).
 `src/sources/presage.ts` is a real `VitalsSource` (SDK lifecycle, camera selection, status) and
 `src/sources/presageMap.ts` is the pure packet → `VitalsSample` mapping, unit-tested against
 fixtures in the exact decoded shape. The SDK is loaded dynamically at `start()` / `preflight()`
@@ -305,7 +305,7 @@ needs 60 s.
    session **before the first participant**: a wrong key, an exhausted balance or a blocked
    network shows up only now, as `SmartSpectra error 2 (authentication failed)` / `4 (credits
    exhausted)` / `5 (network error)` in the bridge log and on the kiosk card.
-3. **Kiosk session.** Start a check-in with camera consent. Expected in the bridge log within a few
+3. **Kiosk session.** Start a check-in (there is no per-session consent screen any more; camera use is covered at enrollment, D-026; leave "I'd rather not use the camera" unticked). Expected in the bridge log within a few
    seconds: `source status warming → collecting: face found; collecting`; the status line shows
    `pulse=NN(0.xx)` from ~12 s and `breathing=NN(0.xx)` from ~30 s; the kiosk card's badge reads
    **MEASURED** `presage` and the pulse appears when the gate opens. Note the first

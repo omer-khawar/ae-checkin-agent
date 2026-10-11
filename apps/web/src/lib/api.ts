@@ -5,19 +5,42 @@
  * - Bearer token comes from `sessionStorage` (see `auth.ts`); kiosk endpoints
  *   work without one.
  * - Errors are RFC 7807 problem+json and are surfaced as `ApiError`.
- * - One function per endpoint, including dashboard/admin/eval/export calls the
- *   current wave does not render yet, so later pages only import from here.
+ * - One function per endpoint, including the Revision 2-4 endpoints (chart
+ *   notes, phone calls, report packets, visit briefs, sponsor queries, time
+ *   saved). Pages import from here only; no page keeps its own fetch helper.
+ * - A few wrappers return a normalized shape (packets, briefs, notes, the whole
+ *   queue). Those normalizers are pure functions that live next to the page
+ *   that renders the shape (`pages/dashboard/<page>/model.ts|normalize.ts`) and
+ *   import nothing from this file, so there is no import cycle.
  *
  * No retries, no caching, no magic: every function is `fetch` + JSON.
  */
+import { normalizeBrief } from "../pages/dashboard/brief/model";
+import {
+  normalizeNoteDetail,
+  normalizeNotesPage,
+  normalizeScan,
+} from "../pages/dashboard/notes/normalize";
+import {
+  normalizeClocks as normalizePacketClocks,
+  normalizePacket,
+  unwrapPacket,
+} from "../pages/dashboard/packets/model";
+import { normalizeQueueItem } from "../pages/dashboard/queue/normalize";
+import type { QueueRow } from "../pages/dashboard/queue/types";
 import type {
   AdminResetResponse,
   Answer,
+  AnswerQueryRequest,
   AnswerRequest,
   AttributionRequest,
   AuditEvent,
+  AuditListQuery,
   AuditVerifyResult,
+  Brief,
+  BriefQuery,
   CheckInDetail,
+  ClockRow,
   CompleteRequest,
   CompleteResponse,
   CreateSessionRequest,
@@ -38,21 +61,43 @@ import type {
   LoginRequest,
   LoginResponse,
   MockEdcAck,
+  NoteDetailResponse,
+  NoteIngestRequest,
+  NoteIngestResponse,
+  NotesPage,
+  NotesQuery,
+  Packet,
+  PacketClock,
+  PacketRef,
   PageEvent,
   Paginated,
   Participant,
+  PatchPacketRequest,
   Persona,
+  PhoneCallRequest,
   Problem,
   PublicSettings,
+  QueriesListQuery,
+  QueriesPage,
+  QueryCounts,
+  QueryDetail,
+  QueryRow,
+  QueryStatus,
   QueueItem,
   QueueQuery,
+  RaiseQueryRequest,
   ReferenceLabel,
   SAEClockRow,
+  SaeClocksQuery,
+  ScanRequest,
+  ScanResult,
   Session,
   Settings,
   SettingsUpdate,
+  StopClockRequest,
   Study,
   Timeline,
+  TimeSavedMetrics,
   VitalsPostRequest,
   VitalsPostResponse,
 } from "./types";
@@ -201,13 +246,29 @@ interface RequestOptions {
   query?: Query;
   /** Extra headers (e.g. none for kiosk). The bearer token is added automatically. */
   headers?: Record<string, string>;
+  /** `Accept` header; JSON + problem+json by default. */
+  accept?: string;
   signal?: AbortSignal;
 }
 
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+const JSON_ACCEPT = "application/json, application/problem+json";
+
+function isAbortError(e: unknown): boolean {
+  return (
+    (typeof DOMException !== "undefined" && e instanceof DOMException && e.name === "AbortError") ||
+    (e instanceof Error && e.name === "AbortError")
+  );
+}
+
+/**
+ * The one place that calls `fetch`. Adds the bearer token, encodes a JSON body,
+ * maps non-2xx to `ApiError` and a rejected fetch to `NetworkError`. An abort is
+ * not a network failure: the caller sees the AbortError as thrown.
+ */
+async function send(path: string, opts: RequestOptions = {}): Promise<Response> {
   const url = `${API_BASE}${path}${buildQuery(opts.query)}`;
   const headers: Record<string, string> = {
-    Accept: "application/json, application/problem+json",
+    Accept: opts.accept ?? JSON_ACCEPT,
     ...opts.headers,
   };
   const token = getStoredToken();
@@ -222,31 +283,36 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   try {
     res = await fetch(url, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
   } catch (e) {
+    if (isAbortError(e)) throw e;
     throw new NetworkError(url, e);
   }
   if (!res.ok) {
     throw new ApiError(url, await parseProblem(res));
   }
+  return res;
+}
+
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await send(path, opts);
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
 }
 
-/** For `GET` endpoints that return a file (CSV/zip); returns the raw Blob. */
+/** For `GET` endpoints that return a file (CSV/zip/JSON download); returns the raw Blob. */
 async function requestBlob(path: string, query?: Query): Promise<Blob> {
-  const url = `${API_BASE}${path}${buildQuery(query)}`;
-  const headers: Record<string, string> = {};
-  const token = getStoredToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let res: Response;
-  try {
-    res = await fetch(url, { headers });
-  } catch (e) {
-    throw new NetworkError(url, e);
-  }
-  if (!res.ok) throw new ApiError(url, await parseProblem(res));
+  const res = await send(path, { query, accept: "*/*" });
   return res.blob();
+}
+
+/** For `GET` endpoints that return a printable HTML page; returns the text. */
+async function requestHtml(
+  path: string,
+  opts: Pick<RequestOptions, "query" | "signal"> = {},
+): Promise<string> {
+  const res = await send(path, { ...opts, accept: "text/html, application/problem+json" });
+  return res.text();
 }
 
 /** Current wall clock as the contract's UTC ISO string with milliseconds. */
@@ -437,7 +503,10 @@ export function patchDraft(
   });
 }
 
-/** Investigator only. Setting AESER stops the SAE clock. */
+/**
+ * Investigator only. Setting AESER stops the SAE clock. R4.3 adds the
+ * immune-related choice (`INTERIM_IRAE`).
+ */
 export function patchAttribution(draftId: string, body: AttributionRequest): Promise<Draft> {
   return request<Draft>(`/drafts/${encodeURIComponent(draftId)}/attribution`, {
     method: "PATCH",
@@ -460,6 +529,38 @@ export function ackEscalation(escalationId: string): Promise<Escalation> {
 
 export function listSaeClocks(active = true): Promise<SAEClockRow[] | Paginated<SAEClockRow>> {
   return request<SAEClockRow[] | Paginated<SAEClockRow>>("/sae-clocks", { query: { active } });
+}
+
+/**
+ * One page of report clocks (SAE and AESI). The contract does not pin whether
+ * the response is a bare array or a `{items,total,limit,offset}` envelope; the
+ * API sends the envelope. A bare array is treated as the complete list
+ * (total = length) so `fetchAllPages` stops after it.
+ */
+export async function listSaeClocksPage(q: SaeClocksQuery): Promise<Paginated<ClockRow>> {
+  const body = await request<ClockRow[] | Paginated<ClockRow> | null | undefined>("/sae-clocks", {
+    query: { active: q.active, limit: q.limit, offset: q.offset },
+  });
+  if (Array.isArray(body)) {
+    return { items: body, total: body.length, limit: Math.max(1, body.length), offset: 0 };
+  }
+  if (body && Array.isArray(body.items)) {
+    return {
+      items: body.items,
+      total: typeof body.total === "number" ? body.total : body.items.length,
+      limit: typeof body.limit === "number" && body.limit > 0 ? body.limit : q.limit,
+      offset: typeof body.offset === "number" ? body.offset : q.offset,
+    };
+  }
+  return { items: [], total: 0, limit: q.limit, offset: q.offset };
+}
+
+/** R4.3: investigator-only seriousness decision on a clock with no AE draft. */
+export function stopClock(clockId: string, body: StopClockRequest): Promise<ClockRow> {
+  return request<ClockRow>(`/sae-clocks/${encodeURIComponent(clockId)}/stop`, {
+    method: "PATCH",
+    body,
+  });
 }
 
 export function listPages(
@@ -497,8 +598,14 @@ export function exportBlob(
   return requestBlob(`/export/${domain}.${format}`, { ...opts });
 }
 
-export function exportBundle(): Promise<Blob> {
-  return requestBlob("/export/bundle.zip");
+/** URL the bundle download hits (`?status=confirmed|all`), for hover titles. */
+export function bundleUrl(status?: ExportStatusFilter): string {
+  return `${API_BASE}/export/bundle.zip${buildQuery({ status })}`;
+}
+
+/** `GET /export/bundle.zip?status=` as a Blob (the endpoint needs the bearer header). */
+export function exportBundle(status?: ExportStatusFilter): Promise<Blob> {
+  return requestBlob("/export/bundle.zip", { status });
 }
 
 export function postMockEdc(
@@ -510,10 +617,18 @@ export function postMockEdc(
 
 // ---- Audit ----------------------------------------------------------------
 
-export function listAudit(
-  q: { entity_type?: string; entity_id?: string; limit?: number; offset?: number } = {},
-): Promise<Paginated<AuditEvent>> {
-  return request<Paginated<AuditEvent>>("/audit", { query: { ...q } });
+/** `GET /audit` with every filter the server supports. Empty strings are dropped. */
+export function listAudit(q: AuditListQuery = {}): Promise<Paginated<AuditEvent>> {
+  return request<Paginated<AuditEvent>>("/audit", {
+    query: {
+      entity_type: q.entity_type || undefined,
+      entity_id: q.entity_id || undefined,
+      action: q.action || undefined,
+      actor_id: q.actor_id || undefined,
+      limit: q.limit,
+      offset: q.offset,
+    },
+  });
 }
 
 export function verifyAudit(): Promise<AuditVerifyResult> {
@@ -536,6 +651,286 @@ export function runCustomEval(persona: Persona): Promise<EvalCustomResponse> {
 
 export function getEvalResults(): Promise<EvalResults> {
   return request<EvalResults>("/eval/results");
+}
+
+// ---- Whole queue (dashboard "Since you were last here" summary) ----------
+
+/** Page size and cap for the summary fetch (5 x 100 rows covers the demo many times over). */
+export const SUMMARY_PAGE_SIZE = 100;
+export const SUMMARY_MAX_PAGES = 5;
+
+/** The whole non-eval queue, every status, normalized; `total` says if it was cut short. */
+export async function fetchWholeQueue(): Promise<{ rows: QueueRow[]; total: number }> {
+  let total = 0;
+  const items = await fetchAllPages(
+    async (limit, offset) => {
+      const page = await getQueue({ status: "all", include_eval: false, limit, offset });
+      total = page.total;
+      return page;
+    },
+    SUMMARY_PAGE_SIZE,
+    SUMMARY_MAX_PAGES,
+  );
+  return { rows: items.map(normalizeQueueItem), total };
+}
+
+// ---- R2.4 Chart notes and R4.1 phone calls --------------------------------
+
+/** `note_type` that marks a chart note as a logged phone call (R4.1). */
+export const PHONE_CALL_NOTE_TYPE = "phone_call";
+
+/** Dry run: scan text without storing anything. */
+export async function scanNote(body: ScanRequest): Promise<ScanResult> {
+  const raw = await request<unknown>("/scan", { method: "POST", body });
+  return normalizeScan(raw);
+}
+
+/** Store the note, scan it, create drafts, maybe escalate / start the SAE clock. */
+export async function ingestNote(body: NoteIngestRequest): Promise<NoteIngestResponse> {
+  const raw = await request<unknown>("/notes", { method: "POST", body });
+  return normalizeNoteDetail(raw);
+}
+
+export async function listNotes(q: NotesQuery = {}): Promise<NotesPage> {
+  const raw = await request<unknown>("/notes", { query: { ...q } });
+  return normalizeNotesPage(raw, q);
+}
+
+export async function getNote(noteId: string): Promise<NoteDetailResponse> {
+  const raw = await request<unknown>(`/notes/${encodeURIComponent(noteId)}`);
+  return normalizeNoteDetail(raw);
+}
+
+/** R4.1 "Log a call": `POST /notes` with note_type "phone_call", scanned like a chart note. */
+export function logPhoneCall(body: PhoneCallRequest): Promise<NoteIngestResponse> {
+  return ingestNote({ ...body, note_type: PHONE_CALL_NOTE_TYPE });
+}
+
+// ---- R3.2 / R4.2 Report packets -------------------------------------------
+
+/** Create (or fetch the existing) packet for a 24-hour clock. Coordinator+. */
+export async function createPacket(clockId: string): Promise<Packet> {
+  const raw = await request<unknown>("/packets", { method: "POST", body: { clock_id: clockId } });
+  return normalizePacket(unwrapPacket(raw));
+}
+
+/**
+ * Same `POST /packets {clock_id}` as `createPacket`, un-normalized: for pages
+ * that only need the id to navigate to the packet page.
+ */
+export function openPacket(clockId: string): Promise<PacketRef> {
+  return request<PacketRef>("/packets", { method: "POST", body: { clock_id: clockId } });
+}
+
+export async function getPacket(packetId: string): Promise<Packet> {
+  const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}`);
+  return normalizePacket(unwrapPacket(raw));
+}
+
+/** Edit fields and/or the narrative. The API stores a new version and audits `packet.edited`. */
+export async function patchPacket(packetId: string, body: PatchPacketRequest): Promise<Packet> {
+  const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}`, {
+    method: "PATCH",
+    body,
+  });
+  return normalizePacket(unwrapPacket(raw));
+}
+
+/**
+ * Investigator only. Marks the packet signed, stops the clock as
+ * "reported (mock)", audits `packet.signed` / `packet.followup_signed` and
+ * posts the packet to the mock EDC. Nothing is sent anywhere real.
+ */
+export async function signPacket(packetId: string): Promise<Packet> {
+  const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}/sign`, {
+    method: "POST",
+    body: {},
+  });
+  return normalizePacket(unwrapPacket(raw));
+}
+
+/** R4.2: start follow-up n+1 of a signed packet. Returns the new packet. */
+export async function startFollowUp(packetId: string): Promise<Packet> {
+  const raw = await request<unknown>(`/packets/${encodeURIComponent(packetId)}/follow-up`, {
+    method: "POST",
+    body: {},
+  });
+  return normalizePacket(unwrapPacket(raw));
+}
+
+/** The packet's JSON export as a Blob (needs the bearer token, so not a plain link). */
+export function getPacketExportBlob(packetId: string): Promise<Blob> {
+  return requestBlob(`/packets/${encodeURIComponent(packetId)}/export.json`);
+}
+
+/** The printable HTML page as text; the page opens it in a new window. */
+export function getPacketPrintHtml(packetId: string): Promise<string> {
+  return requestHtml(`/packets/${encodeURIComponent(packetId)}/print`);
+}
+
+/**
+ * Every clock, running or stopped, normalized for the packet header. Used only
+ * when a packet does not carry its own `due_at`, so the header can still count down.
+ * `active=all` is the API's "running and stopped" filter (`false` is stopped
+ * only); every page is walked because the API pages at 50 by default.
+ */
+export async function listAllClocks(): Promise<PacketClock[]> {
+  return fetchAllPages<PacketClock>(async (limit, offset) => {
+    const raw = await request<unknown>("/sae-clocks", {
+      query: { active: "all", limit, offset },
+    });
+    const items = normalizePacketClocks(raw);
+    if (Array.isArray(raw) || !raw || typeof raw !== "object") {
+      // A bare array is the complete list.
+      return { items, total: items.length, limit: Math.max(1, items.length), offset: 0 };
+    }
+    const env = raw as { total?: unknown; limit?: unknown; offset?: unknown };
+    return {
+      items,
+      total: typeof env.total === "number" ? env.total : items.length,
+      limit: typeof env.limit === "number" && env.limit > 0 ? env.limit : limit,
+      offset: typeof env.offset === "number" ? env.offset : offset,
+    };
+  });
+}
+
+// ---- R3.2 Visit-prep brief ------------------------------------------------
+
+function briefApiPath(usubjid: string, suffix = ""): string {
+  return `/participants/${encodeURIComponent(usubjid)}/brief${suffix}`;
+}
+
+/** The brief as JSON, normalized defensively (missing lists become []). */
+export async function getBrief(usubjid: string, q: BriefQuery = {}): Promise<Brief> {
+  const raw = await request<unknown>(briefApiPath(usubjid), {
+    query: { since: q.since || undefined },
+    signal: q.signal,
+  });
+  return normalizeBrief(raw ?? null, usubjid);
+}
+
+/**
+ * The server-rendered printable page as an HTML string. Fetched with the bearer
+ * token (a plain link would not carry it) and opened by the page as a blob URL.
+ */
+export function getBriefPrintHtml(usubjid: string, q: BriefQuery = {}): Promise<string> {
+  return requestHtml(briefApiPath(usubjid, "/print"), {
+    query: { since: q.since || undefined },
+    signal: q.signal,
+  });
+}
+
+// ---- R4.4 Sponsor queries -------------------------------------------------
+
+/**
+ * Accepts the contract's paginated object or a bare array (defensive: an early
+ * API build may return a list), and always returns a `QueriesPage`.
+ */
+function toQueriesPage(raw: unknown, q: QueriesListQuery): QueriesPage {
+  if (Array.isArray(raw)) {
+    return { items: raw as QueryRow[], total: raw.length, limit: raw.length, offset: 0 };
+  }
+  const p = (raw ?? {}) as Partial<QueriesPage>;
+  const items = Array.isArray(p.items) ? p.items : [];
+  return {
+    items,
+    total: typeof p.total === "number" ? p.total : items.length,
+    limit: typeof p.limit === "number" ? p.limit : (q.limit ?? items.length),
+    offset: typeof p.offset === "number" ? p.offset : (q.offset ?? 0),
+    counts: p.counts ?? null,
+  };
+}
+
+export async function listQueries(
+  q: QueriesListQuery = {},
+  signal?: AbortSignal,
+): Promise<QueriesPage> {
+  const raw = await request<unknown>("/queries", { query: { ...q }, signal });
+  return toQueriesPage(raw, q);
+}
+
+export function getQuery(queryId: string, signal?: AbortSignal): Promise<QueryDetail> {
+  return request<QueryDetail>(`/queries/${encodeURIComponent(queryId)}`, { signal });
+}
+
+/** Admin acting as the sponsor's monitor. */
+export function raiseQuery(body: RaiseQueryRequest): Promise<QueryRow> {
+  return request<QueryRow>("/queries", { method: "POST", body });
+}
+
+/** Coordinator, investigator or admin. */
+export function answerQuery(queryId: string, body: AnswerQueryRequest): Promise<QueryRow> {
+  return request<QueryRow>(`/queries/${encodeURIComponent(queryId)}/answer`, {
+    method: "POST",
+    body,
+  });
+}
+
+/** Admin acting as the sponsor. */
+export function closeQuery(queryId: string): Promise<QueryRow> {
+  return request<QueryRow>(`/queries/${encodeURIComponent(queryId)}/close`, {
+    method: "POST",
+    body: {},
+  });
+}
+
+const QUERY_STATUSES: QueryStatus[] = ["open", "answered", "closed"];
+
+/**
+ * Tab counts. Uses `page.counts` when the list response carries them; otherwise
+ * asks for one row per status and reads `total` (three tiny requests).
+ */
+export async function getQueryCounts(
+  usubjid: string | undefined,
+  known: Partial<QueryCounts> | null | undefined,
+  signal?: AbortSignal,
+): Promise<QueryCounts> {
+  if (known && QUERY_STATUSES.every((st) => typeof known[st] === "number")) {
+    return known as QueryCounts;
+  }
+  const totals = await Promise.all(
+    QUERY_STATUSES.map((status) =>
+      listQueries({ status, usubjid, limit: 1, offset: 0 }, signal).then((p) => p.total),
+    ),
+  );
+  return { open: totals[0], answered: totals[1], closed: totals[2] };
+}
+
+/** Number of open sponsor queries. Rejects when the endpoint is missing or fails. */
+export async function countOpenQueries(): Promise<number> {
+  const page = await request<Paginated<unknown> | undefined>("/queries", {
+    query: { status: "open", limit: 1 },
+  });
+  if (typeof page?.total !== "number") throw new Error("GET /queries returned no total");
+  return page.total;
+}
+
+// ---- R3.2 Time saved ------------------------------------------------------
+
+/**
+ * `GET /metrics/time-saved?since=YYYY-MM-DD`. Everything the dashboard strip
+ * renders is normalised here, so a partial answer (a serializer that drops a
+ * field) shows fewer lines instead of throwing inside render. Rejects when
+ * `minutes_saved` is missing: no number is better than a wrong one.
+ */
+export async function getTimeSaved(since: string, signal?: AbortSignal): Promise<TimeSavedMetrics> {
+  const body = await request<Partial<TimeSavedMetrics> | null | undefined>("/metrics/time-saved", {
+    query: { since },
+    signal,
+  });
+  if (typeof body?.minutes_saved !== "number" || !Number.isFinite(body.minutes_saved)) {
+    throw new Error("GET /metrics/time-saved returned no minutes_saved");
+  }
+  const basis: unknown = body.basis;
+  return {
+    ...body,
+    minutes_saved: body.minutes_saved,
+    minutes_manual_baseline:
+      typeof body.minutes_manual_baseline === "number" ? body.minutes_manual_baseline : 0,
+    basis: Array.isArray(basis)
+      ? basis.filter((line): line is string => typeof line === "string")
+      : [],
+  };
 }
 
 // ---- Reference ------------------------------------------------------------
@@ -589,11 +984,14 @@ export const api = {
   listEscalations,
   ackEscalation,
   listSaeClocks,
+  listSaeClocksPage,
+  stopClock,
   listPages,
   exportUrl,
   exportJson,
   exportBlob,
   exportBundle,
+  bundleUrl,
   postMockEdc,
   listAudit,
   verifyAudit,
@@ -606,4 +1004,29 @@ export const api = {
   getAdminSettings,
   putAdminSettings,
   adminReset,
+  fetchWholeQueue,
+  scanNote,
+  ingestNote,
+  listNotes,
+  getNote,
+  logPhoneCall,
+  createPacket,
+  openPacket,
+  getPacket,
+  patchPacket,
+  signPacket,
+  startFollowUp,
+  getPacketExportBlob,
+  getPacketPrintHtml,
+  listAllClocks,
+  getBrief,
+  getBriefPrintHtml,
+  listQueries,
+  getQuery,
+  raiseQuery,
+  answerQuery,
+  closeQuery,
+  getQueryCounts,
+  countOpenQueries,
+  getTimeSaved,
 };

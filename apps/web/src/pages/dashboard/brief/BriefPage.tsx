@@ -31,9 +31,8 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
-import { isApiError } from "../../../lib/api";
+import { getBrief, getBriefPrintHtml, isApiError } from "../../../lib/api";
 import { Time } from "../../../lib/format";
-import { getBrief, getBriefPrintHtml } from "./briefApi";
 import { BriefSectionCard } from "./BriefSectionCard";
 import {
   countCiters,
@@ -48,7 +47,7 @@ import {
 import { NarrativePanel } from "./NarrativePanel";
 import { PRINT_CSS } from "./printCss";
 import { QuestionsChecklist } from "./QuestionsChecklist";
-import type { Brief } from "./types";
+import type { Brief } from "../../../lib/types";
 
 type LoadState =
   | { status: "loading"; brief: Brief | null }

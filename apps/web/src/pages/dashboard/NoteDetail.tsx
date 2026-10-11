@@ -21,11 +21,10 @@ import { Card } from "../../components/Card";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { TierChip } from "../../components/TierChip";
 import { useToast } from "../../components/Toast";
-import { confirmDraft, describeError, rejectDraft } from "../../lib/api";
+import { confirmDraft, describeError, getNote, rejectDraft } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Time } from "../../lib/format";
 import { ClockActions } from "./detail/ClockActions";
-import { getNote } from "./notes/apiNotes";
 import { DraftsPanel } from "./notes/DraftsPanel";
 import { HighlightedNote } from "./notes/HighlightedNote";
 import { normalizeDraft } from "./notes/normalize";
@@ -33,8 +32,8 @@ import { Outcome } from "./notes/Outcome";
 import { NoteTypeLabel } from "./notes/PhoneCall";
 import { callSummary, isPhoneCall } from "./notes/phoneCallLabels";
 import { ScanTables } from "./notes/ScanTables";
-import type { NoteDetailResponse, NoteDraft } from "./notes/types";
 import { WhyPanel } from "./notes/WhyPanel";
+import type { NoteDetailResponse, NoteDraft } from "../../lib/types";
 
 type Range = { start: number; end: number };
 

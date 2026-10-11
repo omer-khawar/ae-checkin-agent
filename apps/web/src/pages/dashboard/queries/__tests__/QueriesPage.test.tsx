@@ -10,10 +10,9 @@ import { describe, expect, it } from "vitest";
 import { ToastProvider } from "../../../../components/Toast";
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
 import { resetAuthCache } from "../../../../lib/auth";
-import type { Role } from "../../../../lib/types";
+import type { QueryRow, Role } from "../../../../lib/types";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import QueriesPage from "../QueriesPage";
-import type { QueryRow } from "../types";
 import {
   ANSWERED_DETAIL,
   ANSWERED_ROW,

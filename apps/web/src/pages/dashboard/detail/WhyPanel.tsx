@@ -17,7 +17,16 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { TierChip } from "../../../components/TierChip";
 import { cx, formatCountdown, Time } from "../../../lib/format";
-import type { CheckInDetail, Escalation, Evidence, Role } from "../../../lib/types";
+import type {
+  CheckInDetail,
+  CheckInDetailR3,
+  ClockRow,
+  Escalation,
+  Evidence,
+  ProtocolAssessment,
+  Role,
+  RuleFiredPlain,
+} from "../../../lib/types";
 import { CategoryChip, Chip, EvidenceList, SdtmBadge } from "./bits";
 import { ClockActions } from "./ClockActions";
 import {
@@ -41,7 +50,6 @@ import {
   tierName,
   type Labels,
 } from "./plain";
-import type { CheckInDetailR3, ClockRow, ProtocolAssessment, RuleFiredPlain } from "./r34Types";
 
 export interface WhyPanelProps {
   detail: CheckInDetail;

@@ -19,7 +19,7 @@ import { Card } from "../../../components/Card";
 import { cx, Time } from "../../../lib/format";
 import { EvidenceChips, type EvidenceSelection } from "./EvidenceBits";
 import { type NarrativeView, writerLabel } from "./model";
-import type { PacketEvidence, PacketStatus, WrittenText } from "./types";
+import type { PacketEvidence, PacketStatus, WrittenText } from "../../../lib/types";
 
 export interface NarrativePanelProps {
   narrative: WrittenText;

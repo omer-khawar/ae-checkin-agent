@@ -16,7 +16,7 @@ import {
   sortClocks,
   sortEscalations,
 } from "../model";
-import type { EscalationRow, SaeClockRowExt } from "../types";
+import type { ClockRow, EscalationRow } from "../../../../lib/types";
 
 const T0 = Date.parse("2026-10-10T12:00:00.000Z");
 
@@ -35,7 +35,7 @@ function esc(partial: Partial<EscalationRow> & { id: string }): EscalationRow {
   };
 }
 
-function clock(partial: Partial<SaeClockRowExt> & { id: string }): SaeClockRowExt {
+function clock(partial: Partial<ClockRow> & { id: string }): ClockRow {
   return {
     session_id: "01JSESSION00000000000000AA",
     usubjid: "R2810-ONC-1624-P-003",

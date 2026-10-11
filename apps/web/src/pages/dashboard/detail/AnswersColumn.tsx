@@ -241,7 +241,7 @@ function VitalsBlock({
     >
       {!detail.session?.consent_camera && (
         <p className="mb-2 text-sm text-slate-600">
-          Camera consent was declined; the check-in ran without vitals.
+          Camera was turned off; the check-in ran without vitals.
         </p>
       )}
       {samples.length === 0 ? (

@@ -3,8 +3,8 @@
  *
  * The bridge runs on the kiosk machine and streams one `sample` per second plus
  * `status`, `hello`, `waveform` and `error` messages. The web app sends `start`
- * (with the session id) after camera consent, `stop` before `/complete`, and
- * `set_scenario` from the admin panel.
+ * (with the session id) when a check-in starts with the camera on, `stop`
+ * before `/complete`, and `set_scenario` from the admin panel.
  *
  * Design:
  * - `BridgeClient` is framework-free and takes an injectable WebSocket factory so

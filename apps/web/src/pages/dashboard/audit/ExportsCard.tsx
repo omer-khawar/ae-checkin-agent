@@ -13,9 +13,8 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
-import { exportBlob, exportUrl } from "../../../lib/api";
+import { bundleUrl, exportBlob, exportBundle, exportUrl } from "../../../lib/api";
 import type { Domain, ExportStatusFilter } from "../../../lib/types";
-import { bundleUrl, exportBundleBlob } from "./auditApi";
 import { saveBlob } from "./auditLib";
 
 export interface ExportsCardProps {
@@ -132,9 +131,7 @@ export function ExportsCard({ onExported }: ExportsCardProps) {
           busy={busyKey === "bundle"}
           disabled={busyKey !== null && busyKey !== "bundle"}
           title={bundleUrl(status)}
-          onClick={() =>
-            void download("bundle", "interim-bundle.zip", () => exportBundleBlob(status))
-          }
+          onClick={() => void download("bundle", "interim-bundle.zip", () => exportBundle(status))}
         >
           Download submission bundle (.zip)
         </Button>

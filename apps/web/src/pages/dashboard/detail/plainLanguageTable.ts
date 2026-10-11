@@ -43,6 +43,7 @@ export const PLAIN_FIELDS: Record<string, string> = {
   INTERIM_N_SAMPLES: "Number of readings",
   INTERIM_IS_MEASURED: "Measured, not simulated?",
   INTERIM_SOURCE: "Where it came from",
+  INTERIM_RECORD_SOURCE: "Where this record came from (check-in, chart note or phone call)",
   CMSEQ: "Medication record number",
   CMTRT: "Medication, as written",
   CMDECOD: "Medication (standard name)",

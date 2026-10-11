@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "../../../../components/Toast";
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
-import type { Paginated, Participant } from "../../../../lib/types";
+import type { Paginated, Participant, QueueItem } from "../../../../lib/types";
 import {
   installMockFetch,
   type Route as MockRoute,
@@ -22,7 +22,6 @@ import {
 } from "../../../../test/mockFetch";
 import { Queue } from "../../Queue";
 import { LAST_SEEN_STORAGE_KEY, MIN_VISIT_MS } from "../lastSeen";
-import type { RawQueueItem } from "../types";
 import { useQueuePolling } from "../useQueuePolling";
 
 const STUDY_ID = "R2810-ONC-1624";
@@ -49,7 +48,7 @@ const PARTICIPANTS: Paginated<Participant> = {
   offset: 0,
 };
 
-const TIER1: RawQueueItem = {
+const TIER1: QueueItem = {
   session_id: "01JSESSION00000000000000A",
   usubjid: USUBJID_007,
   display_label: "P-007",
@@ -67,7 +66,7 @@ const TIER1: RawQueueItem = {
   source: "check_in",
 };
 
-const NOTE: RawQueueItem = {
+const NOTE: QueueItem = {
   session_id: null,
   note_id: "01JNOTE000000000000000001",
   source: "chart_note",
@@ -86,7 +85,7 @@ const NOTE: RawQueueItem = {
   draft_status_summary: "2 draft",
 };
 
-function tier3(): RawQueueItem {
+function tier3(): QueueItem {
   return {
     session_id: "01JSESSION00000000000000C",
     usubjid: USUBJID_003,
@@ -108,7 +107,7 @@ function tier3(): RawQueueItem {
   };
 }
 
-type PageResponse = Paginated<RawQueueItem> | { status: number };
+type PageResponse = Paginated<QueueItem> | { status: number };
 
 interface Options {
   /** Successive GET /queue responses; the last one repeats. A function sees the request. */
@@ -116,7 +115,7 @@ interface Options {
   /** Delay GET /participants by this many ms (deep-link resolution tests). */
   participantsDelayMs?: number;
   /** Rows for the summary fetch (status=all, limit=100). Default: none. */
-  summary?: RawQueueItem[];
+  summary?: QueueItem[];
   /** Open-query total for GET /queries; undefined = endpoint missing (404). */
   openQueries?: number;
 }
@@ -126,7 +125,7 @@ function isSummaryCall(sp: URLSearchParams): boolean {
   return sp.get("limit") === "100" && sp.get("status") === "all";
 }
 
-function page(items: RawQueueItem[], extra: Partial<Paginated<RawQueueItem>> = {}) {
+function page(items: QueueItem[], extra: Partial<Paginated<QueueItem>> = {}) {
   return { items, total: items.length, limit: 25, offset: 0, ...extra };
 }
 
@@ -535,7 +534,7 @@ describe("Queue page", () => {
 const LAST_SEEN = "2026-10-10T00:00:00.000Z";
 
 /** Monday-morning overnight state, relative to LAST_SEEN. */
-const OVERNIGHT: RawQueueItem[] = [
+const OVERNIGHT: QueueItem[] = [
   { ...TIER1, completed_at: "2026-10-10T06:00:00.000Z", is_open: true },
   {
     ...NOTE,
@@ -665,7 +664,7 @@ describe("Queue page: since you were last here", () => {
     // opened the dashboard, then ran a demo reset that reseeded them earlier).
     const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
     localStorage.setItem(LAST_SEEN_STORAGE_KEY, ago(60_000));
-    const overnightNow: RawQueueItem[] = [
+    const overnightNow: QueueItem[] = [
       { ...OVERNIGHT[0], completed_at: ago(2 * 3600_000) },
       { ...OVERNIGHT[1], completed_at: ago(3 * 3600_000) },
       { ...OVERNIGHT[2], completed_at: ago(4 * 3600_000) },
@@ -715,12 +714,12 @@ describe("Queue page: since you were last here", () => {
 
 describe("Queue page: report clocks, phone calls", () => {
   it("shows a special-interest clock chip, a phone-call source and a brief link", async () => {
-    const call: RawQueueItem = {
+    const call: QueueItem = {
       ...NOTE,
       note_id: "01JNOTE00000000000000CALL",
       note_type: "phone_call",
     };
-    const aesi: RawQueueItem = {
+    const aesi: QueueItem = {
       ...TIER1,
       tier: 2,
       tier_name: "Nurse call today",
@@ -765,14 +764,14 @@ describe("Queue page: report clocks, phone calls", () => {
   });
 
   it("shows a neutral chip when the API sends no clock kind, and opens a packet from a clock id", async () => {
-    const er: RawQueueItem = {
+    const er: QueueItem = {
       ...NOTE,
       note_id: "01JNOTE0000000000000000ER",
       note_type: "er_note",
       has_sae_clock: true,
       sae_due_at: new Date(Date.now() + 20 * 3600_000).toISOString(),
     };
-    const withClockId: RawQueueItem = {
+    const withClockId: QueueItem = {
       ...TIER1,
       clocks: [
         {
@@ -807,7 +806,7 @@ describe("Queue page: report clocks, phone calls", () => {
   });
 
   it("names the real source in the pager toast title for an urgent chart note", async () => {
-    const urgentNote: RawQueueItem = {
+    const urgentNote: QueueItem = {
       ...NOTE,
       note_id: "01JNOTE0000000000000URGNT",
       tier: 3,

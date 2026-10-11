@@ -471,6 +471,9 @@ def timeline(db: DbSession, participant: Participant) -> dict[str, Any]:
         for note, _, drafts, escalation, clock in notes_with_context(db, note_rows)
     ]
     enrich_with_calls(db, notes)  # R4.1: source_label, caller, call_direction
+    for note_dict in notes:  # [integration] the participant is known; label every note
+        if not note_dict.get("display_label"):
+            note_dict["display_label"] = participant.display_label
     person = participant_to_dict(participant)
     return {
         "participant": person,
@@ -518,11 +521,30 @@ def list_escalations(
     rows = sorted(db.exec(stmt).all(), key=lambda e: e.created_at, reverse=True)
     rows.sort(key=lambda e: e.tier, reverse=True)
     return {
-        "items": [escalation_to_dict(e) for e in rows[offset : offset + limit]],
+        "items": [
+            with_vitals_provenance(db, escalation_to_dict(e)) for e in rows[offset : offset + limit]
+        ],
         "total": len(rows),
         "limit": limit,
         "offset": offset,
     }
+
+
+def with_vitals_provenance(db: DbSession, row: dict[str, Any]) -> dict[str, Any]:
+    """[integration] ``vitals_is_measured`` on an escalation whose tier a vitals
+    corroboration rule raised: ``True`` = a real sensor, ``False`` = simulated (the
+    admin "treat simulated as measured" toggle does not make a sample measured).
+    ``None`` when vitals played no part (chart notes, no corroboration), so the page
+    never puts a MEASURED/SIMULATED word next to an escalation vitals did not touch."""
+    row["vitals_is_measured"] = None
+    session = db.get(Session, row["session_id"]) if row.get("session_id") else None
+    if session is None or not session.result_json:
+        return row
+    result = load_json(session.result_json, {}) or {}
+    fired = {str(r.get("rule_id", "")) for r in result.get("rules_fired", []) or []}
+    if any(rule_id.startswith("corr.") for rule_id in fired):
+        row["vitals_is_measured"] = bool(session.is_measured)
+    return row
 
 
 def ack_escalation(

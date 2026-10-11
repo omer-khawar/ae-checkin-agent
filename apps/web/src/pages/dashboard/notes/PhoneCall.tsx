@@ -21,11 +21,14 @@ import { TierChip } from "../../../components/TierChip";
 import { useToast } from "../../../components/Toast";
 import { useAuth } from "../../../lib/auth";
 import { cx } from "../../../lib/format";
-import type { Participant } from "../../../lib/types";
-import type { CallDirection, CallerKind } from "../detail/r34Types";
-import { logPhoneCall } from "./apiNotes";
+import type {
+  CallDirection,
+  CallerKind,
+  NoteIngestResponse,
+  Participant,
+} from "../../../lib/types";
 import { CALLER_LABELS, DIRECTION_LABELS, isPhoneCall, noteTypeWords } from "./phoneCallLabels";
-import type { NoteIngestResponse } from "./types";
+import { logPhoneCall } from "../../../lib/api";
 
 // ---------------------------------------------------------------------------
 // Labels

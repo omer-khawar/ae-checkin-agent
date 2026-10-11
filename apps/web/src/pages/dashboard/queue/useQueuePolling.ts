@@ -18,9 +18,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getQueue, nowIso } from "../../../lib/api";
-import type { QueueQuery } from "../../../lib/types";
+import type { QueueItem, QueueQuery } from "../../../lib/types";
 import { normalizeQueueItem } from "./normalize";
-import type { QueuePage, QueueRow, RawQueueItem } from "./types";
+import type { QueuePage, QueueRow } from "./types";
 
 export interface QueuePollingOptions {
   intervalMs?: number;
@@ -79,7 +79,7 @@ export function useQueuePolling(
       try {
         const page = await getQueue(q);
         if (cancelled || seq !== seqRef.current) return;
-        const items = (page.items as RawQueueItem[]).map(normalizeQueueItem);
+        const items = (page.items as QueueItem[]).map(normalizeQueueItem);
         const prev = lastRef.current;
         if (prev && prev.key === key) onRefreshRef.current?.(items, prev.items);
         lastRef.current = { key, items };

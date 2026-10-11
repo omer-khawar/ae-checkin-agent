@@ -7,15 +7,16 @@ two faces:
   per screen, calm vitals card, never shows a grade or a tier.
 - **Dashboard** (`/dashboard/*`, `/admin`): coordinator / investigator / admin views. Login at `/`.
 
-This wave ships the scaffold, the shared library, login, and the complete kiosk flow. Dashboard pages
-are stubs with their routes wired; a later wave replaces only `src/pages/dashboard/*.tsx` and
-`src/pages/Admin.tsx`.
+The dashboard is the coordinator's safety-data desk: it follows one side effect from the first
+report (kiosk check-in, chart note or phone call) through review, the 24-hour report packet, the
+visit-prep brief and the sponsor's queries. Every page labels vitals MEASURED or SIMULATED, every
+derived value opens its evidence, and the footer says it is not a medical device.
 
 ## Run
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173  (proxies /api → http://localhost:8000)
+npm run dev          # http://localhost:5173  (proxies /api → $VITE_API_PROXY_TARGET, default :8000)
 npm run build        # dist/
 npm run preview
 npm run lint         # eslint, zero warnings allowed
@@ -23,8 +24,15 @@ npm run typecheck    # tsc --noEmit
 npm test             # vitest (jsdom)
 ```
 
-Environment: `VITE_BRIDGE_WS_URL` (default `ws://<hostname>:8787`). Nothing else; the API is always
-reached at the relative `/api/v1` (Vite proxy in dev, `nginx.conf` in Docker).
+Environment:
+
+- `VITE_BRIDGE_WS_URL` (default `ws://<hostname>:8787`): the vitals bridge WebSocket.
+- `VITE_API_PROXY_TARGET` (dev server only, default `http://localhost:8000`): where the Vite proxy
+  sends `/api`. Use it to run a second stack side by side, e.g.
+  `VITE_API_PROXY_TARGET=http://localhost:8010 npm run dev -- --port 5180`.
+
+The browser always reaches the API at the relative `/api/v1` (Vite proxy in dev, `nginx.conf` in
+Docker).
 
 Kiosk query param: `/kiosk?scenario=post_exercise` makes the bridge use that mock scenario for the
 session (CLAUDE.md §7.2).
@@ -36,8 +44,11 @@ src/
 ├── App.tsx                 route table (CONTRACTS.md §4); AppRoutes is router-agnostic for tests
 ├── main.tsx
 ├── lib/
-│   ├── types.ts            TS mirrors of CONTRACTS.md §2 (API, snake_case) and §3.3 (bridge, camelCase)
-│   ├── api.ts              the one typed client: one function per endpoint, ApiError (RFC 7807), pagination
+│   ├── types.ts            TS mirrors of CONTRACTS.md §2 + Revisions 2-4 (API, snake_case: notes, clocks,
+│   │                       packets, briefs, queries, WrittenText, time saved) and §3.3 (bridge, camelCase)
+│   ├── api.ts              the one typed client: one function per endpoint (Revisions 2-4 included),
+│   │                       ApiError (RFC 7807), pagination; no page keeps its own fetch helper
+│   ├── routes.ts           packetPath() / briefPath(): in-app links shared by several pages
 │   ├── auth.ts             sessionStorage token store + useAuth()
 │   ├── bridge.ts           BridgeClient (reconnect/backoff, start re-send, post-flush idle) + useBridge() (captureLost)
 │   ├── format.tsx          <Time/> (local, UTC on hover), TIERS table, MEASURED/SIMULATED helpers, item prompts,
@@ -47,26 +58,28 @@ src/
 │   ├── participant.ts      resolveUsubjid(): "{study_id}-{label}" with the bare label as 404 fallback
 │   └── vitals.ts           metricReady / metricSlot / signalQuality (pure display gating)
 ├── components/             Layout, Disclaimer, RequireRole, Button, Card, ProgressBar, TierChip,
-│                           MeasuredBadge, Pagination, Toast, ErrorBanner, VitalsPanel
+│                           MeasuredBadge, Pagination, Toast, ErrorBanner, VitalsPanel, TimeSavedStrip
 ├── pages/
 │   ├── Login.tsx           three role buttons + demo password
 │   ├── kiosk/              KioskFlow (state machine) + one file per screen
-│   ├── dashboard/          Queue, CheckInDetail, ParticipantTimeline, Escalations, Audit, Eval (stubs)
-│   └── Admin.tsx           stub
+│   ├── dashboard/          one top-level page per route, with a folder of parts, a pure model/normalizer
+│   │                       and __tests__ per page (queue/, detail/, notes/, packets/, brief/, queries/,
+│   │                       escalations/, timeline/, audit/, eval/)
+│   └── Admin.tsx           settings, mock scenario, reset, health, kiosk links
 ├── styles/                 index.css + README.md (palette)
 └── test/                   vitest suites, fake WebSocket, route-table fetch mock, fixtures
 ```
 
 ## Kiosk flow and API calls
 
-| Screen           | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Welcome          | `GET /study`, `GET /items`. The participant types the label printed on their card ("P-007"); it is trimmed and upper-cased.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Consent          | `POST /sessions {usubjid, consent_camera}` with `usubjid = "{study_id}-{label}"` (CONTRACTS.md §5). If that is a 404 the kiosk retries once with the bare label, so an API that resolves display labels works too (`lib/participant.ts`). Yes → `{type:"start", sessionId}` to the bridge. A final 404/422 sends the participant back to Welcome with a plain message.                                                                                                                                                          |
-| Items            | One item per screen; the heading is the table's `label`, each attribute's question is `prompts.<attribute>`. Every tap `POST /sessions/{id}/answers {item_id, attribute, value, ts_client}` immediately (idempotent on the API). Failures are tracked **per (item, attribute)**; "Try again" resends every failed one, and Next is disabled until every attribute is acknowledged. Back allowed. `fever_or_chills` = Yes reveals the temperature box described by the table's `optional_fields` (label, unit, 34–43 °C bounds). |
-| Gates            | Hospitalization (yes/no) → medication (yes/no, name **verbatim, whitespace included**, started/stopped/both) → anything else (textarea, verbatim). One `POST /sessions/{id}/gates` after the third screen. `temp_c` is sent only when fever = Yes **and** the value is inside the table's bounds; switching fever back to No clears it.                                                                                                                                                                                         |
-| Submitting       | Any answer the API never acknowledged is resent first. Then `{type:"stop"}` to the bridge and wait for its **post-flush** `status: idle` (`sessionId: null`) or 2.5 s, then `POST /sessions/{id}/complete {ts_client}`. The source's own halt also broadcasts idle but still carries the session id; that one is ignored so the last vitals batch is on the server before the rules run.                                                                                                                                        |
-| Thank-you / Stop | `stop_screen: false` → next-steps text. `stop_screen: true` → the API's `stop_screen_text` verbatim and nothing else. Both return to Welcome on Done (or after 45 s / 90 s).                                                                                                                                                                                                                                                                                                                                                    |
+| Screen           | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Welcome          | `GET /study`, `GET /items`. The participant types the label printed on their card ("P-007"); it is trimmed and upper-cased.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Start check-in   | There is no consent screen: camera use is covered by the consent form signed at enrollment (DECISIONS.md D-026). Start check-in sends `POST /sessions {usubjid, consent_camera}` with `usubjid = "{study_id}-{label}"` (CONTRACTS.md §5) and `consent_camera` = the Welcome opt-out box ("I'd rather not use the camera") left unticked. If that is a 404 the kiosk retries once with the bare label (`lib/participant.ts`). Camera on → `{type:"start", sessionId}` to the bridge. A final 404/422 keeps the participant on Welcome with a plain message. |
+| Items            | One item per screen; the heading is the table's `label`, each attribute's question is `prompts.<attribute>`. Every tap `POST /sessions/{id}/answers {item_id, attribute, value, ts_client}` immediately (idempotent on the API). Failures are tracked **per (item, attribute)**; "Try again" resends every failed one, and Next is disabled until every attribute is acknowledged. Back allowed. `fever_or_chills` = Yes reveals the temperature box described by the table's `optional_fields` (label, unit, 34–43 °C bounds).                            |
+| Gates            | Hospitalization (yes/no) → medication (yes/no, name **verbatim, whitespace included**, started/stopped/both) → anything else (textarea, verbatim). One `POST /sessions/{id}/gates` after the third screen. `temp_c` is sent only when fever = Yes **and** the value is inside the table's bounds; switching fever back to No clears it.                                                                                                                                                                                                                    |
+| Submitting       | Any answer the API never acknowledged is resent first. Then `{type:"stop"}` to the bridge and wait for its **post-flush** `status: idle` (`sessionId: null`) or 2.5 s, then `POST /sessions/{id}/complete {ts_client}`. The source's own halt also broadcasts idle but still carries the session id; that one is ignored so the last vitals batch is on the server before the rules run.                                                                                                                                                                   |
+| Thank-you / Stop | `stop_screen: false` → next-steps text. `stop_screen: true` → the API's `stop_screen_text` verbatim and nothing else. Both return to Welcome on Done (or after 45 s / 90 s).                                                                                                                                                                                                                                                                                                                                                                               |
 
 ### Vitals card
 
@@ -83,6 +96,29 @@ src/
   kiosk's session for more than `START_GRACE_MS` (4 s). The bridge client re-sends `start` for the
   active session on every socket `open`, so a bridge restart mid-check-in re-attaches the session.
 - The card is hidden from the Submitting screen onward (capture has been stopped by then).
+
+## Dashboard pages
+
+All under `/dashboard` (login required) unless noted. The header carries the time-saved strip
+(`GET /metrics/time-saved`, always labelled "estimate", hidden when the endpoint fails).
+
+| Route                                    | Page                 | What it shows and calls                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`                             | Queue                | Check-ins, chart notes and phone calls by alert level, with 24-hour report chips (serious event or special interest) that link to the packet. "Since you were last here" counts the whole queue and open sponsor queries. `GET /queue`, `GET /queries?status=open`.                                                             |
+| `/dashboard/checkins/:sessionId`         | Check-in detail      | Answers, drafts with click-to-evidence, the Why panel in plain words, protocol medication flags, attribution (investigator), clock actions (open packet, record seriousness). `GET /checkins/{id}`, draft and attribution endpoints, `POST /packets`, `PATCH /sae-clocks/{id}/stop`.                                            |
+| `/dashboard/notes`, `/notes/:noteId`     | Notes and calls      | Paste a chart note or "Log a call" (caller, direction, summary stored verbatim); the deterministic scanner highlights quoted spans and drafts records. `POST /scan`, `POST /notes`, `GET /notes`, `GET /notes/{id}`.                                                                                                            |
+| `/dashboard/packets/:id`                 | Report packet        | The 24-hour SAE / AESI report: pre-filled fields with evidence, missing information, a narrative labelled "Written by template", deadline countdown, edit (versioned), investigator sign, follow-ups, JSON export and print. `/dashboard/packets/new?clock=<id>` creates or opens the packet for a clock. `/packets` endpoints. |
+| `/dashboard/participants/:usubjid`       | Participant timeline | Symptoms, vitals (MEASURED / SIMULATED), open AEs, medication changes, notes and calls, sessions (camera on/off). `GET /participants/{usubjid}/timeline`.                                                                                                                                                                       |
+| `/dashboard/participants/:usubjid/brief` | Visit brief          | One page to read before the visit: what changed since a date, protocol flags, open clocks, questions to ask, each line with its evidence; printable. `GET /participants/{usubjid}/brief?since=`, `.../brief/print`.                                                                                                             |
+| `/dashboard/queries`                     | Sponsor queries      | Open / answered / closed tabs with aging; a suggested answer written by the template writer with its evidence; answer (optionally correcting the record) or, as admin acting for the sponsor, raise and close. `/queries` endpoints.                                                                                            |
+| `/dashboard/escalations`                 | Escalations          | Escalations with time to acknowledge, every report clock with its countdown, the pager log. `GET /escalations`, `GET /sae-clocks`, `GET /pages`.                                                                                                                                                                                |
+| `/dashboard/audit`                       | Audit                | Hash chain with Verify, action filter, exports and the submission bundle. `GET /audit`, `GET /audit/verify`, `/export/*`.                                                                                                                                                                                                       |
+| `/dashboard/eval`                        | Eval                 | Persona results, hidden judge personas and "build your own persona". `/eval/*`.                                                                                                                                                                                                                                                 |
+| `/admin`                                 | Admin (admin only)   | Vitals source, mock scenario, "treat simulated as measured", demo reset, health. `/admin/*`.                                                                                                                                                                                                                                    |
+
+Normalizers for the newer, still-moving responses (`packets/model.ts`, `brief/model.ts`,
+`notes/normalize.ts`, `queue/normalize.ts`) are pure and import nothing from `lib/api.ts`; the client
+calls them so pages always receive the shapes in `lib/types.ts`.
 
 ### Decisions recorded here (for `docs/DECISIONS.md`)
 
@@ -115,8 +151,12 @@ Production would need SSO and per-user audit identity.
 ## Tests
 
 `npm test` runs: kiosk end-to-end (mocked fetch + fake bridge socket: composed USUBJID and 404
-fallback, answer bodies, per-attribute failure retry, verbatim gates body, temperature clearing and
-bounds, table wording, pre-flush vs post-flush idle before `/complete`, start re-sent on reconnect,
-stop screen, unknown ID), VitalsPanel gating / quality / unavailable states, bridge message parsing /
-reconnect / flush predicate / capture-lost hook, pure kiosk helpers (`kioskLib.test.ts`), API
-problem+json parsing and pagination, and TierChip / MeasuredBadge / Time rendering.
+fallback, camera opt-out, answer bodies, per-attribute failure retry, verbatim gates body,
+temperature clearing and bounds, table wording, pre-flush vs post-flush idle before `/complete`,
+start re-sent on reconnect, stop screen, unknown ID), VitalsPanel gating / quality / unavailable
+states, bridge message parsing / reconnect / flush predicate / capture-lost hook, pure kiosk helpers
+(`kioskLib.test.ts`), API problem+json parsing and pagination, TierChip / MeasuredBadge / Time
+rendering, and one suite per dashboard page (queue, check-in detail, notes and calls, packets, brief,
+queries, escalations, timeline, audit, eval, admin) against a mocked `fetch`. A drift test keeps
+`detail/plainLanguageTable.ts` equal to `packages/rules/data/plain_language.json`; regenerate it with
+`node src/pages/dashboard/detail/genPlainLanguageTable.mjs`.

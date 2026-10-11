@@ -8,11 +8,10 @@
  * half-migrated API still renders instead of crashing the demo. Nothing here
  * invents data: an absent value becomes `null`, `false`, `""` or `[]`.
  */
-import type { Draft, RuleFired } from "../../../lib/types";
-import type { ProtocolAssessment, RuleFiredPlain } from "../detail/r34Types";
 import type {
   ChartNote,
   ChartNoteListItem,
+  Draft,
   ExcludedReason,
   MedChange,
   MedFinding,
@@ -22,10 +21,13 @@ import type {
   NoteSAEClock,
   NotesPage,
   NotesQuery,
+  ProtocolAssessment,
   RedFlag,
+  RuleFired,
+  RuleFiredPlain,
   ScanResult,
   SymptomFinding,
-} from "./types";
+} from "../../../lib/types";
 
 type Rec = Record<string, unknown>;
 

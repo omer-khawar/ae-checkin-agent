@@ -1,8 +1,7 @@
 /**
  * Fixtures shaped like CONTRACTS.md R4.4 responses. All participants synthetic.
  */
-import type { Draft } from "../../../../lib/types";
-import type { QueryDetail, QueryRow } from "../types";
+import type { Draft, QueryDetail, QueryRow } from "../../../../lib/types";
 
 export const USUBJID = "R2810-ONC-1624-P-004";
 export const DRAFT_CM = "01JDRAFTCM0000000000000004";

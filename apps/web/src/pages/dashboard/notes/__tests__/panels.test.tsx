@@ -12,8 +12,8 @@ import { DraftsPanel } from "../DraftsPanel";
 import { normalizeNoteDetail } from "../normalize";
 import { Outcome } from "../Outcome";
 import { ScanTables } from "../ScanTables";
-import type { NoteEscalation } from "../types";
 import { INGEST, SCAN, span, TEXT } from "./fixtures";
+import type { NoteEscalation } from "../../../../lib/types";
 
 describe("ScanTables", () => {
   it("names every section region so landmarks are navigable", () => {

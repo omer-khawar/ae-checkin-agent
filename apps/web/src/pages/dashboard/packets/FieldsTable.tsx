@@ -22,7 +22,7 @@ import {
   valuesEqual,
   valueToEditText,
 } from "./model";
-import type { PacketField, PacketValue } from "./types";
+import type { PacketField, PacketValue } from "../../../lib/types";
 
 export interface FieldsTableProps {
   fields: PacketField[];

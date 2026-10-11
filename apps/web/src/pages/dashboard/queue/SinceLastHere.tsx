@@ -6,7 +6,7 @@
  *   1 phone call · 4 need action · 1 open sponsor query · 2 report clocks running
  *
  * Counts come from the whole non-eval queue (every page, every status; see
- * `queueApi.fetchWholeQueue`) plus `GET /queries?status=open`. The queries
+ * `lib/api.ts#fetchWholeQueue`) plus `GET /queries?status=open`. The queries
  * count is hidden when that endpoint is unavailable; a failed queue count shows
  * one quiet line (the queue below has its own error banner). Re-counts every
  * minute and whenever `refreshKey` changes (the page's Refresh button).
@@ -21,9 +21,9 @@ import { Link } from "react-router-dom";
 import { Button } from "../../../components/Button";
 import { cx, formatLocal, formatUtc } from "../../../lib/format";
 import { useLastSeen } from "./lastSeen";
-import { countOpenQueries, fetchWholeQueue } from "./queueApi";
 import { countLabel, type SinceSummary, summarizeSince } from "./summary";
 import type { QueueRow } from "./types";
+import { countOpenQueries, fetchWholeQueue } from "../../../lib/api";
 
 export const SUMMARY_REFRESH_MS = 60_000;
 

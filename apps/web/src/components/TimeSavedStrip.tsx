@@ -16,35 +16,13 @@
  * `YYYY-MM-DD` date. Re-fetched every 5 minutes so the number moves during a
  * demo without hammering the API.
  *
- * The wrapper below follows `src/lib/api.ts` conventions (bearer token,
- * problem+json → ApiError); fold it into `api.ts` as `getTimeSaved()`.
+ * The request and its normalisation live in `src/lib/api.ts#getTimeSaved`.
  */
 import { useEffect, useId, useRef, useState } from "react";
 
-import {
-  API_BASE,
-  ApiError,
-  buildQuery,
-  getStoredToken,
-  NetworkError,
-  parseProblem,
-} from "../lib/api";
+import { getTimeSaved } from "../lib/api";
 import { cx } from "../lib/format";
-
-/** `GET /metrics/time-saved?since=` (CONTRACTS R3.2; R4.4 adds queries answered). */
-export interface TimeSavedMetrics {
-  minutes_saved: number;
-  minutes_manual_baseline: number;
-  records_confirmed?: number;
-  fields_prefilled?: number;
-  fields_edited?: number;
-  packets_signed?: number;
-  briefs_generated?: number;
-  queries_answered?: number;
-  basis: string[];
-  is_estimate?: boolean;
-  disclaimer?: string;
-}
+import type { TimeSavedMetrics } from "../lib/types";
 
 export const TIME_SAVED_REFRESH_MS = 5 * 60_000;
 
@@ -69,39 +47,6 @@ function formatSaved(minutes: number): string {
   return `≈ ${h} hour${h === 1 ? "" : "s"}`;
 }
 
-async function fetchTimeSaved(since: string, signal?: AbortSignal): Promise<TimeSavedMetrics> {
-  const url = `${API_BASE}/metrics/time-saved${buildQuery({ since })}`;
-  const headers: Record<string, string> = {
-    Accept: "application/json, application/problem+json",
-  };
-  const token = getStoredToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let res: Response;
-  try {
-    res = await fetch(url, { headers, signal });
-  } catch (e) {
-    throw new NetworkError(url, e);
-  }
-  if (!res.ok) throw new ApiError(url, await parseProblem(res));
-  const body = (await res.json()) as Partial<TimeSavedMetrics> | null;
-  if (typeof body?.minutes_saved !== "number" || !Number.isFinite(body.minutes_saved)) {
-    throw new Error("GET /metrics/time-saved returned no minutes_saved");
-  }
-  // Everything the disclosure renders is normalised here, so a partial answer
-  // (an endpoint still being written, a serializer that drops a field) shows
-  // fewer lines instead of throwing inside render and blanking the dashboard.
-  const basis: unknown = body.basis;
-  return {
-    ...body,
-    minutes_saved: body.minutes_saved,
-    minutes_manual_baseline:
-      typeof body.minutes_manual_baseline === "number" ? body.minutes_manual_baseline : 0,
-    basis: Array.isArray(basis)
-      ? basis.filter((line): line is string => typeof line === "string")
-      : [],
-  };
-}
-
 function count(n: number | undefined): string {
   return typeof n === "number" && Number.isFinite(n) ? String(n) : "not reported";
 }
@@ -124,7 +69,7 @@ export function TimeSavedStrip({
   useEffect(() => {
     const ctrl = new AbortController();
     const load = () => {
-      fetchTimeSaved(since, ctrl.signal).then(
+      getTimeSaved(since, ctrl.signal).then(
         (m) => {
           if (!ctrl.signal.aborted) setData(m);
         },

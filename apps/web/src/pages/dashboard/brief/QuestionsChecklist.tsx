@@ -10,7 +10,7 @@ import { Card } from "../../../components/Card";
 import { cx } from "../../../lib/format";
 import { EvidenceChips } from "./EvidenceChips";
 import { cites, QUESTION_KIND_LABELS } from "./model";
-import type { BriefEvidenceRef, BriefQuestion } from "./types";
+import type { BriefEvidenceRef, BriefQuestion } from "../../../lib/types";
 
 export interface QuestionsChecklistProps {
   questions: BriefQuestion[];

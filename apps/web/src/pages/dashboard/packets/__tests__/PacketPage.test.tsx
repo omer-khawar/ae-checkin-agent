@@ -406,7 +406,7 @@ describe("PacketPage: deadline fallback, create-from-clock, errors, files", () =
         method: "GET",
         path: "/api/v1/sae-clocks",
         handler: ({ url }) => {
-          expect(url.searchParams.get("active")).toBe("false");
+          expect(url.searchParams.get("active")).toBe("all");
           return {
             json: [
               {

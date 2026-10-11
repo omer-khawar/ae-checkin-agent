@@ -20,9 +20,8 @@ import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { Pagination } from "../../components/Pagination";
-import { DEFAULT_PAGE_SIZE } from "../../lib/api";
+import { DEFAULT_PAGE_SIZE, listAudit } from "../../lib/api";
 import type { AuditEvent, Paginated } from "../../lib/types";
-import { listAuditEvents } from "./audit/auditApi";
 import { KNOWN_ACTIONS, KNOWN_ENTITY_TYPES, sortNewestFirst } from "./audit/auditLib";
 import { EventsTable } from "./audit/EventsTable";
 import { ExportsCard } from "./audit/ExportsCard";
@@ -63,7 +62,7 @@ export function Audit() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listAuditEvents({
+    listAudit({
       entity_type: query.entity_type,
       entity_id: query.entity_id,
       action: query.action,

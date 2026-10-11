@@ -35,9 +35,10 @@ import {
 import { PagerLog } from "./escalations/PagerLog";
 import { SaeClocksTable } from "./escalations/SaeClocksTable";
 import { SummaryTiles } from "./escalations/SummaryTiles";
-import type { AckFilter, EscalationRow } from "./escalations/types";
+import type { AckFilter } from "./escalations/types";
 import { useEscalationsData } from "./escalations/useEscalationsData";
 import { useNow } from "./escalations/useNow";
+import type { EscalationRow } from "../../lib/types";
 
 const FILTERS: Array<{ id: AckFilter; label: string }> = [
   { id: "open", label: "Open" },

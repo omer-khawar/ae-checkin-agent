@@ -13,7 +13,7 @@ import { resetAuthCache } from "../../../../lib/auth";
 import { ITEMS } from "../../../../test/fixtures";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import { ParticipantTimeline } from "../../ParticipantTimeline";
-import type { TimelineWithNotes } from "../types";
+import type { Timeline } from "../../../../lib/types";
 
 /**
  * jsdom has no ResizeObserver and lays nothing out, and Recharts'
@@ -62,7 +62,7 @@ const S1 = "01JSESSION00000000000000A";
 const S2 = "01JSESSION00000000000000B";
 const S3 = "01JSESSION00000000000000C";
 
-function timeline(overrides: Partial<TimelineWithNotes> = {}): TimelineWithNotes {
+function timeline(overrides: Partial<Timeline> = {}): Timeline {
   return {
     participant: {
       usubjid: USUBJID,
@@ -303,7 +303,7 @@ describe("ParticipantTimeline", () => {
     // Newest first: the in-progress session (started Oct 10) leads.
     expect(within(rows[0]).getByText(/In progress/)).toBeInTheDocument();
     expect(within(rows[0]).getByText("not yet evaluated")).toBeInTheDocument();
-    expect(within(rows[0]).getByText("Declined")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Camera off")).toBeInTheDocument();
     expect(within(rows[1]).getByText("Nurse call today")).toBeInTheDocument();
     expect(within(rows[2]).getByText("Log")).toBeInTheDocument();
     expect(within(rows[2]).getByText("Simulated (ignored for rules)")).toBeInTheDocument();

@@ -4,15 +4,8 @@
  * Pure functions, no I/O; unit-tested in __tests__/normalize.test.ts.
  */
 import { tierStyle } from "../../../lib/format";
-import type { Domain, Participant, QueueQuery } from "../../../lib/types";
-import type {
-  ClockKind,
-  QueueClock,
-  QueueFilterState,
-  QueueRow,
-  QueueSource,
-  RawQueueItem,
-} from "./types";
+import type { Domain, Participant, QueueItem, QueueQuery, QueueSource } from "../../../lib/types";
+import type { QueueClockKind, QueueClock, QueueFilterState, QueueRow } from "./types";
 
 const DOMAINS: Domain[] = ["AE", "VS", "CM"];
 
@@ -29,7 +22,7 @@ function asString(v: unknown): string | null {
  * A note whose `note_type` is "phone_call" (R4.1) is a logged call.
  */
 export function inferSource(
-  raw: Pick<RawQueueItem, "source" | "session_id" | "note_id"> & {
+  raw: Pick<QueueItem, "source" | "session_id" | "note_id"> & {
     note_type?: string | null;
   },
 ): QueueSource {
@@ -53,7 +46,7 @@ export function isNoteSource(source: QueueSource): boolean {
  * "unknown": calling a special-interest clock a serious event (or the reverse)
  * would be a false regulatory label, so the chip stays neutral instead.
  */
-export function clockKind(v: unknown): ClockKind {
+export function clockKind(v: unknown): QueueClockKind {
   if (typeof v !== "string") return "unknown";
   const k = v.trim().toLowerCase();
   return k === "aesi" ? "aesi" : k === "sae" ? "sae" : "unknown";
@@ -64,7 +57,7 @@ export function clockKind(v: unknown): ClockKind {
  * single-clock fields become one clock whose kind comes from `clock_kind`,
  * `sae_kind` or `sae_clock.kind` ("unknown" when none is sent).
  */
-export function normalizeClocks(raw: RawQueueItem, rowKey: string): QueueClock[] {
+export function normalizeClocks(raw: QueueItem, rowKey: string): QueueClock[] {
   if (Array.isArray(raw.clocks) && raw.clocks.length > 0) {
     return raw.clocks.map((c, i) => {
       const stoppedAt = asString(c?.stopped_at);
@@ -101,7 +94,7 @@ export function normalizeClocks(raw: RawQueueItem, rowKey: string): QueueClock[]
  * Whether the item still needs a person. The API's `is_open` wins; otherwise a
  * pending draft or an unacknowledged escalation means yes.
  */
-export function needsAction(raw: RawQueueItem): boolean {
+export function needsAction(raw: QueueItem): boolean {
   if (typeof raw.is_open === "boolean") return raw.is_open;
   if (raw.escalation_acked === false) return true;
   const summary = typeof raw.draft_status_summary === "string" ? raw.draft_status_summary : "";
@@ -133,7 +126,7 @@ export function packetHref(
   return null;
 }
 
-export function normalizeQueueItem(raw: RawQueueItem): QueueRow {
+export function normalizeQueueItem(raw: QueueItem): QueueRow {
   const sessionId = asString(raw.session_id);
   const noteId = asString(raw.note_id);
   const source = inferSource({

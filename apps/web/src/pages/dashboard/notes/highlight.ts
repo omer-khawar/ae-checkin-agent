@@ -9,7 +9,7 @@
  *
  * No I/O, no React: unit-tested in `__tests__/highlight.test.ts`.
  */
-import type { ScanResult } from "./types";
+import type { ScanResult } from "../../../lib/types";
 
 export type SpanKind = "symptom" | "med" | "red_flag" | "excluded";
 

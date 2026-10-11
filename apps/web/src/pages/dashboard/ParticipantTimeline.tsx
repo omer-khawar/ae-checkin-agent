@@ -41,8 +41,7 @@ import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { TierChip } from "../../components/TierChip";
 import { getItems, getTimeline } from "../../lib/api";
 import { cx, formatConfidence, Time, vitalsStatusLabel } from "../../lib/format";
-import type { Item, Session } from "../../lib/types";
-import { briefPath } from "./detail/r34Api";
+import type { AEOpen, ChartNoteSummary, Item, Session, Timeline } from "../../lib/types";
 import { LogCallForm, NoteTypeLabel } from "./notes/PhoneCall";
 import { callSummary } from "./notes/phoneCallLabels";
 import { SymptomSparkline, VitalsCharts } from "./timeline/charts";
@@ -58,12 +57,12 @@ import {
   sessionTs,
   vitalsRows,
 } from "./timeline/series";
-import type { AEOpenRow, ChartNoteSummary, TimelineWithNotes } from "./timeline/types";
+import { briefPath } from "../../lib/routes";
 
 type LoadState =
   | { kind: "loading" }
   | { kind: "error"; error: unknown }
-  | { kind: "ready"; data: TimelineWithNotes };
+  | { kind: "ready"; data: Timeline };
 
 export function ParticipantTimeline() {
   const { usubjid = "" } = useParams<{ usubjid: string }>();
@@ -86,7 +85,7 @@ export function ParticipantTimeline() {
     setState({ kind: "loading" });
     getTimeline(usubjid)
       .then((data) => {
-        if (!cancelled) setState({ kind: "ready", data: data as TimelineWithNotes });
+        if (!cancelled) setState({ kind: "ready", data: data as Timeline });
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({ kind: "error", error });
@@ -155,7 +154,7 @@ export function ParticipantTimeline() {
   // `open_aes` is the dedup table (AEOpen); a row with ongoing=false has been
   // resolved but is kept for history. "Open" everywhere on this page means
   // ongoing, so the header chip and the card count the same thing.
-  const allAes: AEOpenRow[] = Array.isArray(data.open_aes) ? data.open_aes : [];
+  const allAes: AEOpen[] = Array.isArray(data.open_aes) ? data.open_aes : [];
   const openAes = allAes.filter((a) => a.ongoing !== false);
   const resolvedAes = allAes.length - openAes.length;
   const conmeds = Array.isArray(data.conmed_changes) ? data.conmed_changes : [];
@@ -277,8 +276,8 @@ export function ParticipantTimeline() {
       >
         {vitals.length === 0 ? (
           <Empty>
-            No vitals recorded for this participant (camera declined, source unavailable, or no
-            eligible samples).
+            No vitals recorded for this participant (camera off, source unavailable, or no eligible
+            samples).
           </Empty>
         ) : (
           <VitalsCharts rows={vitals} onPointClick={openCheckin} />
@@ -619,7 +618,7 @@ function SessionRow({ session: s }: { session: Session }) {
           <span className="text-xs text-slate-500">not yet evaluated</span>
         )}
       </td>
-      <td className="px-4 py-2 text-slate-700">{s.consent_camera ? "Consented" : "Declined"}</td>
+      <td className="px-4 py-2 text-slate-700">{s.consent_camera ? "Camera on" : "Camera off"}</td>
       <td className="px-4 py-2 text-slate-700">{vitalsStatusLabel(s.vitals_status)}</td>
       <td className="px-4 py-2 text-right">
         <Link

@@ -13,13 +13,17 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
-import { getCheckIn, getDraft, getQueue, listParticipants } from "../../../lib/api";
+import {
+  getCheckIn,
+  getDraft,
+  getNote,
+  getQueue,
+  listParticipants,
+  raiseQuery,
+} from "../../../lib/api";
 import { formatLocal } from "../../../lib/format";
-import type { Draft, Participant } from "../../../lib/types";
-import { getNote } from "../notes/apiNotes";
+import type { Draft, Participant, QueryRow, QuerySeverity } from "../../../lib/types";
 import { domainLabel, fieldLabel, formatValue, SEVERITY_HELP, SEVERITY_LABELS } from "./model";
-import { raiseQuery } from "./queriesApi";
-import type { QueryRow, QuerySeverity } from "./types";
 
 export interface RaiseQueryFormProps {
   onRaised: (row: QueryRow) => void;

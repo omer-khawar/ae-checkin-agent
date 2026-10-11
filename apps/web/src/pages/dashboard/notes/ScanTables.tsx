@@ -6,7 +6,7 @@
 import { Button } from "../../../components/Button";
 import { cx } from "../../../lib/format";
 import { exclusionWording } from "./highlight";
-import type { MedFinding, RedFlag, ScanResult, SymptomFinding } from "./types";
+import type { MedFinding, RedFlag, ScanResult, SymptomFinding } from "../../../lib/types";
 
 type Range = { start: number; end: number };
 

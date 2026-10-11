@@ -13,7 +13,7 @@ import { useMemo } from "react";
 
 import { cx } from "../../../lib/format";
 import { segmentInRange, segmentText, spansFromScan, type SpanKind } from "./highlight";
-import type { ScanResult } from "./types";
+import type { ScanResult } from "../../../lib/types";
 
 export interface HighlightedNoteProps {
   text: string;

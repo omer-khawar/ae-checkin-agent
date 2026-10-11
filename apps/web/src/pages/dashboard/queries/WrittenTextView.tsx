@@ -6,7 +6,7 @@
  */
 import { writerLabel } from "./model";
 import { EvidenceChip } from "./bits";
-import type { QueryEvidence, WrittenText } from "./types";
+import type { QueryEvidence, WrittenText } from "../../../lib/types";
 
 export interface WrittenTextViewProps {
   written: WrittenText;

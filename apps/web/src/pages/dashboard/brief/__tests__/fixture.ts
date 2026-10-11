@@ -11,6 +11,7 @@ export const ANSWER_RASH_1 = "01JANSWER000000000000RASH1";
 export const ANSWER_RASH_2 = "01JANSWER000000000000RASH2";
 export const CM_PRED = "01JDRAFTCM00000000000PRED1";
 export const CLOCK_AESI = "01JCLOCK0000000000000AESI1";
+export const PACKET_AESI = "01JPACKET000000000000AESI1";
 export const NOTE_CALL = "01JNOTE00000000000000CALL1";
 export const VS_1 = "01JVITALS000000000000000VS1";
 
@@ -86,12 +87,16 @@ export function briefJson(overrides: Record<string, unknown> = {}): Record<strin
             clock_kind: "aesi",
             due_at: "2026-10-12T09:00:00.000Z",
             status: "running",
+            packet_id: PACKET_AESI,
+            packet_status: "draft",
           },
           {
+            // The API sends `acknowledged` (boolean) on escalation items, no status string.
             text: "Nurse call today for rash, not yet acknowledged.",
             evidence_ids: ["01JESC00000000000000000001"],
             link: null,
             tier: 2,
+            acknowledged: false,
           },
         ],
       },

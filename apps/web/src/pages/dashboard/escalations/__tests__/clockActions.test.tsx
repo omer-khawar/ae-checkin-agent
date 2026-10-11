@@ -11,15 +11,14 @@ import { describe, expect, it } from "vitest";
 import { ToastProvider } from "../../../../components/Toast";
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
 import { resetAuthCache } from "../../../../lib/auth";
-import type { Role } from "../../../../lib/types";
+import type { ClockRow, Role } from "../../../../lib/types";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import { Escalations } from "../../Escalations";
-import type { SaeClockRowExt } from "../types";
 
 const AESI_ID = "01JCLOCKAESI00000000000001";
 const NOTE_CLOCK_ID = "01JCLOCKNOTE00000000000002";
 
-function clocks(): SaeClockRowExt[] {
+function clocks(): ClockRow[] {
   const due = new Date(Date.now() + 3600_000).toISOString();
   return [
     {

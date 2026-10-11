@@ -10,7 +10,7 @@
  */
 import { cx } from "../../../lib/format";
 import { evidenceKindLabel, shortId } from "./model";
-import type { BriefEvidenceRef } from "./types";
+import type { BriefEvidenceRef } from "../../../lib/types";
 
 export interface EvidenceChipsProps {
   ids: readonly string[];

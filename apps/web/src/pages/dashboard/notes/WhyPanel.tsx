@@ -6,9 +6,8 @@
  * inputs) and keeps the rule id, category, effect and inputs one click deeper
  * in a disclosure, so a judge can still check the arithmetic.
  */
-import type { RuleFired } from "../../../lib/types";
+import type { RuleFired, RuleFiredPlain } from "../../../lib/types";
 import { evidenceKindName, ruleSentence, type Labels } from "../detail/plain";
-import type { RuleFiredPlain } from "../detail/r34Types";
 
 export interface WhyPanelProps {
   why: string[];

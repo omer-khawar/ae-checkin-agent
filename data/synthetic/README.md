@@ -9,7 +9,8 @@ This directory is documentation. The generator is code:
 | The demo study (real public record) | `scripts/fetch_public.py` → `data/public/study.json` (committed cache; bundled fallback) | `make fetch-public` (`--offline` uses the cache) |
 | 12 participants and their prior check-ins | `scripts/seed.py` (this README is its spec) | `make seed`, `make demo-reset`, `npm run seed`, `npm run demo-reset`, `python scripts/seed.py [--reset]`, Admin → "Reset demo data", or `POST /api/v1/admin/reset {"reseed": true}` |
 | 8 synthetic chart notes (§4.6, lineage §9.1) | `data/synthetic/chart_notes.json` = `packages/rules/data/chartscan_answer_key.json` (notes), ingested by `scripts/seed.py` | same commands as the participants (the seed ingests them last) |
-| Synthea NSCLC cohort: 12 participants, 72 notes, independent evaluation (§9.2) | `data/synthetic/synthea/` (see [`synthea/README.md`](synthea/README.md)), written by `scripts/synthea/import_synthea.py`; report `docs/eval/synthea_results.md` by `scripts/synthea/eval_synthea.py` | `scripts/synthea/run_synthea.py` (pinned jar, ~10–15 min); `import_synthea.py --check` / `eval_synthea.py --check` verify byte-identity. Not read by the seed yet (`docs/ISSUES.md` #23) |
+| Synthea NSCLC cohort: 12 participants, 72 notes, independent evaluation (§9.2) | `data/synthetic/synthea/` (see [`synthea/README.md`](synthea/README.md)), written by `scripts/synthea/import_synthea.py`; report `docs/eval/synthea_results.md` by `scripts/synthea/eval_synthea.py` | `scripts/synthea/run_synthea.py` (pinned jar, ~10–15 min); `import_synthea.py --check` / `eval_synthea.py --check` verify byte-identity. The seed reads `participants.json` and attaches each profile to the participant of the same label (§10.4, `docs/ISSUES.md` #23); the 72 notes are evaluation only |
+| The Monday-morning state: overnight check-ins, caregiver call, urgent-care and ER notes, report packets, sponsor queries, visits (§10) | `apps/api/interim_api/seed.py` (`seed_overnight`, `seed_queries`, `seed_visits`); asserted by `apps/api/tests/test_admin_seed.py` | same commands as the participants |
 | Persona answer key (eval) | `packages/rules/data/personas.json` | hand-edited; replayed by `scripts/run_eval.py` (`make eval`) and by the Eval page |
 | Mock vitals scenarios (live kiosk) | `apps/vitals-bridge/src/sources/mock.ts` | n/a (deterministic per scenario) |
 
@@ -36,7 +37,7 @@ Nothing in `data/synthetic/` needs to be hand-edited (the `synthea/` files are g
 | `usubjid` | `"{study_id}-{label}"`, e.g. `R2810-ONC-1624-P-007` |
 | `display_label` | `P-001` … `P-012` (what the kiosk asks for and what the dashboard shows) |
 | `enrolled_at` | 75–120 days before seed time, drawn from the seeded RNG, always earlier than the participant's first check-in |
-| `baseline_vitals_json` | `{ "pulse_bpm": b_p, "breathing_bpm": b_b, "source": "mock", "is_measured": false, "note": "simulated baseline" }` with `b_p` drawn uniformly from 58–84 and `b_b` from 12–17 per participant. Reserved for future baseline-personalized thresholds (`docs/NOT_BUILT.md` §10); unused by the rules today. The Synthea cohort (§9.2) has Synthea-derived (simulated) baselines per label; replacing these uniform draws with them is `docs/ISSUES.md` #23. |
+| `baseline_vitals_json` | With the Synthea cohort present (the default): `{ "pulse_bpm", "breathing_bpm", "source": "synthea", "is_measured": false, "note": "simulated baseline", "basis": ... }`, the medians of the Synthea chart with the same label (§10.4, `docs/ISSUES.md` #23). Without the cohort file: `"source": "mock"` with `pulse_bpm` drawn uniformly from 58–84 and `breathing_bpm` from 12–17. The two random draws happen either way, so the rest of the seed stays deterministic. The simulated kiosk vitals are centred on this baseline. Reserved for future baseline-personalized thresholds (`docs/NOT_BUILT.md` §10); unused by the rules today. |
 
 No other demographic fields exist. There is no sex, age, race, site or address.
 
@@ -62,7 +63,7 @@ No other demographic fields exist. There is no sex, age, race, site or address.
 
 Attribute values are the integers the kiosk would send (`frequency`/`severity`/`interference` 0–4, `presence` 0/1). Items not listed are 0 (None / Never / Not at all / No). Gates not listed are `hospitalization = false`, `conmed_changed = false`, `other_text = ""`.
 
-| Participant | n | `days_ago` | Answers that are non-zero | Con-med gate | Camera consent | Intended tier(s) | Why this profile |
+| Participant | n | `days_ago` | Answers that are non-zero | Con-med gate | Camera on (`consent_camera`) | Intended tier(s) | Why this profile |
 |---|---|---|---|---|---|---|---|
 | **P-001** | 3 | 55, 34, 13 | `fatigue` severity 1, interference 0 on all three | — | Yes | 0, 0, 0 | A quiet, persistent G1 fatigue: the most common thing on a PD-1 inhibitor. Sparkline shows a flat line. |
 | **P-002** | 2 | 40, **6** | d40: `rash` presence 1. d6: `rash` presence 1, `itching` severity 2 | — | Yes | 0, 1 | Presence-only rash is always G1 (a documented limitation, `docs/WHAT_IT_GETS_WRONG.md` §1); itching Moderate makes the second check-in Tier 1. The second check-in sits 6 days back (it was 12) so that chart note **N2** (2 days back, §4.6) finds Rash maculo-papular and Pruritus still open within the 7-day window and links as a **cross-source follow-up**. |
@@ -191,7 +192,8 @@ Field notes:
 ## 6. Regenerating everything
 
 ```bash
-# Full reset: wipe runtime DB, reseed study + 12 participants + 34 prior check-ins (audited)
+# Full reset: wipe runtime DB, reseed study + 12 participants + 35 prior and 3 overnight check-ins,
+# 9 notes and calls, 5 report packets, 2 sponsor queries, 2 visits (audited; totals in §10.5)
 make demo-reset            # or: npm run demo-reset  /  python scripts/seed.py --reset
 # Seed into an empty DB without wiping (no-op if already seeded)
 make seed                  # or: npm run seed  /  python scripts/seed.py

@@ -74,7 +74,7 @@ export const CHAIN_LINK_TEXT: Record<ChainLink, string> = {
 /** Plain-English gloss per audit action (CONTRACTS.md §2.3 and R2.4). */
 export const ACTION_DESCRIPTIONS: Record<string, string> = {
   "session.started": "Check-in session started at the kiosk",
-  "session.consent": "Participant answered the camera consent question",
+  "session.consent": "Camera setting recorded",
   "answer.recorded": "Participant answer recorded",
   "answer.updated": "Participant changed an earlier answer",
   "gates.recorded": "Gate questions recorded (hospitalization, medication change, free text)",

@@ -14,11 +14,11 @@
 import { Card } from "../../../components/Card";
 import { cx } from "../../../lib/format";
 import { formatDuration, isAcked, isClockActive, isOverdue, medianSecondsToAck } from "./model";
-import type { EscalationRow, PageEventRow, SaeClockRowExt } from "./types";
+import type { ClockRow, EscalationRow, PageEventRow } from "../../../lib/types";
 
 export interface SummaryTilesProps {
   escalations: EscalationRow[] | null;
-  clocks: SaeClockRowExt[] | null;
+  clocks: ClockRow[] | null;
   pages: PageEventRow[] | null;
   nowMs: number;
 }

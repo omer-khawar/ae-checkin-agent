@@ -590,6 +590,15 @@ def query_detail(db: DbSession, q: SponsorQuery, *, now: str | None = None) -> d
     )
     written, index = suggested_answer_for(db, q)
     current_dict = draft_to_dict(current) if current is not None else None
+    if written.get("sentences"):
+        # [integration] the resolved pointer for every id the suggestion cites, in
+        # sentence order, so the Queries page's chips resolve without a second lookup.
+        cited: list[str] = []
+        for sentence in written["sentences"]:
+            for ident in sentence.get("evidence_ids") or []:
+                if ident in index and ident not in cited:
+                    cited.append(ident)
+        written = {**written, "evidence": [index[ident] for ident in cited]}
     out.update(
         {
             "suggested_answer": written if written.get("sentences") else None,

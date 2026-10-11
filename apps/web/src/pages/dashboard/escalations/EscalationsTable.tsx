@@ -18,7 +18,7 @@ import {
   secondsToAck,
   SOURCE_LABELS,
 } from "./model";
-import type { EscalationRow } from "./types";
+import type { EscalationRow } from "../../../lib/types";
 
 export interface EscalationsTableProps {
   rows: EscalationRow[];

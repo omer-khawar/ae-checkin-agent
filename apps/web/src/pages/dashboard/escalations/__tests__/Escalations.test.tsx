@@ -10,10 +10,9 @@ import { describe, expect, it } from "vitest";
 import { ToastProvider } from "../../../../components/Toast";
 import { AUTH_STORAGE_KEY } from "../../../../lib/api";
 import { resetAuthCache } from "../../../../lib/auth";
-import type { Paginated, Role } from "../../../../lib/types";
+import type { ClockRow, EscalationRow, PageEventRow, Paginated, Role } from "../../../../lib/types";
 import { installMockFetch, type Route as MockRoute } from "../../../../test/mockFetch";
 import { Escalations } from "../../Escalations";
-import type { EscalationRow, PageEventRow, SaeClockRowExt } from "../types";
 
 const SESSION_A = "01JSESSION00000000000000AA";
 const SESSION_B = "01JSESSION00000000000000BB";
@@ -70,7 +69,7 @@ const ESCALATIONS: EscalationRow[] = [
   },
 ];
 
-function clocks(nowMs: number): SaeClockRowExt[] {
+function clocks(nowMs: number): ClockRow[] {
   const inOneHour = new Date(nowMs + 3600 * 1000).toISOString();
   return [
     {
@@ -141,7 +140,7 @@ function paginated<T>(items: T[], url: URL): Paginated<T> {
 
 interface Opts {
   escalations?: EscalationRow[];
-  clocks?: SaeClockRowExt[];
+  clocks?: ClockRow[];
   pages?: PageEventRow[];
   /** Status for GET /escalations; everything else stays 200. */
   escalationsStatus?: number;
@@ -428,7 +427,7 @@ describe("Escalations page", () => {
   it("walks every page of GET /sae-clocks instead of only the API's first page", async () => {
     signIn("coordinator");
     // 60 active + 55 stopped clocks: more than the API's default page of 50 each.
-    const many: SaeClockRowExt[] = [];
+    const many: ClockRow[] = [];
     for (let i = 0; i < 115; i++) {
       const active = i < 60;
       many.push({

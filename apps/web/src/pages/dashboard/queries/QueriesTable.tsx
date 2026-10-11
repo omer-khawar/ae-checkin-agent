@@ -6,7 +6,7 @@
 import { cx, Time } from "../../../lib/format";
 import { AgeChip, CodeBadge, SeverityChip, StatusChip } from "./bits";
 import { ageHours, domainLabel, fieldLabel, isAgeAlert, participantLabel, raisedBy } from "./model";
-import type { QueryRow } from "./types";
+import type { QueryRow } from "../../../lib/types";
 
 export interface QueriesTableProps {
   rows: QueryRow[];

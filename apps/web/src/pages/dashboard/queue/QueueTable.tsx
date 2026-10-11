@@ -14,7 +14,8 @@ import { cx, Time, vitalsStatusLabel } from "../../../lib/format";
 import { hasVitalsSamples, isNoteSource } from "./normalize";
 import { SaeCountdownChip } from "./SaeCountdownChip";
 import { countLabel } from "./summary";
-import type { QueueRow, QueueSource } from "./types";
+import type { QueueRow } from "./types";
+import type { QueueSource } from "../../../lib/types";
 
 export interface QueueTableProps {
   rows: QueueRow[];

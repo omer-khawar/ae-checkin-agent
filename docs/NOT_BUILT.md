@@ -1,21 +1,21 @@
 # What we deliberately did not build
 
-> **Status (2026-10-10, evening): this list describes the wave-2 build (`docs/CONTRACTS.md` R2.6).** The R3 rewrite (`docs/DECISIONS.md` D-023 to D-026: the Monday-morning story, protocol-aware rules, no per-session camera consent, the optional text writer that relaxes "no LLM anywhere" for written text only) is pending; until it lands, statements here about consent, the no-LLM rule and persona counts describe the running wave-2 app.
+> **Status (2026-10-10, night):** revised for the expanded scope (`CLAUDE.md` §00; `docs/DECISIONS.md` D-023 to D-026; `docs/CONTRACTS.md` Revisions 3 and 4). Interim now covers all eight steps of a side effect's life at the site, including phone-call intake, 24-hour report packets with follow-ups, sponsor queries and the visit brief, so those are no longer on this list. New entries: the deferred language-model chart reader (§19), the sponsor-side query portal (§20) and real safety-database integration (folded into §3).
 
-> Judges ask for "a deliberate decision about what NOT to build." This is that list. Each item says **why not** and **what it would take**, so a future contributor can pick it up without re-deriving the trade-off. Two items that were on this list in wave 1 have since shipped; they are recorded under [Shipped later than planned](#shipped-later-than-planned) with credit, because changing our mind is part of the record. Open items are tracked in `docs/ISSUES.md`; the product spec is `CLAUDE.md`; the interface contract is `docs/CONTRACTS.md` (its Revision 2 wins where it differs).
+> Judges ask for "a deliberate decision about what NOT to build." This is that list. Each item says **why not** and **what it would take**, so a future contributor can pick it up without re-deriving the trade-off. Two items that were on this list in wave 1 have since shipped; they are recorded under [Shipped later than planned](#shipped-later-than-planned) with credit, because changing our mind is part of the record. Open items are tracked in `docs/ISSUES.md`; the product spec is `CLAUDE.md`; the interface contract is `docs/CONTRACTS.md` (its Revisions 2–4 win where they differ).
 
 Two rules shaped every cut:
 
-1. **No LLM or generative AI anywhere in the runtime.** Every output in Interim is reproducible from a JSON table and arithmetic. Anything that needed a model was cut or replaced with a deterministic alternative. (Chart-note scanning turned out not to need one; see S1.) R3 (D-024) relaxes this rule for written text only: narratives and briefs come from a deterministic template writer, and an optional Claude writer may replace that text when an API key is set. No decision ever depends on generated text.
+1. **Rules decide, text tools write, people confirm.** Every decision (grade, tier, who is alerted, whether a 24-hour clock starts, protocol flags, queries) is reproducible from a JSON table and arithmetic; anything that would have needed a model to *decide* was cut or replaced with a deterministic alternative (chart-note scanning turned out not to need one; see S1). Generated *text* is allowed (D-024): narratives, briefs and suggested query answers come from a deterministic template writer whose every sentence cites evidence, and an optional Claude writer may rephrase them when an API key is set, accepted only if its citations resolve and its quotes are verbatim. No decision ever depends on generated text. Until 2026-10-10 evening this rule read "no LLM anywhere"; the mentor review changed it (D-023).
 2. **The demo path must run from a clean clone on a laptop that is not the one it was built on.** Anything that pulls hundreds of megabytes of native binaries, needs an account, or needs a phone is either an optional install kept out of `package.json` (the Presage SDK, S2) or a documented slot.
 
 ## Summary
 
 | # | Not built | Category | Slot exists? | Reason in one line |
 |---|---|---|---|---|
-| 1 | Voice check-in and telephony | Deliberate product choice | No | TCPA / disclosure obligations and a speech stack that pushes toward an LLM |
+| 1 | Voice check-in and automated calling | Deliberate product choice | Calls a coordinator takes are logged and scanned (`note_type: "phone_call"`) | TCPA / disclosure obligations for automated voice; a human-taken call is already an intake |
 | 2 | Multilingual items | Deliberate product choice | Schema-ready | Our items are hand-written; translations would not be validated |
-| 3 | Real EDC integration (Medidata Rave, Veeva Vault CDMS) | Time / access | Mock EDC endpoint | Needs sponsor credentials and eCRF mapping; SDTM-shaped exports + `POST /mock-edc/{domain}` show the seam |
+| 3 | Real EDC and safety-database integration (Medidata Rave, Veeva Vault CDMS / Vault Safety, Oracle Argus) | Time / access | Mock EDC endpoint; signed packets post to it as domain `SAE` / `AESI` | Needs sponsor credentials, eCRF and E2B(R3) mapping; SDTM-shaped exports, signed packets and `POST /mock-edc/{domain}` show the seam |
 | 4 | SSO and per-user identity | Time | Auth layer isolated | Demo auth with three seeded users; audit schema already has `actor_id` |
 | 5 | Real MedDRA and RxNorm coding | Licensing | Mock codes, bundled lists | MedDRA is subscription-licensed; RxNorm needs a UMLS license; we ship a 300-name openFDA-derived list and a 43-drug scanner lexicon, both labeled "not RxNorm" |
 | 6 | Mobile app | Deliberate product choice | No | The kiosk is the point: a site-controlled webcam and a consistent capture environment |
@@ -31,14 +31,18 @@ Two rules shaped every cut:
 | 16 | Offline kiosk mode | Time | No | The kiosk needs the API; a store-and-forward queue is straightforward but untested |
 | 17 | **PD-1 inhibitor patients in the Synthea cohort** | Not available upstream | Synthea pipeline is pinned and reproducible | Synthea has no immunotherapy; our cohort is stage-1 NSCLC on cisplatin + paclitaxel |
 | 18 | Section-aware medication-list parsing | Measured, not shipped | Candidate scored in `docs/eval/synthea_results.md` | Raises recall but drops precision from 1.000 to 0.645 on Synthea; decision pending (`docs/ISSUES.md` #24) |
+| 19 | **Language-model chart reader** | Deliberately deferred | The writer interface and `validate_written` exist; the scanner is the reader | Could not be validated in the time we had; a reader decides what is a side effect, and decisions stay in rules |
+| 20 | Sponsor-side query portal | Time / scope | Admin role acts as the sponsor's monitor; edit checks run on mock-EDC posts | The sponsor's own EDC owns queries; we built the site's half (suggested, cited answers) |
 
-**Shipped later than planned** (rows 1 and 8 of the wave-1 list): S1 chart-note scanning, S2 the Presage SmartSpectra source.
+**Shipped later than planned** (rows 1 and 8 of the wave-1 list): S1 chart-note scanning, S2 the Presage SmartSpectra source (implemented; **not yet run against a live camera**).
 
 ---
 
-## 1. Voice check-in and telephony
+## 1. Voice check-in and automated calling
 
-**Why not:** The sheet is explicit that voice agents must disclose automation, offer a human, never give medical advice, send emergencies to 911, and call only consenting people, and that the FCC treats AI voices as "artificial" under the TCPA. A speech stack (STT, dialog management, TTS) is also where an LLM creeps in. The kiosk gives the same structured answers with a large-type, one-question-per-screen UI and no telephony risk.
+**What exists instead:** a coordinator who takes a call logs it ("Log a call" on the Notes page or the participant timeline: caller, direction, summary); the summary is scanned exactly like a chart note and labeled "phone call" (CONTRACTS R4.1). The seed includes an overnight caregiver call.
+
+**Why not automate it:** The sheet is explicit that voice agents must disclose automation, offer a human, never give medical advice, send emergencies to 911, and call only consenting people, and that the FCC treats AI voices as "artificial" under the TCPA. A speech stack (STT, dialog management, TTS) is also where an LLM creeps in. The kiosk gives the same structured answers with a large-type, one-question-per-screen UI and no telephony risk.
 
 **What it would take:** a framework such as Pipecat or LiveKit Agents, STT with a constrained grammar per item (five fixed response options per attribute), the mandated disclosure/escape/911 scripts as fixed audio, consent records per phone number, and a test set of spoken answers with an answer key. The API already accepts one answer per `(session, item, attribute)`, so a voice front end would call the same `POST /api/v1/sessions/{id}/answers`. The scanner's answer key already holds 31 participant-style utterances (`kind: "utterance"` in `packages/rules/data/chartscan_answer_key.json`) and `scan_text` has a `detect_human_request` mode for them, so a transcript could be screened deterministically; the kiosk itself never parses free text.
 
@@ -48,11 +52,11 @@ Two rules shaped every cut:
 
 **What it would take:** register the study with NCI, load the official items in the required languages into `proctcae_items.json` keyed by locale, add a language picker to the kiosk welcome screen, and keep the rules untouched (they operate on attribute integers, not wording). Notes in other languages would need a lexicon and an answer key per language.
 
-## 3. Real EDC integration (Medidata Rave, Veeva Vault CDMS)
+## 3. Real EDC and safety-database integration (Medidata Rave, Veeva Vault CDMS / Vault Safety, Oracle Argus)
 
-**Why not:** Needs sponsor-issued credentials, a study-specific eCRF mapping, and an integration environment we cannot have at a hackathon. We built the seam instead: SDTM-shaped exports with CDISC variable names, a `bundle.zip` with a SHA-256 manifest, and `POST /api/v1/mock-edc/{domain}` that validates the column set and returns an `ack_id`, so the "post to EDC" step is visibly real in the demo.
+**Why not:** Needs sponsor-issued credentials, a study-specific eCRF mapping, a safety-database intake (usually ICH E2B(R3) individual case safety reports), and an integration environment we cannot have at a hackathon. We built the seam instead: SDTM-shaped exports with CDISC variable names, a `bundle.zip` with a SHA-256 manifest, `POST /api/v1/mock-edc/{domain}` that validates the column set and returns an `ack_id`, and signed report packets that post to the same mock as domain `SAE` / `AESI` with their own acknowledgment (`EDC-SAE-…`). Nothing is sent anywhere real; the packet says "reported (mock)".
 
-**What it would take:** a connector per vendor (Rave Web Services / CDISC ODM import, or Vault CDMS REST), a mapping from our `AE/VS/CM` fields and `INTERIM_*` supplemental variables to the study's forms (the `INTERIM_*` fields belong in SUPPAE/SUPPVS/SUPPCM in a real SDTM submission), credential management via environment variables (already the pattern), idempotent retries keyed on the draft id, and an audit event per acknowledgment (the `mock_edc.posted` event is the template).
+**What it would take:** a connector per vendor (Rave Web Services / CDISC ODM import, or Vault CDMS REST), an E2B(R3) export of the signed packet for the sponsor's safety database (the packet's fields already carry the ICH E2A content), a mapping from our `AE/VS/CM` fields and `INTERIM_*` supplemental variables to the study's forms (the `INTERIM_*` fields belong in SUPPAE/SUPPVS/SUPPCM in a real SDTM submission), credential management via environment variables (already the pattern), idempotent retries keyed on the draft id, and an audit event per acknowledgment (the `mock_edc.posted` event is the template).
 
 ## 4. SSO and per-user identity
 
@@ -68,7 +72,7 @@ Two rules shaped every cut:
 
 ## 6. Mobile app
 
-**Why not:** The product is a site kiosk on purpose: a controlled camera, lighting and distance make contactless vitals plausible, and the site owns the device. A phone app would also need the Presage iOS/Android SDK path rather than the Node SDK.
+**Why not:** The kiosk is a site-owned device in a consistent setting, and the coordinator's desk (notes, calls, packets, queries, briefs) is where the time is saved. A phone app adds identity, device management and app-store work without changing a rule or a record. It would also need the Presage iOS/Android SDK path rather than the Node SDK.
 
 **What it would take:** a React Native or native app reusing the kiosk API calls, the Presage mobile SDK as a `VitalsSource`, device attestation, and a participant identity model that the kiosk's "type your label" approach deliberately avoids.
 
@@ -92,7 +96,7 @@ Two rules shaped every cut:
 
 ## 10. Baseline-personalized corroboration thresholds
 
-**Why not:** Fixed thresholds (breathing ≥ 24, pulse ≥ 110) are documented population values in `packages/rules/data/vitals_corroboration.json` and are easy to explain in a demo. Personalization needs a baseline capture protocol and more data than one check-in. The `Participant.baseline_vitals_json` field is reserved for it, and the Synthea cohort now supplies plausible baselines to test against: its 12 NSCLC participants have median resting breathing 13–16/min and pulse 68–90/min, i.e. 8–11 breaths and 20–42 beats below the thresholds (`docs/eval/synthea_results.md` §(d)). Wiring those baselines into the seeded participants is `docs/ISSUES.md` #23. `docs/WHAT_IT_GETS_WRONG.md` §3 explains the cost of not personalizing.
+**Why not:** Fixed thresholds (breathing ≥ 24, pulse ≥ 110) are documented population values in `packages/rules/data/vitals_corroboration.json` and are easy to explain in a demo. Personalization needs a baseline capture protocol and more data than one check-in. The `Participant.baseline_vitals_json` field is reserved for it, and the Synthea cohort supplies plausible baselines to test against: its 12 NSCLC participants have median resting breathing 13–16/min and pulse 68–90/min, i.e. 8–11 breaths and 20–42 beats below the thresholds (`docs/eval/synthea_results.md` §(d)). The seed now attaches each Synthea profile to the matching participant and centres the simulated vitals on its medians (`docs/ISSUES.md` #23); the rules still use the fixed thresholds. `docs/WHAT_IT_GETS_WRONG.md` §3 explains the cost of not personalizing.
 
 **What it would take:** capture a resting baseline at enrollment, add a second rule family "delta from baseline ≥ X" to the same JSON table, and compare false-positive rates in the eval harness.
 
@@ -127,6 +131,22 @@ Each is a straightforward addition the current API supports (an extra answer row
 **Why not (yet):** the Synthea evaluation measured it before anyone built it: recall of the medications visible in the note text rises from 0.178 to 0.255, but precision falls from 1.000 to 0.645, almost entirely because the matcher's per-word Levenshtein step turns "sodium fluoride" and "sodium chloride" into loperamide (via the brand "imodium", distance 2) in 44 notes (`docs/eval/synthea_results.md` §(b)). A false con-med a coordinator might accept is worse than a missing one she will add. Tracked as `docs/ISSUES.md` #24.
 
 **What it would take:** a section parser driven by a table of section headings, the matcher run with whole-string matching only (no per-token step) for structured lists, and a re-run of the Synthea evaluation showing precision back above 0.95.
+
+## 19. Language-model chart reader (deferred)
+
+**What exists instead:** the deterministic scanner (`interim_rules.chartscan`, S1) reads every chart note and phone-call summary. It quotes the exact words, explains every skip, and is measured twice: on its answer key and on Synthea notes it was never tuned on (`docs/eval/synthea_results.md`).
+
+**Why not (this round):** a reader *decides* what counts as a side effect, a medication change or a hospital stay, and therefore which 24-hour clocks start. Under "rules decide, text tools write, people confirm" (D-023, D-024) that decision belongs in rules until a model reader can be validated with the same rigor: a labeled set of real, de-identified oncology notes, per-term precision and recall, and separate counts of missed and false serious-event triggers. We could not build that set in a weekend, and there was no API key to test against. The scanner's weaknesses (lexicon-bound, word-window context rules, discharge advice read as a hospital visit, `docs/ISSUES.md` #25) are documented in `docs/WHAT_IT_GETS_WRONG.md` §15 and §25 rather than papered over.
+
+**What it would take:** a reader behind the same `ScanResult` shape (findings with quote, character offsets and reason), accepted only when every quote appears verbatim in the note at the stated offsets (the same kind of check `validate_written` already does for generated text); its output treated as *suggestions* that still pass through the rules for tier, clock and protocol decisions; a side-by-side evaluation against the scanner on the answer key, the Synthea notes and a real-note set; and a data-flow review, because note text would leave the site.
+
+## 20. Sponsor-side query portal
+
+**What exists instead:** the site's half of step 7. Sponsor-side edit checks (`packages/rules/data/edit_checks.json`) run when confirmed records are posted to the mock EDC and raise queries; each query has a template-written suggested answer citing the record; the coordinator answers and can correct the field in the same step; the admin role plays the sponsor's monitor (raise a manual query, close one).
+
+**Why not:** in real trials queries live in the sponsor's EDC (Rave, Vault CDMS) and are raised by the sponsor's data managers and monitors under their own access controls. A separate sponsor portal would duplicate that system and need a second identity model.
+
+**What it would take:** read and answer queries through the EDC vendor's API instead of the `Query` table, map `check_id` to the sponsor's edit-check ids, and keep the suggested-answer writer as it is.
 
 ---
 

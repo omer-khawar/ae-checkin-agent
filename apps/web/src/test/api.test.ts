@@ -9,6 +9,7 @@ import {
   fetchAllPages,
   getQueue,
   isApiError,
+  listAllClocks,
   NetworkError,
   pageInfo,
   pageParams,
@@ -174,5 +175,33 @@ describe("api client", () => {
     const all = await fetchAllPages(async () => pages[i++], 2);
     expect(all).toEqual([1, 2, 3, 4, 5]);
     expect(i).toBe(3);
+  });
+
+  it("listAllClocks asks for running and stopped clocks (active=all) and walks every page", async () => {
+    const clock = (n: number) => ({
+      id: `C${n}`,
+      kind: n % 2 ? "sae" : "aesi",
+      site_awareness_at: "2026-10-10T00:00:00Z",
+      due_at: "2026-10-11T00:00:00Z",
+      stopped_at: n === 1 ? "2026-10-10T05:00:00Z" : null,
+      decision: null,
+    });
+    const mock = installMockFetch([
+      {
+        method: "GET",
+        path: "/api/v1/sae-clocks",
+        handler: ({ url }) => {
+          expect(url.searchParams.get("active")).toBe("all");
+          const offset = Number(url.searchParams.get("offset"));
+          // The server caps the page at 2 whatever was asked for.
+          const items = [1, 2, 3].map(clock).slice(offset, offset + 2);
+          return { json: { items, total: 3, limit: 2, offset } };
+        },
+      },
+    ]);
+    const all = await listAllClocks();
+    expect(all.map((c) => c.id)).toEqual(["C1", "C2", "C3"]);
+    expect(all[0]).toMatchObject({ kind: "sae", stopped_at: "2026-10-10T05:00:00Z" });
+    expect(mock.find("GET", "/api/v1/sae-clocks")).toHaveLength(2);
   });
 });

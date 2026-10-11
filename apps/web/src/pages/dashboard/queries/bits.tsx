@@ -12,7 +12,7 @@ import {
   formatAge,
   shortId,
 } from "./model";
-import type { QueryEvidence, QuerySeverity, QueryStatus } from "./types";
+import type { QueryEvidence, QuerySeverity, QueryStatus } from "../../../lib/types";
 
 export function SeverityChip({ severity }: { severity: QuerySeverity }) {
   return (

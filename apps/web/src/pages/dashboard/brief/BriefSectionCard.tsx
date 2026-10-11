@@ -37,7 +37,7 @@ import {
   TREND_STYLES,
   type SectionKind,
 } from "./model";
-import type { BriefEvidenceRef, BriefItem, BriefSection } from "./types";
+import type { BriefEvidenceRef, BriefItem, BriefSection } from "../../../lib/types";
 
 export interface BriefSectionCardProps {
   section: BriefSection;
@@ -176,6 +176,15 @@ function EscalationChips({ item }: { item: BriefItem }) {
         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
           {item.status}
         </span>
+      )}
+      {item.packet_id && (
+        <Link
+          to={`/dashboard/packets/${encodeURIComponent(item.packet_id)}`}
+          className="rounded text-xs font-medium text-brand-700 underline decoration-slate-300 underline-offset-2 hover:decoration-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 print:hidden"
+          data-packet-link={item.packet_id}
+        >
+          {item.packet_status === "signed" ? "Open signed report" : "Open report draft"}
+        </Link>
       )}
     </>
   );

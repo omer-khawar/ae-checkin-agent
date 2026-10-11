@@ -138,6 +138,23 @@ describe("evidence", () => {
     });
   });
 
+  it("reads the API's top-level evidence_index map as secondary rows", () => {
+    const detail = {
+      ...OPEN_DETAIL,
+      evidence_index: {
+        [NOTE_EV]: { kind: "chart_note", ts: null, note: "Urgent-care note" },
+        [ANSWER_EV]: { kind: "gate_answer", id: ANSWER_EV, ts: null, note: "duplicate" },
+      },
+    };
+    const idx = evidenceIndex(detail, CM_DRAFT);
+    expect(idx.find((e) => e.id === NOTE_EV)).toMatchObject({
+      kind: "chart_note",
+      primary: false,
+    });
+    // Ids already on the record are not listed twice.
+    expect(idx.filter((e) => e.id === ANSWER_EV)).toHaveLength(1);
+  });
+
   it("never invents an 'unknown' row for a bare answer id", () => {
     const unresolved = evidenceIndex(
       { field: "AEENDTC", evidence: null, answer_evidence: ["01JNOWHERE0000000000000000"] },

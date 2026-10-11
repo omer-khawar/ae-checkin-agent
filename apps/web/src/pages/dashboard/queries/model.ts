@@ -7,16 +7,18 @@
  * by the edit checks in `packages/rules/data/edit_checks.json` (server side);
  * this file only paints and packages what the API sends.
  */
-import type { Domain, Draft, Role } from "../../../lib/types";
-import { EDITABLE_FIELDS } from "../detail/model";
 import type {
   AnswerQueryRequest,
+  Domain,
+  Draft,
   QueryEvidence,
   QueryRow,
   QuerySeverity,
   QueryStatus,
+  Role,
   WrittenText,
-} from "./types";
+} from "../../../lib/types";
+import { EDITABLE_FIELDS } from "../detail/model";
 
 // ---------------------------------------------------------------------------
 // Plain language (mirrors packages/rules/data/plain_language.json; the API's
@@ -221,7 +223,8 @@ function isPointer(e: unknown): e is QueryEvidence {
  *   3. resolved pointers attached to the answer,
  *   (primary rows, shown by default)
  *   4. pointers the API resolved for the suggested answer, if it sends them,
- *   5. the evidence on every other field of the draft, field by field.
+ *   5. the evidence on every other field of the draft, field by field,
+ *   6. anything else in the API's top-level `evidence_index` map.
  *   (secondary rows, behind a disclosure)
  *
  * The template writer cites more than the queried field (the record's term
@@ -233,6 +236,7 @@ function isPointer(e: unknown): e is QueryEvidence {
 export function evidenceIndex(
   detail: Pick<QueryRow, "field" | "evidence" | "answer_evidence"> & {
     suggested_answer?: WrittenText | null;
+    evidence_index?: Record<string, unknown> | null;
   },
   draft: Draft | null,
 ): IndexedEvidence[] {
@@ -257,6 +261,13 @@ export function evidenceIndex(
   (detail.suggested_answer?.evidence ?? []).forEach((e) => add(e, false));
   for (const name of Object.keys(draftEvidence)) {
     if (name !== detail.field) fieldEv(name).forEach((e) => add(e, false));
+  }
+  const index = detail.evidence_index;
+  if (index && typeof index === "object" && !Array.isArray(index)) {
+    for (const [id, e] of Object.entries(index)) {
+      // Older payloads may omit the id inside the pointer; the key is the id.
+      if (typeof e === "object" && e !== null) add({ ...(e as object), id }, false);
+    }
   }
   return out;
 }

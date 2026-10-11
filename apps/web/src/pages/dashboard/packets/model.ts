@@ -8,35 +8,35 @@
  * decides how to say them in plain words.
  */
 import type {
-  NarrativeSentence,
+  ClockKind,
   Packet,
   PacketChange,
   PacketClock,
   PacketDeadline,
   PacketEvidence,
   PacketField,
-  PacketKind,
   PacketValue,
+  WrittenSentence,
   WrittenText,
-} from "./types";
+} from "../../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Plain-language labels
 // ---------------------------------------------------------------------------
 
 /** Plain name first (CLAUDE.md §00: speak to non-clinicians first). */
-export const KIND_LABELS: Record<PacketKind, string> = {
+export const KIND_LABELS: Record<ClockKind, string> = {
   sae: "Serious event report",
   aesi: "Special-interest event report",
 };
 
 /** The regulatory abbreviation, kept one level deeper as a small badge. */
-export const KIND_CODES: Record<PacketKind, string> = {
+export const KIND_CODES: Record<ClockKind, string> = {
   sae: "SAE",
   aesi: "AESI",
 };
 
-export function kindLabel(kind: PacketKind): string {
+export function kindLabel(kind: ClockKind): string {
   return KIND_LABELS[kind];
 }
 
@@ -49,7 +49,7 @@ export function sequenceLabel(sequence: number): string {
  * The one plain sentence at the top of the page saying why it exists.
  * Protocol R2810-ONC-1624 Amd 9 §9.4.2 (p. 91) for SAEs, §9.4.3 (p. 92) for AESIs.
  */
-export function explainer(kind: PacketKind): string {
+export function explainer(kind: ClockKind): string {
   const what =
     kind === "sae"
       ? "serious side effects"
@@ -217,10 +217,10 @@ export interface NarrativeView {
   editedByPerson: boolean;
   editedBy: string | null;
   editedAt: string | null;
-  sentences: NarrativeSentence[];
+  sentences: WrittenSentence[];
 }
 
-export function joinSentences(sentences: NarrativeSentence[]): string {
+export function joinSentences(sentences: WrittenSentence[]): string {
   return sentences
     .map((s) => s.text.trim())
     .filter(Boolean)
@@ -337,7 +337,7 @@ function normalizeField(raw: unknown): PacketField | null {
   };
 }
 
-function normalizeSentence(raw: unknown): NarrativeSentence | null {
+function normalizeSentence(raw: unknown): WrittenSentence | null {
   if (typeof raw === "string") return { text: raw, evidence_ids: [] };
   if (!isObj(raw)) return null;
   const text = str(raw.text);
@@ -356,7 +356,7 @@ function normalizeSentence(raw: unknown): NarrativeSentence | null {
 export function normalizeWritten(raw: unknown): WrittenText {
   const n = isObj(raw) ? raw : {};
   const sentences = Array.isArray(n.sentences)
-    ? n.sentences.map(normalizeSentence).filter((s): s is NarrativeSentence => s !== null)
+    ? n.sentences.map(normalizeSentence).filter((s): s is WrittenSentence => s !== null)
     : [];
   return {
     kind: str(n.kind) ?? "sae_narrative",
@@ -395,7 +395,7 @@ export function normalizePacket(raw: unknown): Packet {
   if (!isObj(raw) || !str(raw.id)) {
     throw new Error("The server's packet response had no id.");
   }
-  const kind: PacketKind = raw.kind === "aesi" ? "aesi" : "sae";
+  const kind: ClockKind = raw.kind === "aesi" ? "aesi" : "sae";
   const fields = Array.isArray(raw.fields)
     ? raw.fields.map(normalizeField).filter((f): f is PacketField => f !== null)
     : [];

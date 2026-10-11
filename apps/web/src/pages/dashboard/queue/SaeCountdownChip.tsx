@@ -34,7 +34,7 @@ import { Link } from "react-router-dom";
 import { cx, formatUtc } from "../../../lib/format";
 import { plainRemaining, saeState } from "./countdown";
 import { packetHref } from "./normalize";
-import type { ClockKind } from "./types";
+import type { QueueClockKind } from "./types";
 
 export interface SaeCountdownChipProps {
   dueAt: string | null;
@@ -42,7 +42,7 @@ export interface SaeCountdownChipProps {
   stoppedAt?: string | null;
   now: number;
   /** Serious event (default), special-interest event, or not reported by the API. */
-  kind?: ClockKind;
+  kind?: QueueClockKind;
   /** When set, the chip links to /dashboard/packets/:packetId. */
   packetId?: string | null;
   /** When set without a packet, the chip links to the create-or-open packet route. */
@@ -54,7 +54,10 @@ const BASE =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold";
 
 /** Plain name first, abbreviation and protocol reference for the hover. */
-const CLOCK_KIND_TEXT: Record<ClockKind, { plain: string; abbr: string | null; intro: string }> = {
+const CLOCK_KIND_TEXT: Record<
+  QueueClockKind,
+  { plain: string; abbr: string | null; intro: string }
+> = {
   sae: {
     plain: "Serious event",
     abbr: "SAE",

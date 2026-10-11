@@ -14,13 +14,14 @@ import { Card } from "../../../components/Card";
 import { TierChip } from "../../../components/TierChip";
 import { cx, Time } from "../../../lib/format";
 import type {
-  EvalPersonaSummary,
+  EvalCounterfactual,
   EvalPerPersona,
+  EvalPersonaSummary,
   EvalResults,
   TierMetrics,
 } from "../../../lib/types";
 import { ConfusionMatrix } from "./ConfusionMatrix";
-import { readExtras, type EvalCounterfactual } from "./evalExtras";
+import { readExtras } from "./evalExtras";
 
 export interface EvalResultsViewProps {
   results: EvalResults;

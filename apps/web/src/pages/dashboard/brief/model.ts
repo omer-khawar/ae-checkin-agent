@@ -6,18 +6,38 @@
  * from the API (which gets them from the rules engine); these helpers only work
  * out how to *show* them, and fall back to reading the API's own plain-language
  * text when an optional structured field is missing.
+ *
+ * How the API should send each `packages/rules/interim_rules/narrative.py`
+ * fact as a `BriefItem` (types in src/lib/types.ts). Facts are NOT passed
+ * through blindly:
+ *
+ *   every item     text (REQUIRED, plain language), evidence_ids, link
+ *                  A row without text falls back to plain_label → event_label →
+ *                  name; with none of those (NoteFact, VitalsFact) it is dropped.
+ *   SideEffectFact grades[{grade, date, evidence_ids}]   (plain_label → text)
+ *   ConMedFact     protocol_flag, protocol_section, printed_page,
+ *                  exception_text, missing_fields       (name → text)
+ *   EscalationFact tier, acknowledged                   (tier_name is not read:
+ *                  the page names tiers itself via TierChip; reason belongs in text)
+ *   ClockFact      kind (or clock_kind) "sae"|"aesi", due_at, status,
+ *                  packet_id, packet_status (the clock's report packet, if any)
+ *                                                       (event_label → text)
+ *   NoteFact       note_type                            (text required)
+ *   VitalsFact     is_measured (send it; without it the page reads the text and
+ *                  defaults to SIMULATED), source       (text required)
+ *   date / note_date are NOT read as `ts`: send `ts` as an ISO-8601 UTC instant.
  */
 import type {
   Brief,
   BriefEvidenceRef,
   BriefGradePoint,
   BriefItem,
-  BriefProtocolFlag,
   BriefQuestion,
   BriefSection,
+  ProtocolLevel,
   WrittenSentence,
   WrittenText,
-} from "./types";
+} from "../../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Normalization (the API is new; be forgiving about shape, strict about types)
@@ -41,7 +61,7 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : [];
 }
 
-const PROTOCOL_FLAGS: readonly BriefProtocolFlag[] = ["prohibited", "discouraged", "permitted"];
+const PROTOCOL_FLAGS: readonly ProtocolLevel[] = ["prohibited", "discouraged", "permitted"];
 const TRENDS = ["up", "down", "same", "new"] as const;
 
 function normalizeGrades(v: unknown): BriefGradePoint[] | undefined {
@@ -93,7 +113,7 @@ export function normalizeItem(raw: unknown): BriefItem | null {
     typeof raw.protocol_flag === "string" &&
     (PROTOCOL_FLAGS as readonly string[]).includes(raw.protocol_flag)
   ) {
-    item.protocol_flag = raw.protocol_flag as BriefProtocolFlag;
+    item.protocol_flag = raw.protocol_flag as ProtocolLevel;
   }
   item.protocol_section = str(raw.protocol_section);
   item.printed_page = num(raw.printed_page);
@@ -107,6 +127,8 @@ export function normalizeItem(raw: unknown): BriefItem | null {
   if (clockKind) item.clock_kind = clockKind;
   item.due_at = str(raw.due_at);
   item.status = str(raw.status);
+  item.packet_id = str(raw.packet_id);
+  item.packet_status = str(raw.packet_status);
   if (typeof raw.is_measured === "boolean") item.is_measured = raw.is_measured;
   item.source = str(raw.source);
   item.note_type = str(raw.note_type);
@@ -310,7 +332,7 @@ export const TREND_STYLES: Record<TrendDirection, { arrow: string; label: string
 // ---------------------------------------------------------------------------
 
 /** The item's protocol flag: the structured field, else the API's own wording. */
-export function protocolFlagOf(item: BriefItem): BriefProtocolFlag | null {
+export function protocolFlagOf(item: BriefItem): ProtocolLevel | null {
   if (item.protocol_flag) return item.protocol_flag;
   const t = item.text.toLowerCase();
   if (/\bprohibited\b|\bnot allowed\b/.test(t)) return "prohibited";
@@ -319,7 +341,7 @@ export function protocolFlagOf(item: BriefItem): BriefProtocolFlag | null {
   return null;
 }
 
-export const PROTOCOL_FLAG_STYLES: Record<BriefProtocolFlag, { label: string; cls: string }> = {
+export const PROTOCOL_FLAG_STYLES: Record<ProtocolLevel, { label: string; cls: string }> = {
   prohibited: { label: "Not allowed by protocol", cls: "bg-red-100 text-red-900 border-red-300" },
   discouraged: {
     label: "Discouraged by protocol",

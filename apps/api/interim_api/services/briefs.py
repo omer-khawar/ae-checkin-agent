@@ -1003,7 +1003,9 @@ def build_brief(
             "escalations",
             f,
             tier=f["tier"],
-            status="acknowledged" if f["acknowledged"] else "not acknowledged",
+            # [integration] a boolean the brief page renders as one chip; the item text
+            # already says "acknowledged" / "not yet acknowledged", so no status string too.
+            acknowledged=bool(f["acknowledged"]),
             reasons=f["_reasons"],
             ts=f["_ts"],
         )

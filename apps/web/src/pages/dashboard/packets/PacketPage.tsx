@@ -44,6 +44,13 @@ import {
 } from "./model";
 import { NarrativePanel } from "./NarrativePanel";
 import {
+  ChangesCard,
+  HistoryCard,
+  MissingInfoCard,
+  PacketHeader,
+  SignConfirm,
+} from "./PacketParts";
+import {
   createPacket,
   getPacket,
   getPacketExportBlob,
@@ -52,15 +59,14 @@ import {
   patchPacket,
   signPacket,
   startFollowUp,
-} from "./packetsApi";
-import {
-  ChangesCard,
-  HistoryCard,
-  MissingInfoCard,
-  PacketHeader,
-  SignConfirm,
-} from "./PacketParts";
-import type { Packet, PacketClock, PacketEvidence, PacketValue, PatchPacketRequest } from "./types";
+} from "../../../lib/api";
+import type {
+  Packet,
+  PacketClock,
+  PacketEvidence,
+  PacketValue,
+  PatchPacketRequest,
+} from "../../../lib/types";
 
 /** Re-render once a second so the deadline counts down live. */
 function useNow(intervalMs = 1000): number {

@@ -12,7 +12,7 @@ import { Card } from "../../../components/Card";
 import { cx } from "../../../lib/format";
 import { EvidenceChips } from "./EvidenceChips";
 import { cites, writerLabel, writerTitle } from "./model";
-import type { BriefEvidenceRef, WrittenText } from "./types";
+import type { BriefEvidenceRef, WrittenText } from "../../../lib/types";
 
 export interface NarrativePanelProps {
   narrative: WrittenText | null;

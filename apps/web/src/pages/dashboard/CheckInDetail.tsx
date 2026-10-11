@@ -29,10 +29,24 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { MeasuredBadge } from "../../components/MeasuredBadge";
 import { TierChip } from "../../components/TierChip";
 import { useToast } from "../../components/Toast";
-import { ackEscalation, confirmDraft, isApiError, patchDraft, rejectDraft } from "../../lib/api";
+import {
+  ackEscalation,
+  confirmDraft,
+  isApiError,
+  patchAttribution,
+  patchDraft,
+  rejectDraft,
+} from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Time, vitalsStatusLabel } from "../../lib/format";
-import type { CheckInDetail as CheckInDetailT, Draft, Escalation, Evidence } from "../../lib/types";
+import type {
+  AttributionRequest,
+  CheckInDetail as CheckInDetailT,
+  CheckInDetailR3,
+  Draft,
+  Escalation,
+  Evidence,
+} from "../../lib/types";
 import { AnswersColumn } from "./detail/AnswersColumn";
 import { DraftsColumn, type DraftActions } from "./detail/DraftsColumn";
 import {
@@ -43,10 +57,9 @@ import {
   type Selection,
 } from "./detail/model";
 import { attributionClockEffects, clocksForDraft, clocksOf, tierName } from "./detail/plain";
-import { briefPath, patchAttributionR4 } from "./detail/r34Api";
-import type { AttributionRequestR4, CheckInDetailR3 } from "./detail/r34Types";
 import { useCheckIn } from "./detail/useCheckIn";
 import { WhyPanel } from "./detail/WhyPanel";
+import { briefPath } from "../../lib/routes";
 
 export function CheckInDetail() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -144,7 +157,7 @@ export function CheckInDetail() {
       toast.push({ kind: "success", title: `${draft.domain} draft saved as v${next.version}` });
       reload();
     },
-    attribution: async (draft, body: AttributionRequestR4) => {
+    attribution: async (draft, body: AttributionRequest) => {
       // Which running clocks this answer stops, by kind, before the reload
       // refreshes them (AESER → SAE clock, INTERIM_IRAE = N → AESI clock; API
       // services/drafts.py). No running clock of that kind → nothing is said.
@@ -152,7 +165,7 @@ export function CheckInDetail() {
         body,
         detail ? clocksForDraft(clocksOf(detail as unknown as CheckInDetailR3), draft) : [],
       );
-      applyDraft(await patchAttributionR4(draft.id, body));
+      applyDraft(await patchAttribution(draft.id, body));
       toast.push({
         kind: "success",
         title: "Investigator assessment recorded",
@@ -301,7 +314,7 @@ function Header({
           <span title={tier !== null ? `Alert level: ${tierName(tier)}` : undefined}>
             {consentBasis === "enrollment_icf" || consentBasis
               ? `Consent: enrollment consent form${s?.consent_camera === false ? " · camera off" : ""}`
-              : `Camera consent: ${s?.consent_camera ? "yes" : "no"}`}
+              : `Camera: ${s?.consent_camera ? "on" : "off"}`}
           </span>
           <span>
             Vitals:{" "}

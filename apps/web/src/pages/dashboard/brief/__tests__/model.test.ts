@@ -28,8 +28,8 @@ import {
   writerLabel,
   writerTitle,
 } from "../model";
-import type { BriefItem } from "../types";
 import { ANSWER_RASH_2, briefJson, USUBJID } from "./fixture";
+import type { BriefItem } from "../../../../lib/types";
 
 const item = (over: Partial<BriefItem>): BriefItem => ({
   text: "x",

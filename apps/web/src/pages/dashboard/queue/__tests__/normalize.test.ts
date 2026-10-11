@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Participant } from "../../../../lib/types";
+import type { Participant, QueueItem } from "../../../../lib/types";
 import {
   buildQueueQuery,
   detailHref,
@@ -11,9 +11,8 @@ import {
   normalizeQueueItem,
   resolveParticipantFilter,
 } from "../normalize";
-import type { RawQueueItem } from "../types";
 
-const R1_ROW: RawQueueItem = {
+const R1_ROW: QueueItem = {
   session_id: "01JSESSION00000000000000A",
   usubjid: "R2810-ONC-1624-P-007",
   display_label: "P-007",

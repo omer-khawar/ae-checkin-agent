@@ -18,7 +18,7 @@
 import { Link } from "react-router-dom";
 
 import { cx, formatCountdown, Time } from "../../../lib/format";
-import type { Role } from "../../../lib/types";
+import type { ClockRow, Role } from "../../../lib/types";
 import { ClockActions } from "../detail/ClockActions";
 import { clockChip, clockKind, clockName } from "../detail/plain";
 import {
@@ -29,15 +29,14 @@ import {
   isOverdue,
   secondsRemaining,
 } from "./model";
-import type { SaeClockRowExt } from "./types";
 
 export interface SaeClocksTableProps {
-  rows: SaeClockRowExt[];
+  rows: ClockRow[];
   nowMs: number;
   /** Signed-in role (packet / decision controls). */
   role?: Role | null;
   /** A clock was stopped from this table (R4.3). */
-  onClockStopped?: (clock: SaeClockRowExt) => void;
+  onClockStopped?: (clock: ClockRow) => void;
 }
 
 /**
@@ -46,7 +45,7 @@ export interface SaeClocksTableProps {
  * dependency); "unknown" keeps the decision available for SAE clocks, with
  * wording that does not claim the source has no side-effect record.
  */
-function aeDraftHint(clock: SaeClockRowExt): boolean | null {
+function aeDraftHint(clock: ClockRow): boolean | null {
   if (typeof clock.has_ae_draft === "boolean") return clock.has_ae_draft;
   if (Array.isArray(clock.ae_draft_ids)) return clock.ae_draft_ids.length > 0;
   return null;

@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 import { TierChip } from "../../../components/TierChip";
 import { Time } from "../../../lib/format";
-import type { PageEventRow } from "./types";
+import type { PageEventRow } from "../../../lib/types";
 
 export interface PagerLogProps {
   rows: PageEventRow[];

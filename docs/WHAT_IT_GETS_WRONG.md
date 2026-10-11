@@ -1,8 +1,8 @@
 # What Interim gets wrong
 
-> Judges have said they are impressed when a team can name one thing its tool gets wrong and why. Here are nineteen, each with a concrete failure example you can reproduce, why we accepted it for v0.1, and how we would measure it. Nothing here is hidden in the UI: every limitation that affects a number is labeled next to that number (provisional, simulated, not RxNorm, mock, grade hint).
+> Judges have said they are impressed when a team can name one thing its tool gets wrong and why. Here are twenty-five, each with a concrete failure example you can reproduce, why we accepted it for v0.1, and how we would measure it. Nothing here is hidden in the UI: every limitation that affects a number is labeled next to that number (provisional, simulated, not RxNorm, mock, grade hint, estimate, possible AESI, written by template).
 
-Read with `docs/NOT_BUILT.md` (scope we chose not to build) and `docs/PRD.md` §7 (non-goals). Sections 1–14 cover the kiosk check-in, vitals and drafting; 15–19 were added in wave 2 for the chart-note scanner, the Synthea medication strings, the Presage source, the Synthea cohort, and note dates and grades. Every example quoted in 15–19 was re-run on 2026-10-10 with the shipped code (`interim_rules.chartscan.scan_text` with reference date 2026-10-10, `interim_rules.conmed.match_conmed`, or `POST /api/v1/notes` against a freshly seeded database); re-run them after any change to a table under `packages/rules/data/`.
+Read with `docs/NOT_BUILT.md` (scope we chose not to build) and `docs/PRD.md` §8 (non-goals). Sections 1–14 cover the kiosk check-in, vitals and drafting; 15–19 were added in wave 2 for the chart-note scanner, the Synthea medication strings, the Presage source, the Synthea cohort, and note dates and grades; 20–25 were added for the expanded scope (`CLAUDE.md` §00): the template writer, the time-saved estimate, the AESI mapping, the kiosk's yes/no rash, the Presage pulse ceiling, and discharge advice read as a hospital visit. Every example quoted in 15–19 was re-run on 2026-10-10 with the shipped code (`interim_rules.chartscan.scan_text` with reference date 2026-10-10, `interim_rules.conmed.match_conmed`, or `POST /api/v1/notes` against a freshly seeded database); re-run them after any change to a table under `packages/rules/data/`.
 
 ---
 
@@ -29,7 +29,7 @@ Read with `docs/NOT_BUILT.md` (scope we chose not to build) and `docs/PRD.md` §
 - **A participant who talks** during the check-in (reading questions aloud, asking a companion) corrupts breathing-rate estimation; the vendor's own capture guidance says talking degrades breathing. A real source may still report a confident-looking value. The mock cannot simulate "confident but wrong"; it only simulates "flagged".
 - **Motion**: shifting in the chair at second 40 can produce a transient breathing estimate of 25. Because corroboration uses the **session maximum** of eligible values (CONTRACTS §1.4), a single artifact ≥ 24 is enough to fire `corr.tachypnea_dyspnea` and bump the tier (see item 5).
 - **Lighting and clothing**: low light, backlighting, dark clothing or fine stripes reduce signal quality; the mock's `low_quality` scenario models flags, not the bias.
-- **Vendor valid ranges vs our thresholds**: the Presage documentation we captured in `docs/VITALS_SOURCES.md` states pulse is valid 40–110 BPM. Our tachycardia rule fires at **≥ 110**, i.e. at the top edge of the vendor's valid range. With a real source, readings above 110 may arrive with low confidence or validation flags, so `corr.tachycardia_dyspnea` may rarely fire on **measured** data even when the participant is genuinely tachycardic. The post-exercise demo works today only because the mock is not range-limited. The Presage source is now implemented but has not been run live; §17 lists what that adds.
+- **Vendor valid ranges vs our thresholds**: the Presage documentation we captured in `docs/VITALS_SOURCES.md` states pulse is valid 40–110 BPM. Our tachycardia rule fires at **≥ 110**, i.e. at the top edge of the vendor's valid range. With a real source, readings above 110 may arrive with low confidence or validation flags, so `corr.tachycardia_dyspnea` may rarely fire on **measured** data even when the participant is genuinely tachycardic. The post-exercise demo works today only because the mock is not range-limited. The Presage source is now implemented but has not been run live; §17 lists what that adds and §24 spells out the 110 bpm conflict.
 
 **Why we accepted it.** Vitals are context attached to the record. They never change a grade, they can only raise the escalation tier by one step, and every sample is auditable with its confidence. A wrong vitals value costs a nurse a phone call; it cannot create or hide an AE.
 
@@ -227,7 +227,7 @@ Covered in §4 (the Synthea rows in its table). The short version: the per-token
 - **Wrong population for the study.** Every participant is stage 1 and on cisplatin + paclitaxel; the demo study enrolled advanced or metastatic disease on cemiplimab. No immune-related AE appears anywhere (`docs/NOT_BUILT.md` §17).
 - **No seriousness signal in the text.** Synthea encodes emergency and inpatient visits as structured encounters, not words, so 0 of 27 emergency or inpatient notes contain a hospitalization cue; on these notes text alone can never start an SAE clock.
 - **Small and correlated.** 12 people, 72 notes, one configuration; notes repeat within a participant, so the effective sample is much smaller than 72.
-- **Same labels, different people.** Synthea's `P-001` … `P-012` share the label space of the seeded kiosk participants but are separately simulated; the seeded participants carry no demographics, so nothing contradicts, but nothing links them either until `docs/ISSUES.md` #23 lands.
+- **One label, two simulations.** The seed now attaches each Synthea chart's profile (age, sex, stage, comorbidities, active medications, earlier chemotherapy, resting pulse and breathing) to the seeded participant with the same label (`docs/ISSUES.md` #23), and centres the simulated kiosk vitals on its medians. The kiosk history and the hand-written notes were not generated from that chart, so they can disagree with it: a participant's background may list a medication their check-ins never mention, and Synthea dates are relative to its own reference date, not re-anchored to the seed. The background is always labeled "Synthea synthetic EHR (simulated)".
 
 **Why we accepted it.** It is the only synthetic EHR the judges named, it is reproducible from a pinned jar and seed, and its ground truth (medications, encounters) comes from structured FHIR the scanner never saw. An imperfect independent test is worth more than a perfect self-written one.
 
@@ -246,3 +246,81 @@ Covered in §4 (the Synthea rows in its table). The short version: the per-token
 **Why we accepted it.** Every hint carries its basis, every date its source, and the coordinator and investigator own the confirmed values. Guessing silently would be worse.
 
 **How we would measure it.** Edit rate on `AETOXGR` and `AESTDTC` for `INTERIM_RECORD_SOURCE = "chart_note"` drafts (audit `draft.edited` events), compared with check-in drafts.
+
+## 20. The template writer is stiff, and it cannot infer what is missing
+
+**What we do.** Report narratives, follow-up narratives, visit briefs and suggested query answers come from `interim_rules.narrative`, a template writer. Each sentence is assembled only from structured facts and cites their evidence ids; a sentence whose facts are missing is left out; every grade carries "(provisional, investigator to confirm)". Wording lives in `packages/rules/data/narrative_templates.json`.
+
+**Where it breaks.**
+- **It reads like a form.** One fact per sentence, in a fixed order. From the golden test facts (`packages/rules/tests/test_narrative.py`): "The event was shortness of breath (CTCAE term: Dyspnea), which began on 2026-10-08." · "The event was recorded as grade 3 (provisional, investigator to confirm)." · "Seriousness criteria suspected: requires inpatient hospitalisation or prolongation of existing hospitalisation (investigator to confirm)." A medical writer would merge these into two sentences; a sponsor's safety physician may find the repetition tiring.
+- **It cannot infer.** If the ER note says "admitted overnight for IV fluids" but nobody has entered hospital dates, the narrative does not say when the participant was discharged or why fluids were given; those become lines under "Information still needed". It never connects facts the data does not connect (it will not say the confusion was *caused* by dehydration), which is correct but leaves the reasoning to the investigator.
+- **It only knows the kinds it has templates for.** Follow-up reports reuse the initial narrative's templates (`sae_narrative` / `aesi_narrative`) and show a separate "changes since the previous report" list beside them, rather than a narrative written as a follow-up.
+- **The optional Claude writer is not measured.** With a key it could read better, and `validate_written` checks its citations, verbatim quotes and decision qualifiers, but it cannot check an unquoted factual claim against its evidence. No key was available, so no Claude output has been evaluated; the template writer is what ships and what the eval measures.
+
+**Why we accepted it.** A stiff sentence that is traceable beats a fluent one that is not. Every sentence shows its sources, the investigator edits before signing, and the signed packet records whether the generated or an edited narrative was signed.
+
+**How we would measure it.** Edit distance between the drafted and the signed narrative per packet (both are stored); a blinded readability rating by a safety physician of template versus edited narratives; for any model writer, a per-sentence factual-consistency audit against the cited evidence before it is allowed to replace the template.
+
+## 21. The time-saved number is an estimate built mostly on assumptions
+
+**What we do.** `GET /metrics/time-saved` counts the fields Interim pre-filled that a person did not edit (per confirmed record), signed report fields, narrative paragraphs, brief sections and queries answered from the suggestion, and multiplies by per-unit minutes from `packages/rules/data/time_model.json`. The screen always says "estimate" and shows the basis.
+
+**Where it breaks.**
+- **Only one rate is measured.** 0.1 minute per structured vitals field comes from a Memorial Sloan Kettering + IgniteData time-and-motion study (5 data managers, 1 hour, labs and vitals). Every other rate is a labeled assumption anchored to it: AE field 1.0 min (10×), medication field 0.75 min (7.5×), report field 1.5 min (15×), narrative paragraph 10 min, brief section 5 min.
+- **It counts what was pre-filled, not what was needed.** A pre-filled field the coordinator would never have typed (because she would have left the record for the next visit) still counts. Reading and checking the pre-filled record costs time that the estimate does not subtract.
+- **The weekly context is a single secondary source.** The 12–15 hours per study per week of EHR-to-EDC copying is Mednet's figure, reported by Clinical Trial Vanguard; it is shown only as "compare with", never multiplied into the estimate.
+- **Briefs and packets are counted once per visit or report**, by design, so refreshing a brief does not inflate the number; but a brief nobody reads still counts.
+
+**Why we accepted it.** A labeled estimate with its basis on screen is more honest than no number, and the counts underneath it (fields pre-filled, fields edited) are real measurements of what Interim did.
+
+**How we would measure it.** A time-and-motion study at a pilot site: the same week's safety work done with and without Interim, timed per task (AE entry, CM entry, SAE form, narrative, query, visit prep), replacing each assumption in `time_model.json` with a measured rate.
+
+## 22. "Potentially immune-related" is our reading of the protocol for some symptoms
+
+**What we do.** The protocol (§9.4.3, p. 92) makes a grade ≥ 3 immune-related AE an adverse event of special interest with a 24-hour deadline. Only the investigator can call an AE immune-related, so Interim uses a fixed table, `packages/rules/data/irae_mapping.json`, to decide which kiosk symptoms *could* be: shortness of breath (pneumonitis), diarrhea (colitis), rash and itching (dermatologic), joint pain (musculoskeletal), fatigue (endocrine). Cough, nausea, fever or chills, and mouth sores are not.
+
+**Where it breaks.**
+- The protocol's examples are "rash, colitis, elevated transaminases, or endocrine". **Pneumonitis via shortness of breath, joint pain as arthritis, and fatigue as an endocrine signal are the team's reading**, recorded with a rationale in the table, not the protocol's words. In lung cancer, shortness of breath is very often the disease itself, so a grade 3 dyspnea starts a "possible AESI" clock that the investigator will frequently stop.
+- Mouth sores can be immune-related but are excluded (more often chemotherapy); a grade 3 immune-related mucositis would not start a clock.
+- Infusion-related and allergic reactions (also AESIs in §9.4.3) cannot be seen from the 10 kiosk items, and a chart note never starts an AESI clock this round.
+
+**Why we accepted it.** The clock is labeled "possible AESI, investigator to confirm", the investigator stops it with one answer ("Immune-related? No"), and the table is the one place to change the mapping, with its rationale beside it.
+
+**How we would measure it.** Share of possible-AESI clocks stopped as "not immune-related" per symptom; review of the mapping with the study's medical monitor before use.
+
+## 23. Kiosk rash is yes/no, so it can never reach grade 3 or start an AESI clock
+
+**What we do.** `rash` is a presence-only item at the kiosk: present → composite 1 → grade 1 (§1).
+
+**Where it breaks.** Rash is the protocol's first example of an immune-related AE, yet a participant with a blistering rash over most of the body is grade 1 at the kiosk, Tier 0 unless something else is reported, and **no AESI clock starts**. The seed's overnight possible-AESI case is therefore diarrhea, not rash. A grade 3 rash can only reach Interim through a chart note (a note's grade hint can be 3, e.g. "% BSA"), and a note never starts an AESI clock this round (§22). Severe *itching* with high interference does reach grade 3 and starts the clock (persona `P3-itching-g3-aesi-clock`), which partly covers the gap.
+
+**Why we accepted it.** The item set follows PRO-CTCAE's structure, in which rash is a presence item; adding severity and body-surface questions would mean writing our own unvalidated item.
+
+**How we would measure it.** Compare kiosk rash reports with the investigator's confirmed grade; if severe rashes are being missed, add the PRO-CTCAE severity attribute for skin items under NCI's terms and re-run the personas.
+
+## 24. Presage's pulse range ends at 110 bpm, exactly where our pulse rules begin
+
+**What we do.** Two corroboration rules in `packages/rules/data/vitals_corroboration.json` fire at pulse **≥ 110 bpm** (with moderate shortness of breath; with fever). The Presage source is documented as valid for pulse **40–110 bpm** (`docs/VITALS_SOURCES.md` §5).
+
+**Where it breaks.** On real Presage readings the two pulse rules can fire only at exactly 110, the edge of the valid range, where readings may arrive with low confidence or validation flags and be ignored. In practice they **can never fire on measured Presage data**. They fire today only on simulated data with the admin's "treat simulated as measured" toggle on (the `post_exercise` scenario, the judge persona `J-toggle-only-tachycardia-dyspnea`). The breathing rule (≥ 24 breaths/min, within Presage's 5–40 range) is unaffected.
+
+**Why we accepted it.** Vitals are optional context (D-026): they never change a grade and raise the tier by at most one step. A rule that cannot fire costs nothing clinically; it is documented so nobody believes it is protecting them.
+
+**How we would measure it.** Run the live checklist and record whether any Presage pulse above 105 ever arrives with confidence above the threshold; then either lower the rule's threshold for camera sources with a cited rationale or mark the rule "contact sensors only".
+
+## 25. Discharge advice is read as a hospital visit and starts a false serious-event clock
+
+**What we do.** The scanner's hospitalization red flag looks for phrases such as "to the ER", "in the ED", "admitted". A hit sets seriousness suspected and starts the 24-hour SAE clock at ingestion.
+
+**Where it breaks** (re-run on 2026-10-10 with `interim_rules.chartscan.scan_text`):
+
+| Note text | What the scanner did |
+|---|---|
+| `Discharged home. If symptoms worsen, go to the ER.` | Red flag `hospitalization` on "to the ER" → seriousness suspected, SAE clock |
+| `Return to the ER if fever or shortness of breath.` | Red flags `fever` and `hospitalization` → Tier 2, SAE clock |
+
+Advice about a *future* ER visit is not a visit. The symptom exclusions already treat "if …" and "call if …" as hypothetical, but the red-flag detection does not apply those cues (`docs/ISSUES.md` #25). Standard discharge instructions appear in many outside records, so this would start false 24-hour clocks regularly.
+
+**Why we accepted it (for now).** A false clock is visible and cheap to stop: the investigator records a seriousness decision on it ("Record seriousness decision", `PATCH /sae-clocks/{id}/stop`), audited. A missed real hospitalization would be worse.
+
+**How we would measure it.** Add these sentences to the scanner's answer key as negative cases, apply the hypothetical cues to red flags, and report false-clock and missed-clock counts separately on the answer key and on any real-note set.

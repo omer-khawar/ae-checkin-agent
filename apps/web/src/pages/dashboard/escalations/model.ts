@@ -4,8 +4,8 @@
  * Everything time-based takes `nowMs` as an argument so the live countdowns are
  * deterministic in tests and so one `useNow()` tick drives every cell.
  */
-import type { Paginated } from "../../../lib/types";
-import type { AckFilter, EscalationRow, EscalationSource, SaeClockRowExt } from "./types";
+import type { ClockRow, EscalationRow, EscalationSource, Paginated } from "../../../lib/types";
+import type { AckFilter } from "./types";
 
 // ---------------------------------------------------------------------------
 // Generic
@@ -137,7 +137,7 @@ export function medianSecondsToAck(rows: EscalationRow[]): { median: number | nu
 // SAE clocks
 // ---------------------------------------------------------------------------
 
-export function isClockActive(c: SaeClockRowExt): boolean {
+export function isClockActive(c: ClockRow): boolean {
   return c.stopped_at === null || c.stopped_at === undefined;
 }
 
@@ -145,20 +145,20 @@ export function isClockActive(c: SaeClockRowExt): boolean {
  * Live seconds until `due_at` (negative = overdue). Stopped clocks return null.
  * Falls back to the server's `seconds_remaining` snapshot if `due_at` is unparsable.
  */
-export function secondsRemaining(c: SaeClockRowExt, nowMs: number): number | null {
+export function secondsRemaining(c: ClockRow, nowMs: number): number | null {
   if (!isClockActive(c)) return null;
   const due = parseMs(c.due_at);
   if (due !== null) return (due - nowMs) / 1000;
   return typeof c.seconds_remaining === "number" ? c.seconds_remaining : null;
 }
 
-export function isOverdue(c: SaeClockRowExt, nowMs: number): boolean {
+export function isOverdue(c: ClockRow, nowMs: number): boolean {
   const s = secondsRemaining(c, nowMs);
   return s !== null && s < 0;
 }
 
 /** Active clocks first (soonest due first), then stopped clocks (most recently stopped first). */
-export function sortClocks(rows: SaeClockRowExt[]): SaeClockRowExt[] {
+export function sortClocks(rows: ClockRow[]): ClockRow[] {
   return [...rows].sort((a, b) => {
     const activeDiff = Number(isClockActive(b)) - Number(isClockActive(a));
     if (activeDiff !== 0) return activeDiff;

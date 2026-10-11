@@ -21,15 +21,14 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { Pagination } from "../../../components/Pagination";
-import { DEFAULT_PAGE_SIZE } from "../../../lib/api";
+import { DEFAULT_PAGE_SIZE, getQueryCounts, listQueries } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { cx } from "../../../lib/format";
 import { AGE_ALERT_HOURS, STATUS_LABELS } from "./model";
 import { QueriesTable } from "./QueriesTable";
-import { getQueryCounts, listQueries } from "./queriesApi";
 import { QueryPanel } from "./QueryPanel";
 import { RaiseQueryForm } from "./RaiseQueryForm";
-import type { QueriesPage as QueriesPageData, QueryCounts, QueryStatus } from "./types";
+import type { QueriesPage as QueriesPageData, QueryCounts, QueryStatus } from "../../../lib/types";
 
 const TABS: QueryStatus[] = ["open", "answered", "closed"];
 

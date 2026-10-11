@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 
 import { TierChip } from "../../../components/TierChip";
 import { formatCountdown, Time } from "../../../lib/format";
-import type { NoteDraft, NoteEscalation, NoteSAEClock } from "./types";
+import type { NoteDraft, NoteEscalation, NoteSAEClock } from "../../../lib/types";
 
 export interface OutcomeProps {
   noteId: string;

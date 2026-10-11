@@ -2,7 +2,8 @@
  * Words for phone-call records (CONTRACTS.md R4.1) and note types. Plain
  * labels only; the components that use them live in PhoneCall.tsx.
  */
-import { PHONE_CALL_NOTE_TYPE, type CallDirection, type CallerKind } from "../detail/r34Types";
+import { PHONE_CALL_NOTE_TYPE } from "../../../lib/api";
+import type { CallDirection, CallerKind } from "../../../lib/types";
 
 export function isPhoneCall(noteType: string | null | undefined): boolean {
   return noteType === PHONE_CALL_NOTE_TYPE;

@@ -23,10 +23,10 @@ import { Button } from "../../../components/Button";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
 import { cx } from "../../../lib/format";
-import type { Role } from "../../../lib/types";
+import type { ClockRow, Role } from "../../../lib/types";
 import { canRecordDecision, clockChip, clockKind, decisionString } from "./plain";
-import { openPacket, packetPath, stopClock } from "./r34Api";
-import type { ClockRow } from "./r34Types";
+import { openPacket, stopClock } from "../../../lib/api";
+import { packetPath } from "../../../lib/routes";
 
 export interface ClockActionsProps {
   clock: ClockRow;

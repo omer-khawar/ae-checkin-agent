@@ -19,7 +19,7 @@ import {
   ruleSentence,
   tierName,
 } from "../plain";
-import type { ClockRow } from "../r34Types";
+import type { ClockRow } from "../../../../lib/types";
 
 const clock = (over: Partial<ClockRow> = {}): ClockRow => ({
   id: "C1",

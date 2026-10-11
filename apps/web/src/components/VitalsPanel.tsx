@@ -1,7 +1,7 @@
 /**
- * The small, calm vitals card shown on the kiosk from camera consent onward
- * (CLAUDE.md §3.3). It renders whatever the bridge publishes and never computes
- * anything clinical.
+ * The small, calm vitals card shown on the kiosk while a check-in runs with
+ * the camera on (CLAUDE.md §3.3). It renders whatever the bridge publishes and
+ * never computes anything clinical.
  *
  * Per-metric slot (see `metricSlot()` in lib/vitals.ts):
  *   - the number, once the bridge's `published.<metric>` flag is true and the

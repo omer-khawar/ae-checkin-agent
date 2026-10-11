@@ -20,7 +20,7 @@ import {
   secondsUntil,
   sequenceLabel,
 } from "./model";
-import type { Packet, PacketChange, PacketDeadline } from "./types";
+import type { Packet, PacketChange, PacketDeadline } from "../../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Header

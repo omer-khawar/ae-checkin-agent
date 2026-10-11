@@ -26,9 +26,8 @@ import {
   sdtmBadge,
   type Labels,
 } from "../detail/plain";
-import type { ProtocolAssessment } from "../detail/r34Types";
 import { rangeForEvidence } from "./highlight";
-import type { NoteDraft, NoteEvidence } from "./types";
+import type { Evidence, NoteDraft, ProtocolAssessment } from "../../../lib/types";
 
 type Range = { start: number; end: number };
 
@@ -95,7 +94,7 @@ function valueText(v: unknown): string {
   return String(v);
 }
 
-function EvidenceList({ items }: { items: NoteEvidence[] }) {
+function EvidenceList({ items }: { items: Evidence[] }) {
   if (items.length === 0) {
     return <p className="text-xs text-slate-500">No evidence recorded for this field.</p>;
   }

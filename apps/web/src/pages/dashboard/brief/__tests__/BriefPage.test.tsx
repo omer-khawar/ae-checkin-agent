@@ -109,6 +109,11 @@ describe("BriefPage", () => {
     expect(
       screen.getByText(/possible event of special interest, investigator to confirm/),
     ).toBeInTheDocument();
+    expect(screen.getByText("Not yet acknowledged")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open report draft" })).toHaveAttribute(
+      "href",
+      "/dashboard/packets/01JPACKET000000000000AESI1",
+    );
 
     // Notes: note type in words. Vitals: the word SIMULATED beside the value.
     expect(screen.getByText("Phone call")).toBeInTheDocument();

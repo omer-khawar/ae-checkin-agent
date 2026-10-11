@@ -15,6 +15,7 @@ import { DEFAULT_OPTIONS, optionsFor } from "../../../lib/format";
 import type {
   Answer,
   Attribute,
+  AttributionRequest,
   CheckInDetail,
   CtcaeTerm,
   Domain,
@@ -26,7 +27,6 @@ import type {
   RuleCategory,
   RuleFired,
 } from "../../../lib/types";
-import type { AttributionRequestR4 } from "./r34Types";
 
 // ---------------------------------------------------------------------------
 // Answers
@@ -180,8 +180,8 @@ export function attributionBody(
   current: AttributionChoice,
   picked: AttributionChoice,
   note: string,
-): AttributionRequestR4 | null {
-  const body: AttributionRequestR4 = {};
+): AttributionRequest | null {
+  const body: AttributionRequest = {};
   const aeser = picked.AESER.trim();
   const aerel = picked.AEREL.trim();
   if (aeser !== "" && aeser !== current.AESER) body.AESER = aeser;

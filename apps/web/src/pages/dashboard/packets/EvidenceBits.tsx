@@ -14,7 +14,7 @@ import { Card } from "../../../components/Card";
 import { MeasuredBadge } from "../../../components/MeasuredBadge";
 import { cx, Time } from "../../../lib/format";
 import { evidenceKindLabel, evidenceLink, evidenceQuote } from "./model";
-import type { PacketEvidence } from "./types";
+import type { PacketEvidence } from "../../../lib/types";
 
 /** What the inspector shows: the pointer (or just an id that did not resolve) and where it was clicked. */
 export interface EvidenceSelection {

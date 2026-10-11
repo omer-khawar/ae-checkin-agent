@@ -328,14 +328,29 @@ export interface RuleSettings {
   dedup_window_days: number | null;
 }
 
-export type EvidenceKind = "pro_response" | "vitals_sample" | "gate_answer" | "rule" | "table";
+/**
+ * `chart_note` (R2.4: a quoted span of a chart note or call summary) and
+ * `protocol` (R3.1: a section and printed page of the study protocol) joined
+ * the R1 kinds in Revisions 2 and 3.
+ */
+export type EvidenceKind =
+  | "pro_response"
+  | "vitals_sample"
+  | "gate_answer"
+  | "rule"
+  | "table"
+  | "chart_note"
+  | "protocol";
 
 export interface Evidence {
   kind: EvidenceKind;
-  /** answer id / sample id / rule id / table file name */
+  /** answer id / sample id / rule id / table file name / note id / protocol ref */
   id: string;
   ts: IsoUtc | null;
   note: string;
+  /** chart_note only: character offsets of the quoted words in the note text. */
+  span_start?: number;
+  span_end?: number;
 }
 
 export type RuleCategory =
@@ -492,21 +507,65 @@ export interface Draft {
   note: string | null;
 }
 
+/**
+ * Where a queue item came from. `phone_call` is a chart note whose `note_type`
+ * is "phone_call" (R4.1): the API files it under `source: "chart_note"`, but
+ * the coordinator reads "Phone call", so the queue gives it its own value.
+ */
+export type QueueSource = "check_in" | "chart_note" | "phone_call";
+
+/** One clock as the API may send it inside a queue row (`clocks[]`, R3.2). */
+export interface QueueItemClock {
+  id?: Ulid | null;
+  kind?: ClockKind | string | null;
+  due_at?: IsoUtc | null;
+  stopped_at?: IsoUtc | null;
+  /** When a packet exists for the clock, the chip links to it (R3.2 packets). */
+  packet_id?: Ulid | null;
+}
+
+/**
+ * A row of GET /queue: the R1 shape plus the R2.4 note fields and the R3.2
+ * clock fields. Everything beyond R1 is optional so a minimal API still
+ * renders; `queue/normalize.ts#normalizeQueueItem` turns it into a view row.
+ */
 export interface QueueItem {
-  session_id: Ulid;
+  /** Null for chart-note and phone-call items (R2.4). */
+  session_id?: Ulid | null;
+  note_id?: Ulid | null;
+  source?: QueueSource | string;
   usubjid: string;
   display_label: string;
   completed_at: IsoUtc;
   tier: number;
   tier_name: string;
-  max_grade: number;
+  max_grade?: number | null;
   vitals_status: VitalsStatus;
   is_measured: boolean;
   has_sae_clock: boolean;
   sae_due_at: IsoUtc | null;
   escalation_acked: boolean | null;
-  draft_counts: Record<Domain, number>;
+  draft_counts?: Partial<Record<Domain, number>> | null;
   draft_status_summary: string;
+  /** Optional: any of these marks the SAE clock as stopped by an investigator. */
+  sae_stopped_at?: IsoUtc | null;
+  sae_stopped?: boolean | null;
+  sae_clock_stopped?: boolean | null;
+  sae_clock?: {
+    stopped_at?: IsoUtc | null;
+    due_at?: IsoUtc | null;
+    kind?: ClockKind | string | null;
+  } | null;
+  /** R3.2: the kind of the row's single legacy clock (no SAE/AESI claim when absent). */
+  clock_kind?: ClockKind | string | null;
+  sae_kind?: ClockKind | string | null;
+  /** R3.2: every clock on the item, each with its kind (wins over the legacy fields). */
+  clocks?: QueueItemClock[] | null;
+  /** R2.4 / R4.1: chart-note type; "phone_call" marks a logged call. */
+  note_type?: string | null;
+  note_date?: string | null;
+  /** True while drafts await review or an escalation is unacknowledged (API-computed). */
+  is_open?: boolean | null;
 }
 
 export interface QueueQuery {
@@ -575,6 +634,12 @@ export interface AEOpen {
   first_session_id: Ulid;
   last_session_id: Ulid;
   ongoing: boolean;
+  /**
+   * Optional timestamps the rules-side `OpenAE` carries. When absent the
+   * timeline falls back to the linked sessions' timestamps.
+   */
+  first_reported_at?: IsoUtc | null;
+  last_reported_at?: IsoUtc | null;
 }
 
 export interface SymptomPoint {
@@ -609,11 +674,17 @@ export interface Timeline {
   vitals_series: VitalsSeriesPoint[];
   open_aes: AEOpen[];
   conmed_changes: ConmedChange[];
+  /** R2.4: chart notes and logged calls for this participant (shape not pinned). */
+  notes?: ChartNoteSummary[];
 }
+
+export type IraeValue = "Y" | "N";
 
 export interface AttributionRequest {
   AEREL?: string;
   AESER?: string;
+  /** R4.3: investigator's immune-related assessment; null = not decided (protocol p. 91). */
+  INTERIM_IRAE?: IraeValue | null;
   note?: string;
 }
 
@@ -793,6 +864,30 @@ export interface EvalResults {
   conmed_correct: { n: number; correct: number };
   per_persona: EvalPerPersona[];
   markdown: string;
+
+  // ---- R2.2 extras the live API sends (read through eval/evalExtras.ts) ----
+  /**
+   * Each persona that declares `counterfactuals` is replayed again with its
+   * settings toggled; the harness records baseline tier vs new tier and checks
+   * the invariant "settings never change a provisional grade".
+   */
+  counterfactuals?: EvalCounterfactual[];
+  /** Expected keys the harness does not compare (informational). */
+  notices?: string[];
+  ran_by?: string;
+  persona_ids?: string[] | null;
+  interim_version?: string;
+}
+
+export interface EvalCounterfactual {
+  persona_id: string;
+  label: string;
+  settings?: Record<string, unknown> | null;
+  baseline_tier: number;
+  tier: number;
+  pass: boolean;
+  mismatches: string[];
+  session_id: Ulid | null;
 }
 
 export interface EvalRunRequest {
@@ -840,6 +935,751 @@ export type SettingsUpdate = Partial<
 export interface AdminResetResponse {
   ok: boolean;
   [extra: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// R3.2 Report clocks (SAE / AESI) and R4.3 stopping one
+// ---------------------------------------------------------------------------
+
+/** `sae` = suspected serious event; `aesi` = possible adverse event of special interest. */
+export type ClockKind = "sae" | "aesi";
+
+/**
+ * A 24-hour report clock as any endpoint returns it (check-in detail, notes,
+ * GET /sae-clocks). `session_id` is null for a clock a chart note or phone call
+ * started (R2.4); `ae_draft_ids` / `has_ae_draft` are optional hints a newer API
+ * may send so the page knows whether the seriousness decision can go through an
+ * AE draft's attribution instead.
+ */
+export interface ClockRow extends Omit<SAEClockRow, "session_id"> {
+  session_id: Ulid | null;
+  note_id?: Ulid | null;
+  kind?: ClockKind | string | null;
+  /** Server-side snapshot; pages recompute from `due_at` live. */
+  overdue?: boolean;
+  created_at?: IsoUtc | null;
+  /** The report packet already opened for this clock, when the API joins it. */
+  packet_id?: Ulid | null;
+  ae_draft_ids?: Ulid[] | null;
+  has_ae_draft?: boolean | null;
+}
+
+/** `PATCH /sae-clocks/{id}/stop` body (R4.3; investigator only). */
+export interface StopClockRequest {
+  /** e.g. "AESER = Y" or "AESER = N" (apps/api schemas.StopSaeClockRequest). */
+  decision: string;
+  note?: string;
+}
+
+/** `GET /sae-clocks?active=&limit=&offset=` paging. */
+export interface SaeClocksQuery {
+  /** `true` = running clocks, `false` = stopped clocks. */
+  active: boolean;
+  limit: number;
+  offset: number;
+}
+
+// ---------------------------------------------------------------------------
+// R3.1 Protocol assessment (serialized by the rules package)
+// ---------------------------------------------------------------------------
+
+export interface ProtocolRef {
+  section: string;
+  printed_page: number;
+}
+
+export type ProtocolLevel = "prohibited" | "discouraged" | "permitted";
+
+export interface ProtocolConMedFlag {
+  level: ProtocolLevel | string;
+  drug: string;
+  matched_text?: string;
+  matched_by?: string;
+  protocol_ref?: ProtocolRef | null;
+  /** The protocol sentence the classification rests on, verbatim. */
+  quote?: string | null;
+  /** For discouraged drugs: the protocol's exception wording, verbatim. */
+  exception_text?: string | null;
+  condition?: string | null;
+  is_category?: boolean;
+}
+
+export interface ProtocolAssessment {
+  protocol_id?: string;
+  aesi_suspected?: boolean;
+  aesi_items?: string[];
+  aesi_reasons?: string[];
+  conmed_flags?: ProtocolConMedFlag[];
+  conmed_flag?: ProtocolLevel | string | null;
+  conmed_notes?: string[];
+  cm_missing_fields?: string[];
+  tier_floor?: number;
+  ae_reporting_window_end?: string | null;
+  within_ae_reporting_window?: boolean | null;
+  rules_fired?: RuleFired[];
+}
+
+/** A rule row that may carry the API's own plain sentence (R3.1 plain_language.json). */
+export interface RuleFiredPlain extends RuleFired {
+  plain?: string | null;
+  plain_sentence?: string | null;
+}
+
+/** Evidence pointer as the R3/R4 endpoints may send it (open kind union). */
+export interface EvidenceR3 extends Omit<Evidence, "kind"> {
+  kind: EvidenceKind | string;
+}
+
+/**
+ * `GET /checkins/{id}` as R3.2 widens it: every clock may carry a kind, and the
+ * response may add the protocol assessment and SDTM → plain labels. Every new
+ * field is optional so the page renders against the R2 API as well.
+ */
+export interface CheckInDetailR3 extends Omit<CheckInDetail, "sae_clock"> {
+  sae_clock: ClockRow | null;
+  /** R3.1: `CheckInResult.aesi_clock`, surfaced as a row when the API stores it. */
+  aesi_clock?: ClockRow | null;
+  /** Some builds return every clock of the session as one list. */
+  clocks?: ClockRow[] | null;
+  protocol?: ProtocolAssessment | null;
+  /** SDTM variable → plain label (R3.2). */
+  labels?: Record<string, string> | null;
+  /** R3.2 kiosk: the camera setting is covered by the enrollment ICF. */
+  session: CheckInDetail["session"] & { consent_basis?: string | null };
+}
+
+// ---------------------------------------------------------------------------
+// R2.4 Chart notes and R4.1 phone calls
+// ---------------------------------------------------------------------------
+
+export type CallerKind = "participant" | "caregiver" | "other";
+export type CallDirection = "inbound" | "outbound";
+
+/** NegEx-style reasons a mention is excluded from drafting (R2.4). */
+export type ExcludedReason =
+  | "negated"
+  | "historical"
+  | "hypothetical"
+  | "resolved"
+  | "allergy"
+  | "indication";
+
+export interface SymptomFinding {
+  /** CTCAE v5 term, e.g. "Dyspnea". */
+  term: string;
+  /** The matched words, verbatim from the note. */
+  quote: string;
+  span_start: number;
+  span_end: number;
+  /** Plain-English reason the scanner kept (or excluded) this mention. */
+  reason: string;
+  /** Provisional grade hint derived from severity words; null when none found. */
+  grade_hint: number | null;
+  grade_basis: string;
+  onset_days: number | null;
+  worsening: boolean;
+  excluded_reason: ExcludedReason | null;
+}
+
+export type MedChange = "started" | "stopped" | "changed" | "taking";
+
+export interface MedFinding {
+  /** Lowercase lexicon name, e.g. "loperamide". */
+  drug: string;
+  change: MedChange;
+  quote: string;
+  span_start: number;
+  span_end: number;
+  reason: string;
+  excluded_reason: ExcludedReason | null;
+}
+
+export type RedFlagLevel = "emergency" | "urgent";
+
+export interface RedFlag {
+  level: RedFlagLevel;
+  category: string;
+  quote: string;
+  span_start: number;
+  span_end: number;
+  reason: string;
+}
+
+export interface ScanResult {
+  symptoms: SymptomFinding[];
+  excluded_symptoms: SymptomFinding[];
+  meds: MedFinding[];
+  excluded_meds: MedFinding[];
+  red_flags: RedFlag[];
+}
+
+export interface ChartNote {
+  id: Ulid;
+  usubjid: string;
+  /** Participant label (P-001 …) when the API joins it; otherwise derived from usubjid. */
+  display_label?: string;
+  note_date: string;
+  author: string;
+  note_type: string;
+  text: string;
+  ingested_at: IsoUtc;
+  ingested_by: string;
+  tier?: number | null;
+  /** R4.1 phone calls: who called. */
+  caller?: CallerKind | string | null;
+  /** R4.1 phone calls: who placed the call. */
+  call_direction?: CallDirection | string | null;
+}
+
+/** A row of `GET /notes`. Counts are optional: the page falls back to the scan. */
+export interface ChartNoteListItem extends ChartNote {
+  scan?: ScanResult | null;
+  n_symptoms?: number;
+  n_meds?: number;
+  n_red_flags?: number;
+  n_drafts?: number;
+  draft_counts?: Partial<Record<"AE" | "VS" | "CM", number>>;
+}
+
+/** One chart note as the participant timeline lists it (possibly summarised). */
+export interface ChartNoteSummary {
+  id: Ulid;
+  usubjid?: string;
+  /** Date the note was written (ISO date or datetime). */
+  note_date?: string | null;
+  author?: string | null;
+  note_type?: string | null;
+  /** The note text, when the API includes it. Verbatim; never parsed here. */
+  text?: string | null;
+  ingested_at?: IsoUtc | null;
+  ingested_by?: string | null;
+  /** Some API builds attach counts of drafts the scan produced. */
+  draft_count?: number | null;
+  drafts?: unknown[] | null;
+  escalation_tier?: number | null;
+  /** R4.1 phone calls (note_type "phone_call"): who called and which way. */
+  caller?: string | null;
+  call_direction?: string | null;
+}
+
+export interface NoteDraft extends Omit<Draft, "evidence"> {
+  evidence: Record<string, Evidence[]>;
+  note_id?: Ulid | null;
+  source?: QueueSource;
+}
+
+export interface NoteEscalation extends Escalation {
+  note_id?: Ulid | null;
+  source?: "check_in" | "chart_note";
+}
+
+/** A report clock as the note endpoints return it (started by a check-in or a note). */
+export interface NoteSAEClock extends SAEClockRow {
+  note_id?: Ulid | null;
+  /** R3.2: `sae` or `aesi`. */
+  kind?: ClockKind | string | null;
+  /** The report packet already opened for this clock, when the API joins it. */
+  packet_id?: Ulid | null;
+  ae_draft_ids?: Ulid[] | null;
+  has_ae_draft?: boolean | null;
+}
+
+export interface ScanRequest {
+  text: string;
+  /** YYYY-MM-DD; onset dates are computed relative to it. */
+  ref_date?: string;
+}
+
+export interface NoteIngestRequest {
+  usubjid: string;
+  note_date: string;
+  author: string;
+  note_type: string;
+  text: string;
+  /** R4.1: only with note_type "phone_call". */
+  caller?: CallerKind;
+  call_direction?: CallDirection;
+}
+
+/** `POST /notes` response (R2.4). */
+export interface NoteIngestResponse {
+  note: ChartNote;
+  scan: ScanResult;
+  drafts: NoteDraft[];
+  escalation: NoteEscalation | null;
+  sae_clock: NoteSAEClock | null;
+  rules_fired: RuleFiredPlain[];
+  why: string[];
+  /** R3.2: SDTM variable → plain label, when the API sends it. */
+  labels?: Record<string, string> | null;
+  /** R3.1: protocol assessment for the note's findings, when the API sends it. */
+  protocol?: ProtocolAssessment | null;
+}
+
+/** `GET /notes/{id}` response: the note, its stored scan and drafts. */
+export type NoteDetailResponse = NoteIngestResponse;
+
+export interface NotesQuery {
+  usubjid?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export type NotesPage = Paginated<ChartNoteListItem>;
+
+/** R4.1 "Log a call": the coordinator's call summary, scanned exactly like a chart note. */
+export interface PhoneCallRequest {
+  usubjid: string;
+  /** YYYY-MM-DD the call took place. */
+  note_date: string;
+  /** Who logged it (the signed-in user's display name). */
+  author: string;
+  caller: CallerKind;
+  call_direction: CallDirection;
+  /** The call summary, stored verbatim. */
+  text: string;
+}
+
+// ---------------------------------------------------------------------------
+// R2.3 / R2.4 Escalations page rows
+// ---------------------------------------------------------------------------
+
+/** An escalation comes from a kiosk check-in or a chart note (R2.3/R2.4). */
+export type EscalationSource = "check_in" | "chart_note";
+
+export interface EscalationRow extends Omit<Escalation, "session_id"> {
+  /** Null for chart-note escalations (R2.4). */
+  session_id: Ulid | null;
+  source?: EscalationSource | string | null;
+  /** Set for chart-note escalations (session_id is then null). */
+  note_id?: Ulid | null;
+  tier_name?: string;
+  /** When the escalation was created; the start of the time-to-acknowledge clock. */
+  created_at?: IsoUtc | null;
+  /**
+   * Provenance of the vitals that fed any corroboration rule (CLAUDE.md §3.4(d)):
+   * `true` = measured sensor, `false` = simulated. Rendered as a
+   * MEASURED/SIMULATED badge when the API sends it, omitted (never guessed) until then.
+   */
+  vitals_is_measured?: boolean | null;
+}
+
+export interface PageEventRow extends PageEvent {
+  usubjid?: string | null;
+  escalation_id?: Ulid | null;
+}
+
+// ---------------------------------------------------------------------------
+// §00.3 Generated text (interim_rules.narrative WrittenText)
+// ---------------------------------------------------------------------------
+
+/** One generated sentence and the evidence ids it cites (narrative.py Sentence). */
+export interface WrittenSentence {
+  text: string;
+  evidence_ids: string[];
+  section?: string | null;
+  template_id?: string | null;
+}
+
+/**
+ * Output of the text writer. `writer` is "template" or "llm" from the contract;
+ * a normalizer may map anything else to "unknown" so a page never mislabels who
+ * wrote the text.
+ */
+export interface WrittenText {
+  kind: string;
+  writer: "template" | "llm" | "unknown";
+  sentences: WrittenSentence[];
+  text: string;
+  fallback_reason?: string | null;
+  /**
+   * Optional: the resolved pointers for every id the sentences cite, so
+   * evidence chips resolve even for evidence the page did not load.
+   */
+  evidence?: QueryEvidence[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// R3.2 / R4.2 Report packets
+// ---------------------------------------------------------------------------
+
+export type PacketStatus = "draft" | "signed";
+
+/**
+ * One evidence pointer on a packet. Superset of `Evidence`: the kind union is
+ * open (the API may add kinds such as `phone_call`), and the optional `quote`,
+ * spans and `is_measured` are shown when present.
+ */
+export interface PacketEvidence {
+  kind: string;
+  id: string;
+  ts: IsoUtc | null;
+  note: string;
+  /** Verbatim words from the source (chart note, call summary, answer text). */
+  quote?: string | null;
+  span_start?: number | null;
+  span_end?: number | null;
+  /** Vitals only: whether the sample came from a real sensor or a simulation. */
+  is_measured?: boolean | null;
+  /** Where the evidence lives, when the API can say (check-in session or note). */
+  session_id?: Ulid | null;
+  note_id?: Ulid | null;
+}
+
+/** A field value as the API sends it; displayed through `formatValue`. */
+export type PacketValue = string | number | boolean | null | Array<string | number>;
+
+export interface PacketField {
+  /** SDTM variable or SAE-form field name, e.g. `AETERM`, `SAE_ONSET_DATE`. */
+  name: string;
+  /** Plain-language label shown first ("Side effect", "Started on"). */
+  plain_label: string;
+  value: PacketValue;
+  evidence: PacketEvidence[];
+  /** True when a person changed the pre-filled value (time-saved model). */
+  edited?: boolean;
+  /** Present for vitals fields; the page then shows MEASURED / SIMULATED. */
+  is_measured?: boolean | null;
+}
+
+/** R4.2: one difference between this follow-up and the report before it. */
+export interface PacketChange {
+  field: string;
+  plain_label?: string;
+  before: PacketValue;
+  after: PacketValue;
+  evidence: PacketEvidence[];
+}
+
+export interface Packet {
+  id: Ulid;
+  clock_id: Ulid;
+  kind: ClockKind;
+  usubjid: string;
+  status: PacketStatus;
+  fields: PacketField[];
+  missing_information: string[];
+  narrative: WrittenText;
+  created_at: IsoUtc | null;
+  signed_by: string | null;
+  signed_at: IsoUtc | null;
+  /** R4.2: 0 = initial report, 1..n = follow-ups. */
+  sequence: number;
+  parent_packet_id: Ulid | null;
+  /** R4.2: present on follow-ups (empty list on the initial report). */
+  changes_since_previous: PacketChange[];
+
+  // ---- Optional extras the page uses when the API sends them -------------
+  display_label?: string | null;
+  /** Packet version (PATCH creates a new one). */
+  version?: number | null;
+  /** 24-hour deadline; when absent the page reads the clock from /sae-clocks. */
+  due_at?: IsoUtc | null;
+  site_awareness_at?: IsoUtc | null;
+  clock_stopped_at?: IsoUtc | null;
+  /** Narrative text as a person last saved it, when it differs from the draft. */
+  narrative_edited?: { text: string; edited_by: string | null; edited_at: IsoUtc | null } | null;
+  /** Extra evidence the narrative cites that is not on any field. */
+  evidence_index?: Record<string, PacketEvidence> | PacketEvidence[] | null;
+  /** Ids of follow-up reports already started from this one. */
+  followup_packet_ids?: Ulid[] | null;
+  /** Mock-EDC acknowledgment id after signing. */
+  mock_edc_ack_id?: string | null;
+}
+
+/** Body of `PATCH /packets/{id}` (versioned, audited). */
+export interface PatchPacketRequest {
+  /** Field name → new value. Only changed fields are sent. */
+  fields?: Record<string, PacketValue>;
+  /** The investigator's edited narrative text. */
+  narrative_text?: string;
+  note?: string;
+}
+
+/** `POST /packets {clock_id}` as pages that only navigate to the packet read it. */
+export interface PacketRef {
+  id: Ulid;
+  clock_id?: Ulid;
+  kind?: ClockKind | string;
+  status?: PacketStatus | string;
+}
+
+/** Clock row as the packet page reads it from `GET /sae-clocks` (normalized). */
+export interface PacketClock {
+  id: Ulid;
+  kind?: ClockKind;
+  usubjid?: string;
+  site_awareness_at: IsoUtc | null;
+  due_at: IsoUtc | null;
+  stopped_at: IsoUtc | null;
+  decision: string | null;
+}
+
+/** The deadline the packet header counts down to, wherever it came from. */
+export interface PacketDeadline {
+  siteAwarenessAt: IsoUtc | null;
+  dueAt: IsoUtc | null;
+  stoppedAt: IsoUtc | null;
+  decision: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// R3.2 / R3.3 Visit-prep brief
+// ---------------------------------------------------------------------------
+//
+// Contract shape:
+//   GET /participants/{usubjid}/brief?since=YYYY-MM-DD →
+//     { usubjid, display_label, since, generated_at,
+//       sections: [{ key, title, items: [{ text, evidence_ids, link }] }],
+//       narrative: WrittenText, questions_to_ask: [str] }
+//
+// Fields marked "optional extension" are not in the contract; the page renders
+// without them and shows richer chips (grade trend arrows, protocol flags,
+// MEASURED/SIMULATED from the record, clock kinds and due times) when the API
+// sends them. How each narrative.py fact maps onto an item is documented in
+// pages/dashboard/brief/model.ts.
+
+/** One provisional grade at one point in time (narrative.py GradePoint). */
+export interface BriefGradePoint {
+  grade: number;
+  /** YYYY-MM-DD or ISO-8601 UTC. */
+  date?: string | null;
+  evidence_ids?: string[];
+}
+
+/** One line in a brief section. `text` is already plain language. */
+export interface BriefItem {
+  text: string;
+  evidence_ids: string[];
+  /**
+   * In-app route ("/dashboard/checkins/…") or absolute http(s) URL; null when
+   * none. Any other scheme (javascript:, data:, …) is shown as plain text.
+   */
+  link: string | null;
+
+  // ---- optional extensions ----
+  /** Provisional grades, oldest first (new side effects). */
+  grades?: BriefGradePoint[];
+  /** Explicit trend when the API computes it itself. */
+  trend?: "up" | "down" | "same" | "new" | null;
+  /** Protocol status of a medication change (protocol_rules.json §7.7). */
+  protocol_flag?: ProtocolLevel | null;
+  protocol_section?: string | null;
+  printed_page?: number | null;
+  /** Verbatim protocol exception text for a discouraged medication. */
+  exception_text?: string | null;
+  /** CM fields the coordinator still has to ask for (SDTM names). */
+  missing_fields?: string[];
+  /** Escalation tier 0..3 (escalations section). */
+  tier?: number | null;
+  /** Escalations: whether the site acknowledged it (narrative.py EscalationFact). */
+  acknowledged?: boolean | null;
+  /** Reporting clock kind (clocks section). */
+  clock_kind?: ClockKind | null;
+  due_at?: string | null;
+  /** Clock items only ("running" / "reported (mock)"); escalations use `acknowledged`. */
+  status?: string | null;
+  /** Clock items: the report packet for this clock, when one has been started. */
+  packet_id?: string | null;
+  /** Clock items: that packet's status ("draft" / "signed"). */
+  packet_status?: string | null;
+  /** Vitals context: whether the values came from a real sensor. */
+  is_measured?: boolean | null;
+  source?: string | null;
+  /** Notes section: "phone_call", "er_note", … */
+  note_type?: string | null;
+  /** Any timestamp worth showing next to the line. */
+  ts?: string | null;
+}
+
+export interface BriefSection {
+  /** Stable machine key, e.g. "new_side_effects", "med_changes", "vitals". */
+  key: string;
+  /** Plain-language heading from the API. */
+  title: string;
+  items: BriefItem[];
+}
+
+/** A "question to ask at the visit". The contract sends strings; objects are tolerated. */
+export interface BriefQuestion {
+  text: string;
+  evidence_ids: string[];
+  /** narrative.py QuestionKind: cm_missing_fields | unresolved_ae | unsigned_packet | other. */
+  kind?: string | null;
+}
+
+/** Optional extension: what an evidence id points at, so a chip can name and link it. */
+export interface BriefEvidenceRef {
+  kind?: string | null;
+  ts?: string | null;
+  note?: string | null;
+  link?: string | null;
+}
+
+/** The normalized brief the page renders. */
+export interface Brief {
+  usubjid: string;
+  display_label: string;
+  /** YYYY-MM-DD cut-off actually used by the API. */
+  since: string | null;
+  generated_at: string | null;
+  sections: BriefSection[];
+  narrative: WrittenText | null;
+  questions_to_ask: BriefQuestion[];
+
+  // ---- optional extensions ----
+  /** One-line plain summary; derived on the page when absent. */
+  summary?: string | null;
+  /** YYYY-MM-DD of the next scheduled visit, if the API knows it. */
+  next_visit?: string | null;
+  /** Lookup for evidence chips, keyed by evidence id. */
+  evidence?: Record<string, BriefEvidenceRef>;
+}
+
+export interface BriefQuery {
+  /** YYYY-MM-DD; omitted → the API's default (the previous visit date). */
+  since?: string | null;
+  signal?: AbortSignal;
+}
+
+// ---------------------------------------------------------------------------
+// R4.4 Sponsor queries
+// ---------------------------------------------------------------------------
+
+export type QueryStatus = "open" | "answered" | "closed";
+
+/** "data" = a record-keeping question; "safety" = touches a safety reporting duty. */
+export type QuerySeverity = "data" | "safety";
+
+/**
+ * One evidence pointer on a query. Wider than `Evidence` because queries can
+ * cite chart notes, protocol pages and other queries' answers.
+ */
+export interface QueryEvidence {
+  kind: string;
+  id: string;
+  ts?: string | null;
+  note?: string | null;
+  span_start?: number;
+  span_end?: number;
+}
+
+/** A row of `GET /queries` (contract `Query` table + optional display extras). */
+export interface QueryRow {
+  id: string;
+  /** Edit-check id ("query.*") or null for a manual query raised by a person. */
+  check_id: string | null;
+  domain: Domain;
+  draft_id: string;
+  usubjid: string;
+  /** "P-007" when the API joins it; the page falls back to the USUBJID tail. */
+  display_label?: string | null;
+  /** SDTM variable name, e.g. "CMDOSE". */
+  field: string;
+  /**
+   * Every field the edit check read, `field` first (QueryCandidate.fields),
+   * e.g. all the missing CM details. Optional; the page falls back to `field`.
+   */
+  fields?: string[] | null;
+  /** Plain label for `field` when the API sends one (R3.1 plain_language.json). */
+  field_label?: string | null;
+  text: string;
+  severity: QuerySeverity;
+  status: QueryStatus;
+  /** "edit-check" or the user id of the person who raised it. */
+  raised_by: string;
+  raised_at: string;
+  /** Hours since `raised_at`, computed by the API ("aging in hours"). */
+  age_hours?: number | null;
+  answer_text?: string | null;
+  /** Evidence ids (or resolved pointers) attached to the answer. */
+  answer_evidence?: Array<string | QueryEvidence> | null;
+  answered_by?: string | null;
+  answered_at?: string | null;
+  closed_by?: string | null;
+  closed_at?: string | null;
+  /** Edit-check evidence (QueryCandidate.evidence) when the API includes it. */
+  evidence?: QueryEvidence[] | null;
+}
+
+/** `GET /queries/{id}`: the row plus the template writer's suggested answer. */
+export interface QueryDetail extends QueryRow {
+  suggested_answer: WrittenText | null;
+  /** Current draft (latest version) when the API embeds it; otherwise fetched. */
+  draft?: Draft | null;
+  /** Current value of `field` when the API resolves it. */
+  current_value?: unknown;
+  /**
+   * Every evidence id the suggested answer could cite, resolved to its pointer
+   * (the API sends this alongside `suggested_answer.evidence`).
+   */
+  evidence_index?: Record<string, QueryEvidence> | null;
+}
+
+export interface QueryCounts {
+  open: number;
+  answered: number;
+  closed: number;
+}
+
+/** `GET /queries` page; `counts` is an optional convenience the API may add. */
+export interface QueriesPage extends Paginated<QueryRow> {
+  counts?: Partial<QueryCounts> | null;
+}
+
+export interface QueriesListQuery {
+  status?: QueryStatus;
+  usubjid?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** `POST /queries` (admin acting as the sponsor's monitor). */
+export interface RaiseQueryRequest {
+  draft_id: string;
+  field: string;
+  text: string;
+  severity: QuerySeverity;
+}
+
+/** `POST /queries/{id}/answer` (coordinator, investigator or admin). */
+export interface AnswerQueryRequest {
+  answer_text: string;
+  evidence_ids?: string[];
+  /** Also correct the record: creates a new draft version (audited). */
+  also_edit?: { field: string; value: unknown };
+}
+
+// ---------------------------------------------------------------------------
+// R3.2 Time saved (GET /metrics/time-saved; R4.4 adds queries answered)
+// ---------------------------------------------------------------------------
+
+export interface TimeSavedMetrics {
+  minutes_saved: number;
+  minutes_manual_baseline: number;
+  records_confirmed?: number;
+  fields_prefilled?: number;
+  fields_edited?: number;
+  packets_signed?: number;
+  briefs_generated?: number;
+  queries_answered?: number;
+  basis: string[];
+  is_estimate?: boolean;
+  disclaimer?: string;
+}
+
+// ---------------------------------------------------------------------------
+// §2.3 Audit list filters
+// ---------------------------------------------------------------------------
+
+export interface AuditListQuery {
+  entity_type?: string;
+  entity_id?: string;
+  /** Exact match on the server (e.g. `draft.confirmed`). */
+  action?: string;
+  actor_id?: string;
+  limit?: number;
+  offset?: number;
 }
 
 // ---------------------------------------------------------------------------

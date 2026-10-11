@@ -23,9 +23,9 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { ErrorBanner } from "../../../components/ErrorBanner";
 import { useToast } from "../../../components/Toast";
-import { describeError, getDraft } from "../../../lib/api";
+import { answerQuery, closeQuery, describeError, getDraft, getQuery } from "../../../lib/api";
 import { cx, Time } from "../../../lib/format";
-import type { Draft, Role } from "../../../lib/types";
+import type { Draft, QueryDetail, Role } from "../../../lib/types";
 import { AgeChip, CodeBadge, EvidenceChip, SeverityChip, StatusChip } from "./bits";
 import {
   ageHours,
@@ -46,8 +46,6 @@ import {
   type AnswerFormState,
   type IndexedEvidence,
 } from "./model";
-import { answerQuery, closeQuery, getQuery } from "./queriesApi";
-import type { QueryDetail } from "./types";
 import { WrittenTextView } from "./WrittenTextView";
 
 export interface QueryPanelProps {

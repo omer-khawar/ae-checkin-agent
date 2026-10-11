@@ -1,7 +1,7 @@
 /**
  * Loads everything the Escalations page shows in one pass:
  *   GET /escalations (every page)                  → EscalationRow[]
- *   GET /sae-clocks?active=true|false (every page, merged) → SaeClockRowExt[]
+ *   GET /sae-clocks?active=true|false (every page, merged) → ClockRow[]
  *   GET /pages (every page)                        → PageEventRow[]
  *
  * All three are fetched client-side in full (bounded by `fetchAllPages`) so the
@@ -16,14 +16,13 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchAllPages, listEscalations, listPages } from "../../../lib/api";
-import { listSaeClocksPage } from "./api";
+import { fetchAllPages, listEscalations, listPages, listSaeClocksPage } from "../../../lib/api";
 import { mergeById } from "./model";
-import type { EscalationRow, PageEventRow, SaeClockRowExt } from "./types";
+import type { ClockRow, EscalationRow, PageEventRow } from "../../../lib/types";
 
 export interface EscalationsData {
   escalations: EscalationRow[] | null;
-  clocks: SaeClockRowExt[] | null;
+  clocks: ClockRow[] | null;
   pages: PageEventRow[] | null;
 }
 
@@ -43,7 +42,7 @@ export interface UseEscalationsData {
   /** Replace one escalation in place (after an acknowledgement). */
   replaceEscalation: (next: EscalationRow) => void;
   /** Replace one clock in place (after a seriousness decision, R4.3). */
-  replaceClock: (next: SaeClockRowExt) => void;
+  replaceClock: (next: ClockRow) => void;
 }
 
 const NO_ERRORS: SectionErrors = { escalations: null, clocks: null, pages: null };
@@ -54,10 +53,10 @@ const NO_ERRORS: SectionErrors = { escalations: null, clocks: null, pages: null 
  * both are walked in full and merged by id. If one of the two fails the other
  * alone is shown; if both fail the section reports an error.
  */
-async function loadClocks(): Promise<SaeClockRowExt[]> {
-  // SAEClockRow is structurally assignable to SaeClockRowExt (only widens session_id).
+async function loadClocks(): Promise<ClockRow[]> {
+  // SAEClockRow is structurally assignable to ClockRow (only widens session_id).
   const walk = (active: boolean) =>
-    fetchAllPages<SaeClockRowExt>((limit, offset) => listSaeClocksPage({ active, limit, offset }));
+    fetchAllPages<ClockRow>((limit, offset) => listSaeClocksPage({ active, limit, offset }));
   const [active, stopped] = await Promise.allSettled([walk(true), walk(false)]);
   if (active.status === "rejected" && stopped.status === "rejected") throw active.reason;
   const a = active.status === "fulfilled" ? active.value : [];
@@ -113,7 +112,7 @@ export function useEscalationsData(): UseEscalationsData {
     );
   }, []);
 
-  const replaceClock = useCallback((next: SaeClockRowExt) => {
+  const replaceClock = useCallback((next: ClockRow) => {
     setData((prev) =>
       prev && prev.clocks
         ? {

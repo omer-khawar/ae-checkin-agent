@@ -13,7 +13,15 @@
  * so the same rule reads the same in the API and in the browser.
  */
 import { tierStyle } from "../../../lib/format";
-import type { Role } from "../../../lib/types";
+import type {
+  ClockKind,
+  ClockRow,
+  ProtocolAssessment,
+  ProtocolConMedFlag,
+  ProtocolRef,
+  Role,
+  RuleFiredPlain,
+} from "../../../lib/types";
 import {
   PLAIN_CLOCK_KINDS,
   PLAIN_DOMAINS,
@@ -25,14 +33,6 @@ import {
   PLAIN_RULES,
   PLAIN_TIERS,
 } from "./plainLanguageTable";
-import type {
-  ClockKind,
-  ClockRow,
-  ProtocolAssessment,
-  ProtocolConMedFlag,
-  ProtocolRef,
-  RuleFiredPlain,
-} from "./r34Types";
 
 export type Labels = Record<string, string> | null | undefined;
 

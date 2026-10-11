@@ -276,13 +276,17 @@ def time_saved(db: DbSession, *, since: str, include_eval: bool = False) -> dict
 
     # 4. Queries answered from the suggested answer (R4.4), when that feature exists.
     queries_from_suggestion = 0
+    queries_answered = 0  # [integration] every answer in the window (the strip's count)
     query_cls = getattr(models, "SponsorQuery", None) or getattr(models, "Query", None)
     if query_cls is not None and hasattr(query_cls, "answered_from_suggestion"):
         for q in db.exec(select(query_cls)).all():
             answered_at = getattr(q, "answered_at", None)
-            if not getattr(q, "answered_from_suggestion", False) or not answered_at:
+            if not answered_at or answered_at < since:
                 continue
-            if answered_at < since or getattr(q, "usubjid", None) in excluded:
+            if getattr(q, "usubjid", None) in excluded:
+                continue
+            queries_answered += 1
+            if not getattr(q, "answered_from_suggestion", False):
                 continue
             queries_from_suggestion += 1
             domain = str(getattr(q, "domain", "") or "").upper()
@@ -298,6 +302,7 @@ def time_saved(db: DbSession, *, since: str, include_eval: bool = False) -> dict
         "fields_edited": sum(min(edited.get(k, 0), v) for k, v in prefilled.items()),
         "packets_signed": packets_signed,
         "briefs_generated": len(briefs),
+        "queries_answered": queries_answered,
         "queries_answered_from_suggestion": queries_from_suggestion,
         "prefilled_by_category": dict(sorted(prefilled.items())),
         "edited_by_category": dict(sorted(edited.items())),
