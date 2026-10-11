@@ -76,7 +76,7 @@ export function EscalationsTable({ rows, nowMs, canAck, ackingId, onAck }: Escal
             <div>
               <Link
                 to={`/dashboard/participants/${encodeURIComponent(row.usubjid)}`}
-                className="font-mono text-primary underline"
+                className="whitespace-nowrap font-mono text-primary underline"
                 title="Open the participant timeline"
               >
                 {row.usubjid}

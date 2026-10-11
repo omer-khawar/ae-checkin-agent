@@ -64,11 +64,11 @@ export function SiteHeader() {
             to={ROUTES.kiosk}
             variant="secondary"
             size="sm"
-            className="hidden sm:inline-flex"
+            className="hidden whitespace-nowrap sm:inline-flex"
           >
             Try the patient kiosk
           </ButtonLink>
-          <ButtonLink to={ROUTES.login} size="sm">
+          <ButtonLink to={ROUTES.login} size="sm" className="whitespace-nowrap">
             Staff sign in
           </ButtonLink>
         </div>
