@@ -18,7 +18,7 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 12 | Arduino serial source implementation | open | bridge | Deliberately deferred; stub in place (§7.4) |
 | 13 | Port chart-note scanner from `ae-checkin-agent` into `interim_rules.chartscan` + `/notes` API + answer-key eval | open | rules/api | CONTRACTS R2.4; credit Omer Khawar |
 | 14 | Implement `presage.ts` from the teammate's verified SDK usage (dynamic import, no package.json dep) | open | bridge | CONTRACTS R2.5, D-016; untested against a live camera until someone has a key |
-| 15 | Merge into `omer-khawar/ae-checkin-agent` on branch `interim`, open PR, move `backend/` + `presage-bridge/` to `legacy/` after parity | in-progress | build | D-014, D-015 |
+| 15 | Merge into `omer-khawar/ae-checkin-agent` on branch `interim`, open PR, move `backend/` + `presage-bridge/` to `legacy/` after parity | done | build | D-014, D-015 |
 | 16 | Regenerate `medlist.json` from openFDA and re-run persona tests | open | data | Must keep core names and lowercase uniqueness |
 | 17 | Seed: 12 participants with backdated check-ins; ingest the 8 synthetic chart notes mapped to P-xxx | open | api | CONTRACTS §5, R2.4 |
 | 18 | Dashboard: Notes page + chart-note evidence highlighting (span offsets) | open | web | Wave 3 |
@@ -28,6 +28,6 @@ Status: `open` | `in-progress` | `done` | `wontfix`. Owner is a role, not a pers
 | 24 | Scanner over-flags templated chief-complaint "chest pain" as emergency (81/238 Synthea notes) and its med lexicon misses most structured meds | open | rules | Measured by the Synthea eval; candidate fix: section-aware "# Medications" parsing through the con-med matcher; decide after numbers are in |
 | 25 | Chart scanner: discharge advice ("If symptoms worsen, go to the ER") is flagged as a hospitalization and starts an SAE clock; red-flag detection skips the hypothetical cues symptoms use | open | rules | Found during the notes fix; investigator can stop the clock via PATCH /sae-clocks/{id}/stop meanwhile |
 | 26 | Web: investigator "Record seriousness decision" control for clocks with no AE draft (calls PATCH /sae-clocks/{id}/stop) | open | web | Stage 2 |
-| 27 | render.yaml still deploys the legacy backend/ | open | infra | Fix with the legacy/ move |
+| 27 | render.yaml still deploys the legacy backend/ | done | infra | Fix with the legacy/ move |
 | 21 | Kiosk vitals card: "HRV (RMSSD)" label wraps to two lines and pushes its value sideways at ~1000px width | open | web | Seen in the 2026-10-10 localhost preview; polish pass |
 | 20 | Con-med matcher: short tokens vs short names (`from` → `iron` at 0.5; `icon` → `iron` at 0.75) | partially done | rules | 0.7 confidence floor blocks the first; the openFDA build drops names < 5 letters, but core entries (`iron`) are exempt, so the second remains and is documented in WHAT_IT_GETS_WRONG §4 |
