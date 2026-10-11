@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "schema": {
     "persona": {
-      "id": "Stable kebab-case id prefixed T0-/T1-/T2-/T3-/E-/J- by category.",
-      "category": "tier0 | tier1 | tier2 | tier3 | edge | judge (judge personas are hidden: true).",
+      "id": "Stable kebab-case id prefixed T0-/T1-/T2-/T3-/E-/J-/P3- by category.",
+      "category": "tier0 | tier1 | tier2 | tier3 | edge | judge | protocol (judge personas are hidden: true; protocol personas, added with CONTRACTS.md R3.1, exercise the EMPOWER-Lung 1 protocol rules: possible AESI, con-med levels, CM missing fields).",
+      "protocol_context": "Optional (protocol personas): {prior_pi3k_inhibitor, last_dose_date} passed to the engine as CheckInInput.protocol_context; absent means no prior PI3K inhibitor and last dose unknown.",
       "consent_camera": "false means no vitals_samples at all (camera declined).",
       "vitals_scenario": "Closest mock scenario (resting, tachypnea, post_exercise, low_quality) or custom / none; informational, the explicit vitals_samples are what the runner replays.",
       "settings": "RuleSettings overrides for the main check-in; simulated_as_measured is the admin demo toggle.",
@@ -33,11 +34,16 @@
       "vs_not_done": "Optional: VSTESTCD codes whose row has VSSTAT = NOT DONE.",
       "cm": "CM drafts in order: {verbatim, cmdecod, min_confidence, match_kind?, distance?, direction?}.",
       "dedup_followups": "Number of AE drafts linked to an open AE as follow-ups.",
-      "vitals_status": "VitalsAssessment.status: ok | unavailable | low_quality | implausible | simulated_ignored."
+      "vitals_status": "VitalsAssessment.status: ok | unavailable | low_quality | implausible | simulated_ignored.",
+      "protocol_tier_floor": "Optional: CheckInResult.protocol_tier_floor (2 for a prohibited con-med, else 0).",
+      "aesi_suspected": "Optional: ProtocolAssessment.aesi_suspected (possible AESI, investigator to confirm).",
+      "aesi_clock_started": "Optional: an AESI clock (kind aesi) started; due_at = completed_at + 24 h.",
+      "aesi_items": "Optional: ProtocolAssessment.aesi_items in instrument order; these AE drafts carry INTERIM_AESI_SUSPECTED = true.",
+      "cm[].protocol_flag / cm[].missing_fields": "Optional: INTERIM_PROTOCOL_FLAG (prohibited | discouraged | permitted | null) and INTERIM_CM_MISSING_FIELDS of the CM draft."
     },
     "replay_conventions": "Each persona is its own synthetic participant (so open AEs never leak between personas). The runner chooses completed_at ('now'), sets started_at = completed_at - session length, materializes tsUtc = started_at + tsOffsetS, and gives every answer ts = completed_at."
   },
-  "counts": {"tier0": 6, "tier1": 6, "tier2": 5, "tier3": 4, "edge": 3, "judge_hidden": 5, "total": 29},
+  "counts": {"tier0": 6, "tier1": 6, "tier2": 5, "tier3": 4, "edge": 3, "judge_hidden": 5, "protocol": 7, "total": 36},
   "personas": [
     {
       "id": "T0-all-clear",
@@ -77,6 +83,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 0,
         "tier": 0,
@@ -176,6 +185,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 1, "fatigue": 1, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -235,6 +247,9 @@
       "gates": {"hospitalization": false, "conmed_changed": false, "conmed_text": "", "conmed_direction": null, "other_text": ""},
       "vitals_samples": [],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 1, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -305,6 +320,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 1, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -373,6 +391,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 1, "itching": 1, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -499,6 +520,9 @@
         }
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 1, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -569,6 +593,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 1, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -627,6 +654,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 2, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -698,6 +728,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 2, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -769,6 +802,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 2, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -837,6 +873,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 1, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 2},
         "max_grade": 2,
         "tier": 1,
@@ -909,6 +948,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 98, "pulseConf": 0.9, "breathingBpm": 26, "breathingConf": 0.9, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 1, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -979,6 +1021,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["fatigue"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 3, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 3,
         "tier": 2,
@@ -1046,6 +1091,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 88, "pulseConf": 0.95, "breathingBpm": 17, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 2, "fever_or_chills": 1, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 2,
@@ -1113,6 +1161,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 2},
         "max_grade": 2,
         "tier": 2,
@@ -1179,6 +1230,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 98, "pulseConf": 0.9, "breathingBpm": 26, "breathingConf": 0.9, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 1, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 2,
@@ -1260,6 +1314,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 77, "pulseConf": 0.36, "breathingBpm": 13, "breathingConf": 0.38, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["shortness_of_breath"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 3, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 3,
         "tier": 2,
@@ -1331,6 +1388,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 1, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 3,
@@ -1395,6 +1455,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["shortness_of_breath"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 3, "cough": 1, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 3,
         "tier": 3,
@@ -1460,6 +1523,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["shortness_of_breath"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 3, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 3,
         "tier": 3,
@@ -1516,6 +1582,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 114, "pulseConf": 0.9, "breathingBpm": 16, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["shortness_of_breath"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 3, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 3,
         "tier": 3,
@@ -1589,6 +1658,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.95, "breathingBpm": 51, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -1660,6 +1732,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 112, "pulseConf": 0.3, "breathingBpm": 27, "breathingConf": 0.3, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -1751,6 +1826,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 1, "fatigue": 1, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 1,
         "tier": 0,
@@ -1818,6 +1896,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 181, "pulseConf": 0.9, "breathingBpm": 18, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -1888,6 +1969,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 114, "pulseConf": 0.9, "breathingBpm": 16, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 2, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 2,
@@ -1970,6 +2054,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 0, "nausea": 0, "diarrhea": 0, "rash": 1, "itching": 2, "joint_pain": 0, "fever_or_chills": 0, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 1,
@@ -2040,6 +2127,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 116, "pulseConf": 0.9, "breathingBpm": 18, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": false,
+        "aesi_items": [],
+        "aesi_clock_started": false,
         "grades": {"shortness_of_breath": 0, "cough": 0, "fatigue": 2, "nausea": 0, "diarrhea": 0, "rash": 0, "itching": 0, "joint_pain": 0, "fever_or_chills": 1, "mouth_sores": 0},
         "max_grade": 2,
         "tier": 2,
@@ -2107,6 +2197,9 @@
         {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
       ],
       "expected": {
+        "aesi_suspected": true,
+        "aesi_items": ["shortness_of_breath", "fatigue", "diarrhea", "itching", "joint_pain"],
+        "aesi_clock_started": true,
         "grades": {"shortness_of_breath": 3, "cough": 3, "fatigue": 3, "nausea": 3, "diarrhea": 3, "rash": 1, "itching": 3, "joint_pain": 3, "fever_or_chills": 1, "mouth_sores": 3},
         "max_grade": 3,
         "tier": 3,
@@ -2149,6 +2242,702 @@
         "vitals_status": "simulated_ignored"
       },
       "derivation": "Two-attribute rows (4,4) = composite 3 for shortness of breath, cough, fatigue, nausea, joint pain and mouth sores; diarrhea frequency 4 -> 3; itching severity 4 -> 3 (capped); rash and fever presence -> 1. Max grade 3 -> base tier 2. Red flags: severe_dyspnea (severity 4 >= 3) -> floor 3; fever_with_severe (fever present + severe items) -> floor 2; hospitalization = no and other_text empty -> those two do not fire. Floor 3 -> tier 3, stop screen, page; seriousness NOT suspected and no SAE clock because only the hospital gate starts it. Grade 4 is never assigned. Ten AE drafts."
+    },
+    {
+      "id": "P3-itching-g3-aesi-clock",
+      "name": "Severe itching with a rash: possible AESI, 24-hour clock",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Itching Severe (G3) plus a rash. Tier 2 from the grade; the protocol makes a grade 3 skin AE a possible AESI, so a 24-hour AESI clock starts. No SAE clock.",
+      "story": "Week 6 on cemiplimab. The participant reports a rash and itching bad enough to keep them up at night. EMPOWER-Lung 1 §9.4.3 (p. 92) lists 'Grade 3 or greater irAEs' as adverse events of special interest, reportable within 24 hours like an SAE. The kiosk asks rash only as present/absent (at most grade 1), so the grade 3 skin AE a kiosk can show is itching (pruritus).",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 1},
+        "itching": {"severity": 3},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": false,
+        "conmed_text": "",
+        "conmed_direction": null,
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 0,
+          "diarrhea": 0,
+          "rash": 1,
+          "itching": 3,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 3,
+        "tier": 2,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 0,
+        "rules_fired_includes": [
+          "grade.provisional.itching",
+          "tier.base",
+          "protocol.aesi_suspected",
+          "aesi.clock_started",
+          "draft.ae"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "tier.protocol_floor",
+          "protocol.cm_fields_missing",
+          "draft.cm"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": true,
+        "aesi_clock_started": true,
+        "aesi_items": ["itching"],
+        "ae_drafts": 2,
+        "vs_drafts": 2,
+        "cm": [],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "itching severity 3 -> single_attribute severity 3 -> composite 3 -> G3; rash presence 1 -> G1 (presence convention). Max grade 3 -> base tier 2; no red flag. irae_mapping.json: itching is potentially immune-related (dermatologic) and grade 3 >= the 'irae_grade3' min_grade 3 -> protocol.aesi_suspected for itching only (rash G1 < 3 and no prior PI3K inhibitor). AESI clock: site awareness = completed_at, due = +24 h (protocol_rules.json aesi.reporting_hours). Tier unchanged by the AESI (2); no SAE clock because the hospital gate is no. Two AE drafts; the Pruritus draft carries INTERIM_AESI_SUSPECTED = true."
+    },
+    {
+      "id": "P3-diarrhea-g3-no-pi3k-aesi",
+      "name": "Diarrhea almost constantly: possible colitis AESI",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Diarrhea Almost constantly (G3) with no prior PI3K inhibitor. Grade 3 on a potentially immune-related item (colitis) starts the 24-hour AESI clock; tier 2 from the grade.",
+      "story": "Week 9 on cemiplimab. Loose stools 'almost constantly' over the last week. Colitis is one of the protocol's own examples of a potentially immune-related AE (p. 91-92).",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": "2026-10-01"},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 4},
+        "rash": {"presence": 0},
+        "itching": {"severity": 0},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": false,
+        "conmed_text": "",
+        "conmed_direction": null,
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 0,
+          "diarrhea": 3,
+          "rash": 0,
+          "itching": 0,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 3,
+        "tier": 2,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 0,
+        "rules_fired_includes": [
+          "grade.provisional.diarrhea",
+          "tier.base",
+          "protocol.aesi_suspected",
+          "aesi.clock_started"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "tier.protocol_floor",
+          "draft.cm"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": true,
+        "aesi_clock_started": true,
+        "aesi_items": ["diarrhea"],
+        "ae_drafts": 1,
+        "vs_drafts": 2,
+        "cm": [],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "diarrhea frequency 4 -> single_attribute frequency (0,1,1,2,3) -> composite 3 -> G3 -> base tier 2. irae_mapping.json: diarrhea potentially immune-related (colitis); grade 3 meets 'irae_grade3' without any context -> AESI suspected; prior_pi3k_inhibitor = false does not matter at grade 3. AESI clock due completed_at + 24 h. One AE draft (Diarrhea G3, INTERIM_AESI_SUSPECTED = true)."
+    },
+    {
+      "id": "P3-rash-itching-prior-pi3k-aesi",
+      "name": "Mild rash and moderate itching after a PI3K inhibitor: possible AESI",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Rash present (G1) and itching Moderate (G2) in a participant previously treated with a PI 3-K inhibitor. Any-grade irAE is an AESI for them, so the clock starts at tier 1.",
+      "story": "The participant received idelalisib in an earlier line of therapy (recorded at enrollment, passed as protocol context). The protocol lists 'An irAE of any grade in a patient previously treated with a PI 3-K inhibitor' as an AESI (§9.4.3, p. 92).",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": true, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 1},
+        "itching": {"severity": 2},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": false,
+        "conmed_text": "",
+        "conmed_direction": null,
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 0,
+          "diarrhea": 0,
+          "rash": 1,
+          "itching": 2,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 2,
+        "tier": 1,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 0,
+        "rules_fired_includes": [
+          "grade.provisional.itching",
+          "grade.provisional.rash",
+          "tier.base",
+          "protocol.aesi_suspected",
+          "aesi.clock_started"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "tier.protocol_floor",
+          "draft.cm"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": true,
+        "aesi_clock_started": true,
+        "aesi_items": ["rash", "itching"],
+        "ae_drafts": 2,
+        "vs_drafts": 2,
+        "cm": [],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "rash presence 1 -> G1; itching severity 2 -> composite 2 -> G2. Max grade 2 -> tier 1. protocol_context.prior_pi3k_inhibitor = true enables 'irae_any_grade_prior_pi3k' (min_grade 1): both rash and itching are potentially immune-related (dermatologic) with grade >= 1 -> AESI suspected for both, items listed in instrument order (rash before itching). Without the PI3K history this check-in would be an ordinary tier 1 (no AESI, neither item reaches grade 3). AESI does not change the tier."
+    },
+    {
+      "id": "P3-bevacizumab-prohibited-floor",
+      "name": "Started bevacizumab: prohibited by the protocol, tier floor 2",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Mild fatigue (G1) only, but the participant started bevacizumab, which the protocol does not allow (§7.7.1). The protocol floor raises tier 0 to 2: possible protocol deviation, coordinator to confirm.",
+      "story": "An outside oncologist added bevacizumab. EMPOWER-Lung 1 §7.7.1 (p. 69): 'Treatment with bevacizumab or necitumumab is not one of the protocol-defined treatment options.' The medication list does not carry bevacizumab, so the protocol table's own name list recognizes it.",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 1, "interference": 1},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 0},
+        "itching": {"severity": 0},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": true,
+        "conmed_text": "bevacizumab",
+        "conmed_direction": "started",
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 1,
+          "nausea": 0,
+          "diarrhea": 0,
+          "rash": 0,
+          "itching": 0,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 1,
+        "tier": 2,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 2,
+        "rules_fired_includes": [
+          "grade.provisional.fatigue",
+          "tier.base",
+          "conmed.unmatched",
+          "protocol.conmed_prohibited",
+          "tier.protocol_floor",
+          "protocol.cm_fields_missing",
+          "draft.cm"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "protocol.aesi_suspected",
+          "aesi.clock_started",
+          "protocol.conmed_discouraged"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": false,
+        "aesi_clock_started": false,
+        "aesi_items": [],
+        "ae_drafts": 1,
+        "vs_drafts": 2,
+        "cm": [
+          {
+            "verbatim": "bevacizumab",
+            "cmdecod": "bevacizumab",
+            "min_confidence": 0.0,
+            "direction": "started",
+            "protocol_flag": "prohibited",
+            "missing_fields": ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"]
+          }
+        ],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "fatigue sev 1 / int 1 -> composite 1 -> G1 -> base tier 0. Con-med 'bevacizumab': not in medlist.json -> conmed.unmatched. protocol_rules.json conmeds.prohibited names bevacizumab -> protocol.conmed_prohibited (matched by the verbatim word), tier floor conmeds.prohibited_tier_floor = 2 > base 0 -> tier.protocol_floor, tier 2. CMDECOD = bevacizumab from the protocol table (the medlist had no match). Direction started -> CMSTDTC known, no stop date needed; dose, unit, frequency, indication missing. Fatigue G1 is below the AESI grade and there is no PI3K history -> no AESI."
+    },
+    {
+      "id": "P3-prednisone-discouraged-flag",
+      "name": "Started prednisone: discouraged steroid flag, tier unchanged",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Mild joint pain (G1) and a newly started prednisone. The protocol recommends avoiding systemic corticosteroids except in a life-threatening emergency or to treat an irAE: a coordinator flag with the protocol's own words, no tier change.",
+      "story": "Urgent care started a prednisone burst for a sore shoulder. §7.7.2 (p. 69) discourages systemic corticosteroids 'except in the case of a life-threatening emergency and/or to treat an irAE.' The coordinator needs to know why it was given.",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 0},
+        "itching": {"severity": 0},
+        "joint_pain": {"severity": 1, "interference": 2},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": true,
+        "conmed_text": "prednisone",
+        "conmed_direction": "started",
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 0,
+          "diarrhea": 0,
+          "rash": 0,
+          "itching": 0,
+          "joint_pain": 1,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 1,
+        "tier": 0,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 0,
+        "rules_fired_includes": [
+          "grade.provisional.joint_pain",
+          "conmed.exact",
+          "protocol.conmed_discouraged",
+          "protocol.cm_fields_missing",
+          "draft.cm"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "tier.protocol_floor",
+          "protocol.conmed_prohibited",
+          "protocol.aesi_suspected",
+          "aesi.clock_started"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": false,
+        "aesi_clock_started": false,
+        "aesi_items": [],
+        "ae_drafts": 1,
+        "vs_drafts": 2,
+        "cm": [
+          {
+            "verbatim": "prednisone",
+            "cmdecod": "prednisone",
+            "min_confidence": 1.0,
+            "match_kind": "exact",
+            "direction": "started",
+            "protocol_flag": "discouraged",
+            "missing_fields": ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"]
+          }
+        ],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "joint_pain sev 1 / int 2 -> composite 1 -> G1 -> tier 0. 'prednisone' is an exact medlist entry (confidence 1.0) and a protocol_rules.json conmeds.discouraged drug; no non-systemic qualifier in the text -> protocol.conmed_discouraged with the exception text verbatim; discouraged never moves the tier -> tier 0. Joint pain G1 < 3 and no PI3K history -> no AESI."
+    },
+    {
+      "id": "P3-avastin-brand-prohibited",
+      "name": "Started 'Avastin' (brand): recognized as bevacizumab, prohibited",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Mild nausea (G1); the participant typed the brand name Avastin. The protocol table's brand aliases map it to bevacizumab -> prohibited, tier floor 2.",
+      "story": "Participants type brands. The medication list does not know Avastin, but the protocol table lists it as a bevacizumab brand, so the check still works.",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 1, "severity": 1},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 0},
+        "itching": {"severity": 0},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": true,
+        "conmed_text": "Avastin",
+        "conmed_direction": "started",
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 1,
+          "diarrhea": 0,
+          "rash": 0,
+          "itching": 0,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 1,
+        "tier": 2,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 2,
+        "rules_fired_includes": [
+          "grade.provisional.nausea",
+          "protocol.conmed_prohibited",
+          "tier.protocol_floor",
+          "protocol.cm_fields_missing",
+          "draft.cm"
+        ],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "protocol.aesi_suspected",
+          "aesi.clock_started"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": false,
+        "aesi_clock_started": false,
+        "aesi_items": [],
+        "ae_drafts": 1,
+        "vs_drafts": 2,
+        "cm": [
+          {
+            "verbatim": "Avastin",
+            "cmdecod": "bevacizumab",
+            "min_confidence": 0.0,
+            "direction": "started",
+            "protocol_flag": "prohibited",
+            "missing_fields": ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"]
+          }
+        ],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "nausea freq 1 / sev 1 -> composite 1 -> G1 -> base tier 0. 'Avastin' lower-cases to the alias 'avastin' of bevacizumab in protocol_rules.json conmeds.prohibited -> protocol.conmed_prohibited, floor 2 -> tier 2. CMDECOD = bevacizumab (from the medlist if a later medlist build adds the brand, otherwise from the protocol table; either way the same generic). match_kind is not pinned because it depends on the medlist build."
+    },
+    {
+      "id": "P3-hydrocortisone-cream-topical-no-flag",
+      "name": "Hydrocortisone cream for itching: topical, no steroid flag",
+      "category": "protocol",
+      "hidden": false,
+      "description": "Moderate itching (G2) treated with hydrocortisone cream. The protocol's steroid recommendation is about systemic use; the word 'cream' keeps the flag off and the note says why.",
+      "story": "Over-the-counter hydrocortisone cream is common for itching and is not a systemic corticosteroid. Flagging it would teach coordinators to ignore the flag.",
+      "consent_camera": true,
+      "vitals_scenario": "resting",
+      "settings": {"simulated_as_measured": false},
+      "protocol_context": {"prior_pi3k_inhibitor": false, "last_dose_date": null},
+      "setup": {"prior_checkins": []},
+      "responses": {
+        "shortness_of_breath": {"severity": 0, "interference": 0},
+        "cough": {"severity": 0, "interference": 0},
+        "fatigue": {"severity": 0, "interference": 0},
+        "nausea": {"frequency": 0, "severity": 0},
+        "diarrhea": {"frequency": 0},
+        "rash": {"presence": 0},
+        "itching": {"severity": 2},
+        "joint_pain": {"severity": 0, "interference": 0},
+        "fever_or_chills": {"presence": 0},
+        "mouth_sores": {"severity": 0, "interference": 0}
+      },
+      "gates": {
+        "hospitalization": false,
+        "conmed_changed": true,
+        "conmed_text": "hydrocortisone cream",
+        "conmed_direction": "started",
+        "other_text": ""
+      },
+      "vitals_samples": [
+        {"tsOffsetS": 20, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.86, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 22, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.88, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 24, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.9, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 26, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.91, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 28, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.92, "windowS": 12, "qualityFlags": []},
+        {"tsOffsetS": 30, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.8, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 32, "source": "mock", "isMeasured": false, "pulseBpm": 74, "pulseConf": 0.93, "breathingBpm": 14, "breathingConf": 0.82, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 34, "source": "mock", "isMeasured": false, "pulseBpm": 73, "pulseConf": 0.94, "breathingBpm": 15, "breathingConf": 0.84, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 36, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.94, "breathingBpm": 14, "breathingConf": 0.85, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 38, "source": "mock", "isMeasured": false, "pulseBpm": 72, "pulseConf": 0.95, "breathingBpm": 13, "breathingConf": 0.86, "windowS": 30, "qualityFlags": []},
+        {"tsOffsetS": 40, "source": "mock", "isMeasured": false, "pulseBpm": 71, "pulseConf": 0.95, "breathingBpm": 14, "breathingConf": 0.87, "windowS": 30, "qualityFlags": []}
+      ],
+      "expected": {
+        "grades": {
+          "shortness_of_breath": 0,
+          "cough": 0,
+          "fatigue": 0,
+          "nausea": 0,
+          "diarrhea": 0,
+          "rash": 0,
+          "itching": 2,
+          "joint_pain": 0,
+          "fever_or_chills": 0,
+          "mouth_sores": 0
+        },
+        "max_grade": 2,
+        "tier": 1,
+        "stop_screen": false,
+        "red_flag_tier_floor": 0,
+        "corroboration_bump": 0,
+        "protocol_tier_floor": 0,
+        "rules_fired_includes": ["grade.provisional.itching", "conmed.exact", "protocol.cm_fields_missing", "draft.cm"],
+        "rules_fired_excludes": [
+          "redflag.severe_dyspnea",
+          "redflag.fever_with_severe",
+          "redflag.hospitalization",
+          "redflag.other_text_with_severe",
+          "tier.redflag_floor",
+          "tier.corroboration_bump",
+          "sae.clock_started",
+          "protocol.conmed_discouraged",
+          "protocol.conmed_prohibited",
+          "tier.protocol_floor",
+          "protocol.aesi_suspected"
+        ],
+        "sae_clock_started": false,
+        "seriousness_suspected": false,
+        "aesi_suspected": false,
+        "aesi_clock_started": false,
+        "aesi_items": [],
+        "ae_drafts": 1,
+        "vs_drafts": 2,
+        "cm": [
+          {
+            "verbatim": "hydrocortisone cream",
+            "cmdecod": "hydrocortisone",
+            "min_confidence": 1.0,
+            "direction": "started",
+            "protocol_flag": null,
+            "missing_fields": ["CMDOSE", "CMDOSU", "CMDOSFRQ", "CMINDC"]
+          }
+        ],
+        "dedup_followups": 0,
+        "vitals_status": "simulated_ignored"
+      },
+      "derivation": "itching severity 2 -> composite 2 -> G2 -> tier 1. Medlist: the whole string is not an entry; the token 'hydrocortisone' is (exact, confidence 1.0). Protocol: hydrocortisone is discouraged with systemic_only = true and the text contains the non-systemic qualifier 'cream' -> no flag, a conmed_note instead; INTERIM_PROTOCOL_FLAG = null. Itching G2 < 3, no PI3K history -> no AESI."
     }
   ]
 }

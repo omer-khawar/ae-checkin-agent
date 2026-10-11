@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .evidence import gate_evidence, table_evidence
-from .models import GateAnswers, RuleFired, SAEClock
+from .models import ClockKind, GateAnswers, RuleFired, SAEClock
 from .tables import seriousness_config
 from .timefmt import normalize_iso, shift
 
@@ -27,14 +27,39 @@ class SeriousnessOutcome:
     rules_fired: tuple[RuleFired, ...]
 
 
-def build_clock(site_awareness_at: str) -> SAEClock:
-    """Start the site clock at ``site_awareness_at`` and derive every deadline from it."""
-    cfg = seriousness_config()
+def build_clock(
+    site_awareness_at: str,
+    *,
+    kind: ClockKind = "sae",
+    hours: float | None = None,
+    informational: Mapping[str, str] | None = None,
+) -> SAEClock:
+    """Start a site clock at ``site_awareness_at`` and derive every deadline from it.
+
+    ``kind="sae"`` (the default, unchanged behavior) uses ``seriousness.json`` for the
+    24-hour site window and adds the informational 7/15-day sponsor deadlines.
+    ``kind="aesi"`` is the same machinery for a possible adverse event of special
+    interest (CONTRACTS.md R3.1): the caller passes ``hours`` (from
+    ``protocol_rules.json``) and the ``informational`` labels; no sponsor IND clocks are
+    attached because an AESI is not necessarily serious.
+    """
     awareness = normalize_iso(site_awareness_at)
+    if kind == "aesi":
+        if hours is None:
+            raise ValueError("an AESI clock needs its reporting hours (protocol_rules.json)")
+        return SAEClock(
+            site_awareness_at=awareness,
+            due_at=shift(awareness, hours=hours),
+            informational=dict(informational or {}),
+            kind="aesi",
+        )
+    cfg = seriousness_config()
     return SAEClock(
         site_awareness_at=awareness,
-        due_at=shift(awareness, hours=cfg.site_to_sponsor_hours),
+        due_at=shift(awareness, hours=cfg.site_to_sponsor_hours if hours is None else hours),
+        kind="sae",
         informational={
+            **(informational or {}),
             "sponsor_fatal_or_life_threatening_due": shift(
                 awareness, days=cfg.fatal_or_life_threatening_days
             ),

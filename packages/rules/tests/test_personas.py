@@ -10,6 +10,11 @@ exactly as the API would after confirming their AE drafts.
 The file-level tests pin the shape the harness relies on: the category mix, id prefixes,
 explicit answers for every attribute of every item, the vitals sample schedule, and that
 every rule id named in an expectation exists in ``rules_catalog.json``.
+
+Protocol personas (category ``protocol``, prefix ``P3-``, CONTRACTS.md R3.1) carry an
+optional top-level ``protocol_context`` that is passed to the engine, and may pin the
+protocol keys ``protocol_tier_floor``, ``aesi_suspected``, ``aesi_clock_started``,
+``aesi_items`` and ``cm[].protocol_flag`` / ``cm[].missing_fields``.
 """
 
 from __future__ import annotations
@@ -44,8 +49,17 @@ PREFIX_BY_CATEGORY = {
     "tier3": "T3-",
     "edge": "E-",
     "judge": "J-",
+    "protocol": "P3-",
 }
-REQUIRED_MIX = {"tier0": 6, "tier1": 6, "tier2": 5, "tier3": 4, "edge": 3, "judge_hidden": 5}
+REQUIRED_MIX = {
+    "tier0": 6,
+    "tier1": 6,
+    "tier2": 5,
+    "tier3": 4,
+    "edge": 3,
+    "judge_hidden": 5,
+    "protocol": 7,
+}
 REQUIRED_EXPECTED_KEYS = {
     "grades",
     "tier",
@@ -59,7 +73,7 @@ REQUIRED_EXPECTED_KEYS = {
     "cm",
     "dedup_followups",
 }
-ID_PATTERN = re.compile(r"^(T0|T1|T2|T3|E|J)(-[a-z0-9]+)+$")
+ID_PATTERN = re.compile(r"^(T0|T1|T2|T3|E|J|P3)(-[a-z0-9]+)+$")
 
 Persona = dict[str, Any]
 
@@ -95,6 +109,7 @@ def _checkin_input(
     vitals: Sequence[object],
     open_aes: Sequence[OpenAE],
     settings: object,
+    protocol_context: object = None,
 ) -> CheckInInput:
     return input_from_dict(
         {
@@ -110,6 +125,7 @@ def _checkin_input(
             "open_aes": list(open_aes),
             "settings": settings,
             "next_aeseq": 1,
+            "protocol_context": protocol_context,
         }
     )
 
@@ -136,6 +152,7 @@ def materialize_open_aes(persona: Persona, completed_at: str) -> list[OpenAE]:
                 vitals=prior.get("vitals_samples", []),
                 open_aes=open_aes,
                 settings=persona.get("settings", {}),
+                protocol_context=persona.get("protocol_context"),
             )
         )
         for draft in result.drafts:
@@ -176,6 +193,7 @@ def replay(persona: Persona, settings: object = None) -> tuple[CheckInResult, li
             vitals=persona["vitals_samples"],
             open_aes=open_aes,
             settings=persona.get("settings", {}) if settings is None else settings,
+            protocol_context=persona.get("protocol_context"),
         )
     )
     return result, open_aes
@@ -263,6 +281,14 @@ def assert_matches(
                 expected_end = date if direction in ("stopped", "both") else None
                 assert draft.value("CMSTDTC") == expected_start, f"{where}: CMSTDTC"
                 assert draft.value("CMENDTC") == expected_end, f"{where}: CMENDTC"
+            if "protocol_flag" in exp:
+                assert draft.value("INTERIM_PROTOCOL_FLAG") == exp["protocol_flag"], (
+                    f"{where}: INTERIM_PROTOCOL_FLAG {draft.value('INTERIM_PROTOCOL_FLAG')}"
+                )
+            if "missing_fields" in exp:
+                assert draft.value("INTERIM_CM_MISSING_FIELDS") == exp["missing_fields"], (
+                    f"{where}: INTERIM_CM_MISSING_FIELDS {draft.value('INTERIM_CM_MISSING_FIELDS')}"
+                )
         if expected["cm"]:
             assert (
                 result.conmed is not None
@@ -283,6 +309,8 @@ def assert_matches(
             assert draft.value("AEDECOD") == linked.aedecod, where
             assert draft.value("AEONGO") == "Y", where
 
+    assert_protocol_matches(result, expected, where)
+
     if "vitals_status" in expected:
         assert result.vitals.status == expected["vitals_status"], (
             f"{where}: vitals status {result.vitals.status}"
@@ -295,6 +323,37 @@ def assert_matches(
     for draft in vs_drafts:
         assert draft.value("INTERIM_IS_MEASURED") is False, f"{where}: mock vitals are simulated"
         assert draft.value("VSMETHOD") == "Simulated", f"{where}: simulated must be labeled"
+
+
+def assert_protocol_matches(result: CheckInResult, expected: Mapping[str, Any], where: str) -> None:
+    """The R3.1 protocol keys; each is optional so the original 29 personas are unaffected."""
+    protocol = result.protocol
+    assert protocol is not None, where
+    if "protocol_tier_floor" in expected:
+        assert result.protocol_tier_floor == expected["protocol_tier_floor"], f"{where}: floor"
+        assert protocol.tier_floor == expected["protocol_tier_floor"], where
+    if "aesi_suspected" in expected:
+        assert protocol.aesi_suspected is expected["aesi_suspected"], f"{where}: aesi_suspected"
+    if "aesi_items" in expected:
+        assert list(protocol.aesi_items) == expected["aesi_items"], f"{where}: aesi_items"
+        flagged = [
+            str(d.value("AEDECOD"))
+            for d in _drafts(result, "AE")
+            if d.value("INTERIM_AESI_SUSPECTED") is True
+        ]
+        by_item = {i.item_id: i.aedecod for i in result.items}
+        assert flagged == [by_item[i] for i in expected["aesi_items"]], f"{where}: {flagged}"
+    if "aesi_clock_started" in expected:
+        clock = result.aesi_clock
+        assert (clock is not None) is expected["aesi_clock_started"], f"{where}: aesi clock"
+        if clock is not None:
+            assert clock.kind == "aesi", where
+            assert clock.site_awareness_at == COMPLETED_AT, where
+            assert clock.due_at == shift(COMPLETED_AT, hours=SITE_TO_SPONSOR_HOURS), where
+    if result.sae_clock is not None:
+        assert result.sae_clock.kind == "sae", where
+    # Protocol rules never change a grade, and never lower the tier below the ladder's floors.
+    assert result.escalation_tier >= max(result.base_tier, result.protocol_tier_floor), where
 
 
 # --------------------------------------------------------------------------- #
@@ -376,7 +435,7 @@ def test_answer_key_carries_source_rationale_and_counts() -> None:
     counts = ANSWER_KEY["counts"]
     actual = {
         category: sum(1 for p in PERSONAS if p["category"] == category)
-        for category in ("tier0", "tier1", "tier2", "tier3", "edge")
+        for category in ("tier0", "tier1", "tier2", "tier3", "edge", "protocol")
     }
     actual["judge_hidden"] = sum(1 for p in PERSONAS if p["hidden"])
     assert actual == REQUIRED_MIX, actual

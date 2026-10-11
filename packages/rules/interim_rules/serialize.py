@@ -7,6 +7,13 @@
   ``{item_id: {attribute: value}}`` or as a list of answer dicts, and vitals
   samples in the bridge's camelCase or the API's snake_case.
 * :func:`build_input` is the keyword-argument convenience the API uses.
+* The optional protocol context (CONTRACTS.md R3.1) is read from ``protocol_context``
+  (or ``protocolContext``): ``{prior_pi3k_inhibitor: bool, last_dose_date: "YYYY-MM-DD"
+  | null, new_anticancer_therapy_date: "YYYY-MM-DD" | null}``; absent means no prior
+  PI3K inhibitor, last dose unknown and no new anti-cancer therapy. An open AE may carry
+  ``aesi_clock_started: bool`` (default false). Results gain
+  ``protocol``, ``aesi_clock`` and ``protocol_tier_floor``; ``sae_clock`` gains ``kind``.
+  Every key that existed before is kept.
 
 Ids the caller does not supply are synthesized deterministically from the
 session id so that evidence pointers are never empty.
@@ -28,6 +35,7 @@ from .models import (
     GateAnswers,
     OpenAE,
     ProResponse,
+    ProtocolContext,
     RuleSettings,
     VitalsSampleIn,
 )
@@ -258,7 +266,17 @@ def open_ae_from(raw: object, index: int) -> OpenAE:
         first_reported_at=normalize_iso(str(_pick(d, "first_reported_at", "firstReportedAt"))),
         last_reported_at=normalize_iso(str(_pick(d, "last_reported_at", "lastReportedAt"))),
         last_session_id=str(_pick(d, "last_session_id", "lastSessionId", default="")),
+        aesi_clock_started=_strict_bool(
+            _pick(d, "aesi_clock_started", "aesiClockStarted", default=False),
+            f"open_aes[{index}].aesi_clock_started",
+        ),
     )
+
+
+def _strict_bool(value: object, where: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{where} must be a boolean, got {value!r}")
+    return value
 
 
 def settings_from(raw: object) -> RuleSettings:
@@ -272,6 +290,27 @@ def settings_from(raw: object) -> RuleSettings:
         ),
         min_confidence=_float_or_none(_pick(d, "min_confidence", "minConfidence")),
         dedup_window_days=None if window is None else int(window),
+    )
+
+
+def protocol_context_from(raw: object) -> ProtocolContext:
+    """Build :class:`ProtocolContext` from a dict (snake_case or camelCase); ``None`` -> default."""
+    if isinstance(raw, ProtocolContext):
+        return raw
+    if raw is None:
+        return ProtocolContext()
+    if not isinstance(raw, Mapping):
+        raise ValueError("protocol_context must be an object")
+    d = cast(Mapping[str, Any], raw)
+    pi3k = _pick(d, "prior_pi3k_inhibitor", "priorPi3kInhibitor", default=False)
+    if not isinstance(pi3k, bool):
+        raise ValueError(f"protocol_context.prior_pi3k_inhibitor must be a boolean, got {pi3k!r}")
+    return ProtocolContext(
+        prior_pi3k_inhibitor=pi3k,
+        last_dose_date=_str_or_none(_pick(d, "last_dose_date", "lastDoseDate")),
+        new_anticancer_therapy_date=_str_or_none(
+            _pick(d, "new_anticancer_therapy_date", "newAnticancerTherapyDate")
+        ),
     )
 
 
@@ -304,6 +343,7 @@ def input_from_dict(data: Mapping[str, Any]) -> CheckInInput:
         settings=settings_from(data.get("settings")),
         next_aeseq=int(_pick(data, "next_aeseq", "nextAeseq", default=1)),
         nct_id=None if nct is None else str(nct),
+        protocol_context=protocol_context_from(_pick(data, "protocol_context", "protocolContext")),
     )
 
 
@@ -321,6 +361,7 @@ def build_input(
     next_aeseq: int = 1,
     nct_id: str | None = None,
     started_at: str | None = None,
+    protocol_context: object = None,
 ) -> CheckInInput:
     """Keyword convenience for the API: each piece may be a dataclass instance or a dict."""
     return input_from_dict(
@@ -337,5 +378,6 @@ def build_input(
             "settings": settings,
             "next_aeseq": next_aeseq,
             "nct_id": nct_id,
+            "protocol_context": protocol_context,
         }
     )

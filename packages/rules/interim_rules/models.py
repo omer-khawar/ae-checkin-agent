@@ -36,10 +36,17 @@ RuleCategory = Literal[
     "conmed",
     "dedup",
     "drafting",
+    "protocol",
 ]
 VitalsStatus = Literal["ok", "unavailable", "low_quality", "implausible", "simulated_ignored"]
 MatchKind = Literal["exact", "case_insensitive", "levenshtein", "unmatched"]
 Domain = Literal["AE", "VS", "CM"]
+ClockKind = Literal["sae", "aesi"]
+"""Which 24-hour clock: a suspected SAE (``sae``) or a possible AESI (``aesi``, CONTRACTS R3.1)."""
+ProtocolLevel = Literal["prohibited", "discouraged", "permitted"]
+"""Protocol classification of a concomitant medication (EMPOWER-Lung 1 §7.7.1-7.7.2, p. 69)."""
+ProtocolMatchBy = Literal["medlist", "verbatim_name", "verbatim_term"]
+"""How a protocol drug was recognized: the medlist match, a name/brand token, or a phrase."""
 
 
 # --------------------------------------------------------------------------- #
@@ -109,6 +116,9 @@ class OpenAE:
     first_reported_at: str
     last_reported_at: str
     last_session_id: str
+    aesi_clock_started: bool = False
+    """A 24-hour AESI clock already exists for this AE (running or stopped). A follow-up
+    report of the same AE then does not start a second clock (one event, one clock)."""
 
 
 @dataclass(frozen=True)
@@ -118,6 +128,25 @@ class RuleSettings:
     simulated_as_measured: bool = False
     min_confidence: float | None = None
     dedup_window_days: int | None = None
+
+
+@dataclass(frozen=True)
+class ProtocolContext:
+    """Participant facts the protocol rules need that the kiosk does not ask (CONTRACTS R3.1).
+
+    ``prior_pi3k_inhibitor``: the participant was previously treated with a PI 3-K
+    inhibitor (protocol §9.4.3, p. 92: then an irAE of any grade is an AESI).
+    ``last_dose_date``: ISO date (``YYYY-MM-DD``) of the last study-drug dose, used only
+    for the informational AE reporting window (§9.4.1, p. 91).
+    ``new_anticancer_therapy_date``: ISO date the participant commenced another
+    anti-cancer systemic therapy, if any; the window then ends on that date when it is
+    earlier ("whichever is earlier", §9.4.1, p. 91). Only narrows a window computed from
+    ``last_dose_date``.
+    """
+
+    prior_pi3k_inhibitor: bool = False
+    last_dose_date: str | None = None
+    new_anticancer_therapy_date: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +165,8 @@ class CheckInInput:
     next_aeseq: int = 1
     nct_id: str | None = None
     """Public registry id of the demo study, carried into drafts as ``INTERIM_NCT_ID``."""
+    protocol_context: ProtocolContext = ProtocolContext()
+    """Protocol facts about the participant (default: no PI3K inhibitor, last dose unknown)."""
 
 
 # --------------------------------------------------------------------------- #
@@ -220,11 +251,69 @@ class ConMedMatch:
 
 @dataclass(frozen=True)
 class SAEClock:
-    """The site's 24-hour reporting clock, started when the site became aware."""
+    """A site 24-hour reporting clock, started when the site became aware.
+
+    ``kind`` is ``"sae"`` for a suspected serious adverse event and ``"aesi"`` for a
+    possible adverse event of special interest (same machinery, CONTRACTS R3.1).
+    """
 
     site_awareness_at: str
     due_at: str
     informational: dict[str, str]
+    kind: ClockKind = "sae"
+
+
+@dataclass(frozen=True)
+class ProtocolRef:
+    """A citation into the cached excerpt ``data/public/empower_lung1_protocol_excerpt.json``."""
+
+    section: str
+    printed_page: int
+
+
+@dataclass(frozen=True)
+class ProtocolConMedFlag:
+    """One protocol classification of the reported medication, with the protocol's own words."""
+
+    level: ProtocolLevel
+    drug: str
+    """Lowercase generic name (or the protocol's category name, e.g. investigational agents)."""
+    matched_text: str
+    """The name, brand or phrase that matched (lowercase)."""
+    matched_by: ProtocolMatchBy
+    protocol_ref: ProtocolRef
+    quote: str
+    """The protocol sentence the classification rests on, verbatim."""
+    exception_text: str | None
+    """For discouraged drugs: the protocol's exception wording, verbatim."""
+    condition: str | None
+    """For conditionally permitted drugs: the condition, in the protocol's words."""
+    is_category: bool = False
+    """True for a class or procedure (investigational agents, palliative radiation)."""
+
+
+@dataclass(frozen=True)
+class ProtocolAssessment:
+    """What the trial protocol says about this check-in (CONTRACTS R3.1).
+
+    Never changes a grade. ``tier_floor`` is 2 only when a prohibited medication was
+    reported; AESI suspicion starts a 24-hour clock but does not move the tier.
+    """
+
+    protocol_id: str
+    context: ProtocolContext
+    aesi_suspected: bool
+    aesi_items: tuple[str, ...]
+    aesi_reasons: tuple[str, ...]
+    conmed_flags: tuple[ProtocolConMedFlag, ...]
+    conmed_flag: ProtocolLevel | None
+    """The most restrictive level among ``conmed_flags`` (prohibited > discouraged > permitted)."""
+    conmed_notes: tuple[str, ...]
+    cm_missing_fields: tuple[str, ...]
+    tier_floor: int
+    ae_reporting_window_end: str | None
+    within_ae_reporting_window: bool | None
+    rules_fired: tuple[RuleFired, ...]
 
 
 @dataclass(frozen=True)
@@ -272,3 +361,9 @@ class CheckInResult:
     drafts: tuple[DraftRecord, ...]
     rules_fired: tuple[RuleFired, ...]
     why: tuple[str, ...]
+    protocol: ProtocolAssessment | None = None
+    """Protocol assessment (always set by :func:`~interim_rules.engine.evaluate_checkin`)."""
+    aesi_clock: SAEClock | None = None
+    """The 24-hour AESI clock (``kind == "aesi"``) when an AESI is suspected."""
+    protocol_tier_floor: int = 0
+    """Tier floor from the protocol rules (2 for a prohibited con-med, else 0)."""

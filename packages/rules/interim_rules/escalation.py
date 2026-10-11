@@ -3,7 +3,7 @@
 ::
 
     base  = base_tier_by_max_grade[max_grade]          # 0/1 -> 0, 2 -> 1, 3 -> 2
-    tier  = max(base, red-flag floor)
+    tier  = max(base, red-flag floor, protocol floor)  # protocol floor: 2 for a prohibited con-med
     tier  = min(max_tier, tier + corroboration bump)   # bump is 0 or 1
     stop_screen = page_oncall = (tier == max_tier)
 
@@ -22,6 +22,7 @@ from .tables import escalation_ladder, vitals_config
 
 LADDER_TABLE_FILE = "escalation_ladder.json"
 VITALS_TABLE_FILE = "vitals_corroboration.json"
+PROTOCOL_TABLE_FILE = "protocol_rules.json"
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ class TierOutcome:
     page_oncall: bool
     stop_screen_text: str | None
     rules_fired: tuple[RuleFired, ...]
+    protocol_floor: int = 0
+    """Tier floor from the protocol rules (``protocol_rules.json``); 0 when none applies."""
 
 
 def compute_tier(
@@ -44,8 +47,14 @@ def compute_tier(
     red_flag_rule_ids: Sequence[str],
     corroboration_bump: int,
     corroboration_rule_ids: Sequence[str],
+    protocol_floor: int = 0,
+    protocol_rule_ids: Sequence[str] = (),
 ) -> TierOutcome:
-    """Apply the ladder and explain every step as a rule."""
+    """Apply the ladder and explain every step as a rule.
+
+    The protocol floor (CONTRACTS.md R3.1) joins the red-flag floor before the vitals
+    bump: ``tier = max(base, red-flag floor, protocol floor)``, then ``+ bump``.
+    """
     ladder = escalation_ladder()
     if max_grade not in ladder.base_tier_by_max_grade:
         raise ValueError(f"max_grade {max_grade!r} has no base tier")
@@ -85,6 +94,29 @@ def compute_tier(
             )
         )
         tier = red_flag_floor
+
+    protocol_applied = protocol_floor > tier
+    if protocol_applied:
+        rules.append(
+            RuleFired(
+                rule_id="tier.protocol_floor",
+                category="escalation",
+                description=(
+                    f"Protocol floor {protocol_floor} raises tier {tier} -> {protocol_floor} "
+                    f"(possible protocol deviation, coordinator to confirm)"
+                ),
+                inputs={"tier_before": tier, "floor": protocol_floor},
+                effect=f"tier = {protocol_floor}",
+                evidence=(
+                    *(
+                        rule_evidence(rid, "protocol rule setting the floor")
+                        for rid in protocol_rule_ids
+                    ),
+                    table_evidence(PROTOCOL_TABLE_FILE, "conmeds.prohibited_tier_floor"),
+                ),
+            )
+        )
+        tier = protocol_floor
 
     bump = 0
     if corroboration_bump > 0:
@@ -143,6 +175,11 @@ def compute_tier(
                     if red_flag_floor > base
                     else ()
                 ),
+                *(
+                    (rule_evidence("tier.protocol_floor", f"protocol floor {protocol_floor}"),)
+                    if protocol_applied
+                    else ()
+                ),
                 *((rule_evidence("tier.corroboration_bump", f"+{bump}"),) if bump else ()),
                 table_evidence(LADDER_TABLE_FILE, f"tier {final.tier}: {final.name}"),
             ),
@@ -157,4 +194,5 @@ def compute_tier(
         page_oncall=final.page_oncall,
         stop_screen_text=final.stop_screen_text,
         rules_fired=tuple(rules),
+        protocol_floor=protocol_floor,
     )

@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import importlib
 import json
+import pkgutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import interim_rules
 from interim_rules import tables
 from interim_rules.chartscan import CHARTSCAN_TABLE_NAMES
 from interim_rules.chartscan import RULE_IDS as CHARTSCAN_RULE_IDS
+from interim_rules.narrative import NARRATIVE_TABLE_NAMES
+from interim_rules.plain_language import PLAIN_LANGUAGE_TABLE_NAMES
 from interim_rules.tables import TABLE_NAMES, TableError
+from interim_rules.time_saved import TIME_MODEL_TABLE_NAMES
 
 EXPECTED_ITEMS = [
     ("shortness_of_breath", ("severity", "interference"), "Dyspnea"),
@@ -50,13 +56,36 @@ def test_every_table_has_source_and_rationale(name: str) -> None:
     assert (tables.data_dir() / f"{name}.json").is_file()
 
 
+def _module_owned_table_names() -> set[str]:
+    """Tables that a module other than ``tables`` owns, declared as ``*_TABLE_NAMES``.
+
+    A module that loads and validates its own JSON table (``chartscan``, ``narrative``,
+    ``plain_language``, ``time_saved``, and any later one) declares it in a module-level
+    tuple named ``<SOMETHING>_TABLE_NAMES``; such tables are not loaded through
+    ``tables.TABLE_NAMES``. A table no module declares is an unowned file and fails.
+    """
+    owned: set[str] = set()
+    for info in pkgutil.iter_modules(interim_rules.__path__):
+        module = importlib.import_module(f"interim_rules.{info.name}")
+        for name, value in vars(module).items():
+            if name.endswith("_TABLE_NAMES") and name != "TABLE_NAMES" and module is not tables:
+                owned.update(str(v) for v in value)
+    return owned
+
+
 def test_table_names_cover_every_json_file_except_personas() -> None:
-    # personas.json is owned by the eval harness and the chartscan_*.json tables by
-    # interim_rules.chartscan (CONTRACTS.md R2.4); neither is loaded through TABLE_NAMES.
-    on_disk = {p.stem for p in tables.data_dir().glob("*.json")} - {
-        "personas",
+    # personas.json is owned by the eval harness; module-owned tables (chartscan_*.json,
+    # CONTRACTS.md R2.4; the R3.1 narrative, plain-language and time tables) are declared by
+    # their modules. Everything else must be loaded through TABLE_NAMES.
+    owned = _module_owned_table_names()
+    assert {
         *CHARTSCAN_TABLE_NAMES,
-    }
+        *NARRATIVE_TABLE_NAMES,
+        *PLAIN_LANGUAGE_TABLE_NAMES,
+        *TIME_MODEL_TABLE_NAMES,
+    } <= owned
+    assert not owned & set(TABLE_NAMES)
+    on_disk = {p.stem for p in tables.data_dir().glob("*.json")} - {"personas", *owned}
     assert on_disk == set(TABLE_NAMES)
 
 
@@ -287,6 +316,14 @@ def test_rules_catalog_is_complete() -> None:
         "draft.ae",
         "draft.vs",
         "draft.cm",
+        "tier.protocol_floor",
+        "protocol.aesi_suspected",
+        "aesi.clock_started",
+        "aesi.clock_not_restarted",
+        "protocol.conmed_prohibited",
+        "protocol.conmed_discouraged",
+        "protocol.conmed_permitted",
+        "protocol.cm_fields_missing",
         *CHARTSCAN_RULE_IDS,
     }
     assert set(catalog) == expected

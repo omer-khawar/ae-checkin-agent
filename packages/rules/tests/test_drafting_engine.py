@@ -36,6 +36,7 @@ VS_FIELDS = [
 CM_FIELDS = [
     "STUDYID", "INTERIM_NCT_ID", "USUBJID", "CMSEQ", "CMTRT", "CMDECOD", "CMSTDTC", "CMENDTC",
     "CMSTAT", "INTERIM_MATCH_CONFIDENCE", "INTERIM_MATCH_KIND", "INTERIM_DIRECTION",
+    "INTERIM_PROTOCOL_FLAG", "INTERIM_CM_MISSING_FIELDS",
 ]  # fmt: skip
 
 DEMO = {
@@ -93,7 +94,7 @@ def test_rules_are_ordered_by_pipeline_stage() -> None:
     categories = [r.category for r in result.rules_fired]
     order = [
         "scoring", "grading", "red_flag", "vitals_quality", "corroboration", "escalation",
-        "seriousness", "conmed", "dedup", "drafting",
+        "seriousness", "conmed", "protocol", "dedup", "drafting",
     ]  # fmt: skip
     assert categories == sorted(categories, key=order.index)
     assert set(categories) == set(order)

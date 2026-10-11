@@ -1,0 +1,454 @@
+{
+  "source": "Interim template writer (CLAUDE.md §00.2–§00.4, CONTRACTS.md R3.1). Narrative order follows ICH E2A 'Clinical Safety Data Management: Definitions and Standards for Expedited Reporting' (1994) and the CIOMS/ICH E2A expectation that an expedited report narrative states who, what, when, seriousness, action taken, outcome and causality. Reporting obligations cited by the sentences come from the EMPOWER-Lung 1 protocol R2810-ONC-1624 Amendment 9 (data/public/empower_lung1_protocol_excerpt.json); the section and page numbers that appear in the text are passed in as facts by the caller, the protocol_ref fields below document which protocol page each sentence implements.",
+  "rationale": "Generated text is allowed only if every sentence is assembled from structured facts and cites the evidence ids of the facts it used (CLAUDE.md §00: rules decide, text tools write, people confirm). Keeping every sentence, label, joiner and date format here as data means the Python code only fills slots: changing the wording is a table edit with a reviewable diff, not a code change. Each sentence lists variants in priority order; the writer uses the first variant whose 'when' conditions hold and whose slots (placeholders plus 'cite') are all present, and omits the sentence when none is, so a missing fact is never replaced by filler such as 'unknown'. The only sentence about absent data is the explicit 'Information still needed' sentence built from the caller's missing-information list. No sentence gives medical advice; every stated grade carries 'provisional, investigator to confirm' and every AESI mention carries 'possible AESI, investigator to confirm'.",
+  "version": 1,
+  "writer": "template",
+  "formats": {
+    "datetime": "%Y-%m-%d %H:%M UTC",
+    "list_separator": ", ",
+    "list_last_separator": " and ",
+    "trend_separator": ", then ",
+    "sentence_separator": " ",
+    "rationale": "Timestamps render in UTC with the zone named so a sponsor reader in another time zone cannot misread them (CLAUDE.md §4.2: UTC everywhere). Date-only facts (YYYY-MM-DD) are shown unchanged."
+  },
+  "labels": {
+    "conmed_direction": {
+      "started": "started",
+      "stopped": "stopped",
+      "taking": "reported taking",
+      "changed": "changed the dose of"
+    },
+    "trend": {
+      "worsening": "worsening",
+      "improving": "improving",
+      "unchanged": "unchanged"
+    },
+    "clock_kind": {
+      "sae": "SAE report",
+      "aesi": "possible AESI, investigator to confirm"
+    },
+    "clock_status": {
+      "running": "still running",
+      "reported (mock)": "reported (mock)",
+      "stopped": "stopped"
+    },
+    "ae_status": {
+      "ongoing": "still open",
+      "resolved": "marked resolved"
+    },
+    "vitals_method": {
+      "measured": "measured",
+      "simulated": "simulated"
+    },
+    "acknowledged": {
+      "true": "acknowledged",
+      "false": "not yet acknowledged"
+    },
+    "cm_fields": {
+      "CMTRT": "generic name",
+      "CMDOSE": "dose",
+      "CMDOSU": "dose unit",
+      "CMDOSFRQ": "frequency",
+      "CMINDC": "indication",
+      "CMSTDTC": "start date",
+      "CMENDTC": "stop date"
+    },
+    "rationale": "Plain-English words for coded fact values. cm_fields maps the protocol's required CM CRF fields (generic name, dose, dose unit, frequency, indication, start/stop date) to plain words when the caller passes SDTM variable names; any other string is shown as given. 'simulated' always appears next to simulated vitals (CLAUDE.md §13).",
+    "protocol_ref": { "section": "7.7", "printed_page": 69 }
+  },
+  "fragments": {
+    "rationale": "Reusable phrases rendered into a single slot (for example the protocol status of one medication) with the same variant rules as sentences.",
+    "grade_point": [
+      { "template": "grade {grade} on {date}" },
+      { "template": "grade {grade}" }
+    ],
+    "conmed_action": [
+      { "template": "{verb} \"{name}\" on {date}" },
+      { "template": "{verb} \"{name}\"" }
+    ],
+    "conmed_protocol": [
+      {
+        "when": { "flag": "prohibited" },
+        "template": "the protocol lists it as prohibited (section {section}, page {page}), a possible protocol deviation for the investigator to review"
+      },
+      {
+        "when": { "flag": "prohibited" },
+        "template": "the protocol lists it as prohibited, a possible protocol deviation for the investigator to review"
+      },
+      {
+        "when": { "flag": "discouraged" },
+        "template": "the protocol discourages it (section {section}, page {page}), with this exception: \"{exception}\""
+      },
+      {
+        "when": { "flag": "discouraged" },
+        "template": "the protocol discourages it (section {section}, page {page})"
+      },
+      {
+        "when": { "flag": "discouraged" },
+        "template": "the protocol discourages it, with this exception: \"{exception}\""
+      },
+      { "when": { "flag": "discouraged" }, "template": "the protocol discourages it" },
+      {
+        "when": { "flag": "permitted" },
+        "template": "the protocol permits it (section {section}, page {page})"
+      },
+      { "when": { "flag": "permitted" }, "template": "the protocol permits it" }
+    ],
+    "acknowledgement": [
+      { "when": { "acknowledged": "true" }, "template": "acknowledged on {acked_at}" },
+      { "when": { "acknowledged": "true" }, "template": "acknowledged" },
+      { "when": { "acknowledged": "false" }, "template": "not yet acknowledged" }
+    ]
+  },
+  "sections": {
+    "summary": "Participant and study",
+    "event": "What happened",
+    "seriousness": "Seriousness and reporting",
+    "medications": "Medications",
+    "actions": "Actions taken",
+    "outcome": "Outcome",
+    "causality": "Causality",
+    "reporter": "Reporter",
+    "missing": "Information still needed",
+    "header": "Visit brief",
+    "new_side_effects": "New side effects",
+    "open_aes": "Open adverse events",
+    "med_changes": "Medication changes",
+    "escalations": "Escalations",
+    "clocks": "24-hour clocks",
+    "notes": "Chart notes ingested",
+    "vitals": "Vitals context",
+    "questions": "Questions to ask at the visit"
+  },
+  "kinds": {
+    "sae_narrative": {
+      "facts_kind": "sae",
+      "order_rationale": "ICH E2A narrative order: who (participant, study, study drug, last dose), what and when (event, onset, source quotes, provisional grade, site awareness), seriousness and the reporting deadline, concomitant medications, actions taken, outcome, causality, reporter, then the information still needed for the follow-up report.",
+      "sentences": [
+        {
+          "id": "who",
+          "section": "summary",
+          "variants": [
+            { "template": "Participant {participant} is enrolled in study {study_id}, where the study drug is {study_drug}." },
+            { "template": "Participant {participant} is enrolled in study {study_id}." },
+            { "template": "Participant {participant} is enrolled in this study, where the study drug is {study_drug}." },
+            { "template": "Participant {participant} is enrolled in this study." }
+          ]
+        },
+        {
+          "id": "last_dose",
+          "section": "summary",
+          "variants": [
+            { "template": "The last recorded dose of {study_drug} was on {last_dose}." },
+            { "template": "The last recorded dose of the study drug was on {last_dose}." }
+          ]
+        },
+        {
+          "id": "event",
+          "section": "event",
+          "variants": [
+            { "template": "The event was {event_label} (CTCAE term: {event_term}), which began on {onset}." },
+            { "template": "The event was {event_label} (CTCAE term: {event_term})." }
+          ]
+        },
+        {
+          "id": "quote",
+          "section": "event",
+          "for_each": "quotes",
+          "as": "q",
+          "variants": [
+            { "template": "The {q.source} reads: \"{q.text}\"." },
+            { "template": "A source record reads: \"{q.text}\"." }
+          ]
+        },
+        {
+          "id": "grade",
+          "section": "event",
+          "variants": [
+            { "template": "The event was recorded as grade {grade} (provisional, investigator to confirm)." }
+          ]
+        },
+        {
+          "id": "awareness",
+          "section": "event",
+          "variants": [
+            { "template": "The site became aware of the event on {site_awareness_at}, from {awareness_source}." },
+            { "template": "The site became aware of the event on {site_awareness_at}." }
+          ]
+        },
+        {
+          "id": "seriousness_criteria",
+          "section": "seriousness",
+          "variants": [
+            { "template": "Seriousness criteria suspected: {criteria} (investigator to confirm)." }
+          ]
+        },
+        {
+          "id": "aesi_reasons",
+          "section": "seriousness",
+          "protocol_ref": { "section": "9.4.3", "printed_page": 92 },
+          "variants": [
+            { "template": "Possible AESI, investigator to confirm: {aesi_reasons}." }
+          ]
+        },
+        {
+          "id": "reporting_deadline",
+          "section": "seriousness",
+          "protocol_ref": { "section": "9.4.2", "printed_page": 91 },
+          "variants": [
+            {
+              "when": { "kind": "sae" },
+              "template": "Under protocol section {deadline_section} (page {deadline_page}), a serious adverse event must be reported to the sponsor within {deadline_hours} hours, regardless of causality; this report is due by {deadline}."
+            },
+            {
+              "template": "Under protocol section {deadline_section} (page {deadline_page}), this kind of event must be reported to the sponsor within {deadline_hours} hours; this report is due by {deadline}."
+            },
+            { "template": "This report is due to the sponsor by {deadline}, {deadline_hours} hours after the site became aware." },
+            { "template": "This report is due to the sponsor by {deadline}." }
+          ]
+        },
+        {
+          "id": "conmed",
+          "section": "medications",
+          "for_each": "conmeds",
+          "as": "cm",
+          "protocol_ref": { "section": "7.7.1-7.7.2", "printed_page": 69 },
+          "variants": [
+            { "template": "The participant {cm.action}; {cm.protocol}." },
+            { "template": "The participant {cm.action}." }
+          ]
+        },
+        {
+          "id": "escalation",
+          "section": "actions",
+          "variants": [
+            { "template": "Interim escalated the event to the study team as tier {esc.tier} ({esc.tier_name}) on {esc.date}." },
+            { "template": "Interim escalated the event to the study team as tier {esc.tier} ({esc.tier_name})." }
+          ]
+        },
+        {
+          "id": "action_taken",
+          "section": "actions",
+          "variants": [
+            { "template": "Action taken with {study_drug}: {action_taken}." },
+            { "template": "Action taken with the study drug: {action_taken}." }
+          ]
+        },
+        {
+          "id": "outcome",
+          "section": "outcome",
+          "variants": [
+            { "template": "The outcome was recorded as {outcome}." }
+          ]
+        },
+        {
+          "id": "causality",
+          "section": "causality",
+          "variants": [
+            { "template": "The investigator assessed the relationship to {study_drug} as {causality}." },
+            { "template": "The investigator assessed the relationship to the study drug as {causality}." },
+            {
+              "template": "The relationship to {study_drug} has not yet been assessed by the investigator.",
+              "cite": ["event_label"]
+            },
+            {
+              "template": "The relationship to the study drug has not yet been assessed by the investigator.",
+              "cite": ["event_label"]
+            }
+          ]
+        },
+        {
+          "id": "reporter",
+          "section": "reporter",
+          "variants": [
+            { "template": "This draft was prepared from site records by the {reporter_role} for investigator review and signature." }
+          ]
+        },
+        {
+          "id": "missing",
+          "section": "missing",
+          "protocol_ref": { "section": "9.4.2", "printed_page": 91 },
+          "variants": [
+            { "template": "Information still needed: {missing}." }
+          ]
+        }
+      ]
+    },
+    "aesi_narrative": {
+      "facts_kind": "aesi",
+      "sentences_from": "sae_narrative",
+      "order_rationale": "Same ICH E2A order as the SAE narrative: the protocol requires AESIs to be reported 'using the same reporting process as for SAE reporting' (section 9.4.3, page 92). Sentences that depend on kind use 'when'.",
+      "protocol_ref": { "section": "9.4.3", "printed_page": 92 }
+    },
+    "visit_brief": {
+      "facts_kind": null,
+      "order_rationale": "CLAUDE.md §00.4 order: who and since when, new side effects with grade trend, open AEs, medication changes with protocol flags, escalations and clocks, chart notes ingested, vitals context, questions to ask at the visit.",
+      "sentences": [
+        {
+          "id": "header",
+          "section": "header",
+          "variants": [
+            { "template": "Visit brief for participant {participant}: everything recorded since {since}." }
+          ]
+        },
+        {
+          "id": "next_visit",
+          "section": "header",
+          "variants": [
+            { "template": "The next visit is scheduled for {next_visit}." }
+          ]
+        },
+        {
+          "id": "new_side_effect",
+          "section": "new_side_effects",
+          "for_each": "new_side_effects",
+          "as": "se",
+          "variants": [
+            { "template": "New side effect: {se.label} ({se.term}), {se.trend}, {se.direction} (provisional, investigator to confirm)." },
+            { "template": "New side effect: {se.label} ({se.term}), {se.trend} (provisional, investigator to confirm)." },
+            { "template": "New side effect: {se.label} ({se.term})." }
+          ],
+          "if_empty": [
+            { "template": "No new side effects were recorded since {since}." }
+          ]
+        },
+        {
+          "id": "open_ae",
+          "section": "open_aes",
+          "for_each": "open_aes",
+          "as": "ae",
+          "variants": [
+            { "template": "Open adverse event: {ae.label} ({ae.term}), began on {ae.onset}, last reported on {ae.last_reported}, {ae.status}." },
+            { "template": "Open adverse event: {ae.label} ({ae.term}), began on {ae.onset}, {ae.status}." },
+            { "template": "Open adverse event: {ae.label} ({ae.term}), {ae.status}." },
+            { "template": "Open adverse event: {ae.label} ({ae.term})." }
+          ]
+        },
+        {
+          "id": "med_change",
+          "section": "med_changes",
+          "for_each": "med_changes",
+          "as": "cm",
+          "protocol_ref": { "section": "7.7.1-7.7.2", "printed_page": 69 },
+          "variants": [
+            { "template": "Medication change: the participant {cm.action}; {cm.protocol}." },
+            { "template": "Medication change: the participant {cm.action}." }
+          ],
+          "if_empty": [
+            { "template": "No medication changes were recorded since {since}." }
+          ]
+        },
+        {
+          "id": "escalation",
+          "section": "escalations",
+          "for_each": "escalations",
+          "as": "esc",
+          "variants": [
+            { "template": "Escalation on {esc.date}: tier {esc.tier} ({esc.tier_name}), {esc.reason}; {esc.ack}." },
+            { "template": "Escalation on {esc.date}: tier {esc.tier} ({esc.tier_name}); {esc.ack}." },
+            { "template": "Escalation on {esc.date}: tier {esc.tier} ({esc.tier_name})." },
+            { "template": "Escalation: tier {esc.tier} ({esc.tier_name}); {esc.ack}." },
+            { "template": "Escalation: tier {esc.tier} ({esc.tier_name})." }
+          ]
+        },
+        {
+          "id": "clock",
+          "section": "clocks",
+          "for_each": "clocks",
+          "as": "clk",
+          "protocol_ref": { "section": "9.4.2-9.4.3", "printed_page": 92 },
+          "variants": [
+            { "template": "{clk.hours}-hour clock ({clk.kind}) for {clk.event}: due {clk.due}, {clk.status}." },
+            { "template": "Reporting clock ({clk.kind}) for {clk.event}: due {clk.due}, {clk.status}." },
+            { "template": "Reporting clock ({clk.kind}) for {clk.event}: due {clk.due}." }
+          ]
+        },
+        {
+          "id": "note",
+          "section": "notes",
+          "for_each": "notes",
+          "as": "note",
+          "variants": [
+            { "template": "Chart note ingested: {note.type} dated {note.date} by {note.author} (possible side effects found: {note.n_symptoms}; medication mentions found: {note.n_meds})." },
+            { "template": "Chart note ingested: {note.type} dated {note.date} (possible side effects found: {note.n_symptoms}; medication mentions found: {note.n_meds})." },
+            { "template": "Chart note ingested: {note.type} dated {note.date} by {note.author}." },
+            { "template": "Chart note ingested: {note.type} dated {note.date}." },
+            { "template": "Chart note ingested: {note.type}." }
+          ]
+        },
+        {
+          "id": "vitals",
+          "section": "vitals",
+          "variants": [
+            { "template": "Vitals context ({vitals.method}, source {vitals.source}) on {vitals.date}: pulse median {vitals.pulse} beats/min and breathing median {vitals.breathing} breaths/min; vitals are context only." },
+            { "template": "Vitals context ({vitals.method}, source {vitals.source}): pulse median {vitals.pulse} beats/min and breathing median {vitals.breathing} breaths/min; vitals are context only." },
+            { "template": "Vitals context ({vitals.method}, source {vitals.source}): pulse median {vitals.pulse} beats/min; vitals are context only." },
+            { "template": "Vitals context ({vitals.method}, source {vitals.source}): breathing median {vitals.breathing} breaths/min; vitals are context only." }
+          ]
+        },
+        {
+          "id": "question",
+          "section": "questions",
+          "for_each": "questions",
+          "as": "qn",
+          "variants": [
+            {
+              "when": { "qn.kind": "cm_missing_fields" },
+              "template": "Ask about \"{qn.subject}\"; still needed for the medication record: {qn.details}."
+            },
+            {
+              "when": { "qn.kind": "unresolved_ae" },
+              "template": "Ask whether the {qn.subject} has resolved, and if so, on what date."
+            },
+            {
+              "when": { "qn.kind": "unsigned_packet" },
+              "template": "Make sure the report for {qn.subject} is signed by the investigator before it is due."
+            },
+            {
+              "when": { "qn.kind": "other" },
+              "template": "Ask: {qn.subject}."
+            }
+          ]
+        },
+        {
+          "id": "missing",
+          "section": "missing",
+          "variants": [
+            { "template": "Information still needed: {missing}." }
+          ]
+        }
+      ]
+    }
+  },
+  "validation": {
+    "rationale": "Checks validate_written applies to any WrittenText, including an LLM writer's output before it is accepted (CLAUDE.md §00 generated-text contract). Patterns are case-insensitive regular expressions applied to the sentence with quoted passages removed (quotes are checked separately: each must appear verbatim in a fact that the same sentence cites). Unquoted factual claims are not verified beyond their evidence ids (a documented limitation), which is why the template writer is the default and decision words (grade, seriousness, causality, AESI) must carry their qualifier.",
+    "forbidden_patterns": [
+      { "pattern": "\\bunknown\\b", "reason": "filler for a missing fact; list it under 'Information still needed' instead" },
+      { "pattern": "\\bn/a\\b", "reason": "filler for a missing fact" },
+      { "pattern": "\\btbd\\b", "reason": "filler for a missing fact" },
+      { "pattern": "\\brecommend", "reason": "medical advice is out of scope" },
+      { "pattern": "\\badvis", "reason": "medical advice is out of scope" },
+      { "pattern": "\\bprescrib", "reason": "medical advice is out of scope" },
+      { "pattern": "\\bdiagnos", "reason": "Interim never states a diagnosis" },
+      { "pattern": "\\byou should\\b", "reason": "medical advice is out of scope" },
+      { "pattern": "\\bshould (take|stop|start|be treated)\\b", "reason": "medical advice is out of scope" }
+    ],
+    "qualifiers": [
+      {
+        "pattern": "\\bgrade\\b|\\bG[1-5]\\b|\\bCTCAE [1-5]\\b",
+        "must_contain": "investigator to confirm",
+        "reason": "every grade is provisional until the investigator confirms it (also when written as G3 or CTCAE 3)"
+      },
+      {
+        "pattern": "\\brelated to\\b|\\bcaused by\\b|\\b(is|was|were) (a )?serious\\b|\\blife-threatening\\b",
+        "must_contain": "investigator",
+        "reason": "seriousness and causality are investigator decisions (protocol section 9.3.2, page 90: life-threatening 'in the view of the investigator'; section 9.3.4, pages 90-91: attribution 'will require the investigator's assessment'); generated text may state them only as the investigator's assessment or as suspected, investigator to confirm"
+      },
+      {
+        "pattern": "\\bAESI\\b|special interest",
+        "must_contain": "possible AESI, investigator to confirm",
+        "reason": "AESI status is suspected by rule; the investigator confirms it"
+      }
+    ]
+  }
+}

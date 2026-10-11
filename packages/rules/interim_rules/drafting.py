@@ -9,6 +9,17 @@ Three domains are drafted:
   usable sample; no VS rows at all when the session captured no samples;
 * **CM** - one record when the participant reported a medication change with text.
 
+Protocol additions (CONTRACTS.md R3.1): an AE draft for an item the protocol rules
+flag as a possible AESI carries ``INTERIM_AESI_SUSPECTED = True`` ("possible AESI,
+investigator to confirm"); every CM draft carries ``INTERIM_PROTOCOL_FLAG``
+(``prohibited | discouraged | permitted | None``) and ``INTERIM_CM_MISSING_FIELDS``
+(the protocol-required CM fields the kiosk could not fill), each with evidence pointing
+at ``protocol_rules.json``. When the medlist has no match but the participant named a
+protocol drug or brand outright (``Avastin``), ``CMDECOD`` takes the protocol table's
+generic name, with that table as its evidence. The same happens when the medlist's
+only hit is an edit-distance neighbour of a different drug (``prednisolone`` would
+otherwise become ``prednisone``): a name typed outright beats a fuzzy match.
+
 Every field with a value carries ``evidence`` pointing at the answers, samples,
 rules or tables that produced it. Fields that are null until a human decides
 (``AESER``, ``AEREL``, ``AEACN``, ``AEOUT``, ``CMSTAT``) carry no evidence.
@@ -39,11 +50,13 @@ from .models import (
     DraftRecord,
     Evidence,
     ItemResult,
+    ProtocolAssessment,
     RuleFired,
     VitalsAssessment,
     VitalsSampleIn,
 )
-from .tables import ctcae_term_for_item, grade_map, item_by_id, vitals_config
+from .protocol import IRAE_TABLE_FILE, PROTOCOL_TABLE_FILE
+from .tables import ctcae_term_for_item, grade_map, item_by_id, protocol_rules, vitals_config
 from .timefmt import iso_date, normalize_iso, parse_iso_utc
 from .vitals import METRICS, Metric, MetricReading, effective_is_measured, span_evidence
 
@@ -94,8 +107,14 @@ def build_ae_drafts(
     tier: TierOutcome,
     prior_rules: Sequence[RuleFired],
     gate_ids: Mapping[str, str],
+    protocol: ProtocolAssessment | None = None,
 ) -> tuple[tuple[DraftRecord, ...], tuple[RuleFired, ...]]:
-    """One AE draft per graded item, numbered from ``inp.next_aeseq``."""
+    """One AE draft per graded item, numbered from ``inp.next_aeseq``.
+
+    Items in ``protocol.aesi_items`` also get ``INTERIM_AESI_SUSPECTED = True``.
+    """
+    aesi_items = set(protocol.aesi_items) if protocol is not None else set()
+    aesi_label = protocol_rules().aesi.label
     drafts: list[DraftRecord] = []
     rules: list[RuleFired] = []
     context = rule_evidence("draft.ae", f"session {inp.session_id} context")
@@ -141,9 +160,12 @@ def build_ae_drafts(
             aestdtc_ev = response_ev or (context,)
 
         related = _related_rule_ids(answer_ids, prior_rules, decision)
+        is_aesi = result.item_id in aesi_items
+        if is_aesi:
+            related = _unique([*related, "protocol.aesi_suspected", "aesi.clock_started"])
         followup_of = decision.linked.ae_open_id if decision.linked is not None else None
 
-        fields = (
+        fields: tuple[DraftField, ...] = (
             _field("STUDYID", inp.studyid, (context,)),
             _field("INTERIM_NCT_ID", inp.nct_id, (context,) if inp.nct_id is not None else ()),
             _field("USUBJID", inp.usubjid, (context,)),
@@ -190,6 +212,21 @@ def build_ae_drafts(
                 else (),
             ),
         )
+        if is_aesi:
+            fields = (
+                *fields,
+                _field(
+                    "INTERIM_AESI_SUSPECTED",
+                    True,
+                    (
+                        rule_evidence("protocol.aesi_suspected", aesi_label),
+                        rule_evidence("aesi.clock_started", "24-hour AESI clock"),
+                        table_evidence(
+                            IRAE_TABLE_FILE, f"{result.item_id}: potentially immune-related"
+                        ),
+                    ),
+                ),
+            )
         drafts.append(
             DraftRecord(
                 domain="AE",
@@ -199,6 +236,8 @@ def build_ae_drafts(
             )
         )
         followup_note = f"; follow-up of open AE {followup_of}" if followup_of else ""
+        if is_aesi:
+            followup_note += f"; {aesi_label}"
         rules.append(
             RuleFired(
                 rule_id="draft.ae",
@@ -215,6 +254,7 @@ def build_ae_drafts(
                     "aestdtc": aestdtc,
                     "tier": tier.final_tier,
                     "followup_of": followup_of,
+                    "aesi_suspected": is_aesi,
                 },
                 effect=f"AE draft created (AESEQ {aeseq}); awaiting coordinator confirmation",
                 evidence=(
@@ -422,8 +462,69 @@ def _first_last(ordered: Sequence[VitalsSampleIn]) -> list[tuple[VitalsSampleIn,
 # --------------------------------------------------------------------------- #
 
 
+def _protocol_cm_fields(
+    match: ConMedMatch, protocol: ProtocolAssessment | None
+) -> tuple[str | None, tuple[Evidence, ...], tuple[DraftField, ...]]:
+    """Protocol-derived CM pieces: the CMDECOD fallback (+ evidence) and the two new fields."""
+    if protocol is None:
+        return None, (), ()
+    cfg = protocol_rules()
+    flag = protocol.conmed_flags[0] if protocol.conmed_flags else None
+    flag_ev: tuple[Evidence, ...] = ()
+    if flag is not None:
+        cite = f"§{flag.protocol_ref.section}, p. {flag.protocol_ref.printed_page}"
+        flag_ev = (
+            rule_evidence(f"protocol.conmed_{flag.level}", f"{flag.drug}: {flag.level}"),
+            table_evidence(PROTOCOL_TABLE_FILE, f"conmeds.{flag.level}: {flag.drug} ({cite})"),
+        )
+    ref = cfg.cm_required_reference.protocol_ref
+    missing_ev: tuple[Evidence, ...] = (
+        *(
+            (rule_evidence("protocol.cm_fields_missing", "fields still to collect"),)
+            if protocol.cm_missing_fields
+            else ()
+        ),
+        table_evidence(
+            PROTOCOL_TABLE_FILE, f"cm_required_fields (§{ref.section}, p. {ref.printed_page})"
+        ),
+    )
+    fields = (
+        _field("INTERIM_PROTOCOL_FLAG", protocol.conmed_flag, flag_ev),
+        _field("INTERIM_CM_MISSING_FIELDS", list(protocol.cm_missing_fields), missing_ev),
+    )
+    named = [
+        f for f in protocol.conmed_flags if f.matched_by == "verbatim_name" and not f.is_category
+    ]
+    if not named:
+        return None, (), fields
+    first = named[0]
+    if match.matched_name is not None:
+        # A medlist hit wins unless it is only an edit-distance neighbour of a different
+        # protocol drug the participant named outright ('prednisolone' is one edit from
+        # 'prednisone'); the typed name is the better evidence (protocol §7.7.2 names both).
+        if match.match_kind != "levenshtein" or match.matched_name == first.drug:
+            return None, (), fields
+        why = (
+            f"the medication list's closest entry '{match.matched_name}' is only an "
+            f"edit-distance match, and the text names {first.drug} itself"
+        )
+    else:
+        why = "the medication list has no entry"
+    decod_ev: tuple[Evidence, ...] = (
+        rule_evidence(f"protocol.conmed_{first.level}", f"named '{first.matched_text}'"),
+        table_evidence(
+            PROTOCOL_TABLE_FILE,
+            f"{first.matched_text} -> {first.drug} (protocol table name or brand; {why})",
+        ),
+    )
+    return first.drug, decod_ev, fields
+
+
 def build_cm_draft(
-    inp: CheckInInput, match: ConMedMatch, conmed_answer_id: str
+    inp: CheckInInput,
+    match: ConMedMatch,
+    conmed_answer_id: str,
+    protocol: ProtocolAssessment | None = None,
 ) -> tuple[DraftRecord, RuleFired]:
     """The CM draft for the reported medication change.
 
@@ -448,43 +549,57 @@ def build_cm_draft(
         rule_evidence(match_rule, f"{match.match_kind}; confidence {match.confidence}"),
         table_evidence(MEDLIST_FILE, "bundled medication list (NOT RxNorm)"),
     )
+    protocol_decod, protocol_decod_ev, protocol_fields = _protocol_cm_fields(match, protocol)
+    cmdecod = protocol_decod if protocol_decod is not None else match.matched_name
+    cmdecod_ev = protocol_decod_ev if protocol_decod is not None else match_ev
     fields = (
         _field("STUDYID", inp.studyid, (context,)),
         _field("INTERIM_NCT_ID", inp.nct_id, (context,) if inp.nct_id is not None else ()),
         _field("USUBJID", inp.usubjid, (context,)),
         _field("CMSEQ", 1, (context,)),
         _field("CMTRT", match.verbatim, (gate_ev,)),
-        _field("CMDECOD", match.matched_name, match_ev if match.matched_name is not None else ()),
+        _field("CMDECOD", cmdecod, cmdecod_ev),
         _field("CMSTDTC", cmstdtc, (gate_ev,) if cmstdtc is not None else ()),
         _field("CMENDTC", cmendtc, (gate_ev,) if cmendtc is not None else ()),
         _field("CMSTAT", None),
         _field("INTERIM_MATCH_CONFIDENCE", match.confidence, match_ev),
         _field("INTERIM_MATCH_KIND", match.match_kind, match_ev),
         _field("INTERIM_DIRECTION", direction, (gate_ev,) if direction is not None else ()),
+        *protocol_fields,
     )
     draft = DraftRecord(domain="CM", fields=fields, linked_ae_open_id=None, is_followup=False)
     if named:
-        outcome = match.matched_name or "unmatched (verbatim kept)"
+        outcome = cmdecod or "unmatched (verbatim kept)"
     else:
         outcome = "no medication name typed (coordinator to ask)"
+    if protocol_decod is None:
+        how = f"{match.match_kind}, confidence {match.confidence}"
+    elif match.matched_name is None:
+        how = "not in the medication list; generic name from the protocol table"
+    else:
+        how = (
+            f"named outright; generic name from the protocol table instead of the medication "
+            f"list's edit-distance neighbour '{match.matched_name}'"
+        )
     rule = RuleFired(
         rule_id="draft.cm",
         category="drafting",
         description=(
-            f"CM draft: '{match.verbatim}' -> {outcome} "
-            f"({match.match_kind}, confidence {match.confidence}); "
+            f"CM draft: '{match.verbatim}' -> {outcome} ({how}); "
             f"started {cmstdtc or '-'}, stopped {cmendtc or '-'}"
         ),
         inputs={
             "cmtrt": match.verbatim,
-            "cmdecod": match.matched_name,
+            "cmdecod": cmdecod,
             "cmstdtc": cmstdtc,
             "cmendtc": cmendtc,
             "direction": direction,
             "match_kind": match.match_kind,
             "confidence": match.confidence,
+            "protocol_flag": protocol.conmed_flag if protocol is not None else None,
+            "cm_missing_fields": list(protocol.cm_missing_fields) if protocol is not None else [],
         },
         effect="CM draft created; awaiting coordinator confirmation",
-        evidence=(gate_ev, *match_ev),
+        evidence=(gate_ev, *match_ev, *protocol_decod_ev),
     )
     return draft, rule

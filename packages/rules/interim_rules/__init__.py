@@ -19,6 +19,11 @@ Entry point::
     from interim_rules import evaluate_checkin, serialize
     result = evaluate_checkin(serialize.input_from_dict(payload))
     payload_out = serialize.result_to_dict(result)
+
+Also exported for the API (CONTRACTS.md R3.1): the protocol models
+(``ProtocolAssessment``, ``ProtocolContext``, ``ProtocolConMedFlag``, ``ProtocolRef``),
+the template writer (``write``, ``validate_written``, ``WrittenText``) and the
+time-saved estimate (``estimate``).
 """
 
 from .engine import evaluate_checkin
@@ -33,6 +38,10 @@ from .models import (
     ItemResult,
     OpenAE,
     ProResponse,
+    ProtocolAssessment,
+    ProtocolConMedFlag,
+    ProtocolContext,
+    ProtocolRef,
     RuleFired,
     RuleSettings,
     SAEClock,
@@ -40,6 +49,8 @@ from .models import (
     VitalsSampleIn,
     VitalsSummary,
 )
+from .narrative import WrittenText, validate_written, write
+from .time_saved import estimate
 
 INTERIM_VERSION = "0.1.0"
 """Product version. Read by the API for exports and the bundle manifest (CONTRACTS.md §7)."""
@@ -58,12 +69,20 @@ __all__ = [
     "ItemResult",
     "OpenAE",
     "ProResponse",
+    "ProtocolAssessment",
+    "ProtocolConMedFlag",
+    "ProtocolContext",
+    "ProtocolRef",
     "RuleFired",
     "RuleSettings",
     "SAEClock",
     "VitalsAssessment",
     "VitalsSampleIn",
     "VitalsSummary",
+    "WrittenText",
     "__version__",
+    "estimate",
     "evaluate_checkin",
+    "validate_written",
+    "write",
 ]

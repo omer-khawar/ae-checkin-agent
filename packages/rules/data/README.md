@@ -90,3 +90,59 @@ of the longest-window metric present, so 60 once HRV is published).
   keep both files identical.
 * **Regenerate / extend:** hand-edited. Add an answer-key case for every new pattern and run
   `pytest tests/test_chartscan.py` (pass criterion: 100% on the shipped key).
+
+## `protocol_rules.json`, `irae_mapping.json` (protocol-aware rules, CONTRACTS.md R3.1)
+
+* **Source:** EMPOWER-Lung 1 clinical study protocol R2810-ONC-1624 Amendment 9 (Regeneron;
+  NCT03088540), posted on ClinicalTrials.gov at
+  `https://cdn.clinicaltrials.gov/large-docs/40/NCT03088540/Prot_000.pdf` (pdf sha256
+  `f80249119e17839ad53f432d4bc6ed591aa42221b596feb7c5ca89047d6f0ae7`). The pages Interim cites
+  (printed pages 68–69 and 90–92) are cached verbatim in
+  `data/public/empower_lung1_protocol_excerpt.json` (repository root). Decision D-025.
+* **Citations:** every entry carries `protocol_ref: {section, printed_page}`; every `quote`,
+  `exception_text`, `further_exceptions_text` and `condition` is the protocol's own wording
+  (curly apostrophes and the en dash in "protocol–defined" kept), and
+  `tests/test_protocol_tables.py` checks each one, whitespace-normalized, against the cited page
+  of the excerpt. The corticosteroid exception is quoted, never paraphrased: "except in the case
+  of a life-threatening emergency and/or to treat an irAE."
+* **`protocol_rules.json`:** `aesi` (24 h reporting, label "possible AESI, investigator to
+  confirm", four criteria from §9.4.3 p. 92, two of which the kiosk cannot detect and are marked
+  `detectable_from_kiosk: false`), `sae_reporting_hours` (24, §9.4.2 p. 91; must equal
+  `seriousness.json`), `ae_reporting_window_days_after_last_dose` (90, §9.4.1 p. 91;
+  informational; the quoted sentence includes "or until the patient commences another
+  anti-cancer systemic therapy, whichever is earlier", applied through
+  `ProtocolContext.new_anticancer_therapy_date`), `conmeds.prohibited / discouraged / permitted` (§7.7.1–7.7.2 p. 69; lowercase
+  generics, plus brand / biosimilar `aliases` and category `match_terms`, which are Interim team
+  additions labeled in each entry's `rationale`; `is_category` marks the investigational-agent
+  and palliative-radiation entries), `conmeds.prohibited_tier_floor` (2),
+  `conmeds.non_systemic_qualifiers` (Interim team addition: `cream`, `drops`, `inhaler` ... keep
+  a topical steroid from being flagged), `cm_required_fields` (§7.7 p. 69) with the plain labels
+  and the "as appropriate" date reading.
+* **`irae_mapping.json`:** one row per kiosk item (exactly the shipped items; the loader fails
+  otherwise) with `potentially_immune_related`, `irae_category` (pneumonitis, colitis,
+  dermatologic, endocrine, musculoskeletal, mucosal, none) and a rationale. The protocol's own
+  examples are "rash, colitis, elevated transaminases, or endocrine" (p. 91–92); the pneumonitis
+  (shortness of breath) and musculoskeletal (joint pain) rows follow CLAUDE.md §00.1 and the PD-1
+  class, because the protocol's irAE guidance (§7.3.1.2, Appendix 3) is not in the excerpt; their
+  rationales say so.
+* **Regenerate / extend:** hand-edited. To add a drug, add an entry under the right level with a
+  `protocol_ref` and the verbatim `quote` from the excerpt; a name may appear in one level only
+  (the loader rejects duplicates). Keep `medlist.json` in step (brands the medlist lacks still
+  match through the protocol table's aliases).
+
+## Generated text and time-saved estimate
+
+These three tables belong to their modules, not to `tables.TABLE_NAMES`. Each module loads and
+validates its own table, and `tests/test_tables.py` excludes them in the same way it excludes the
+chart-scan tables.
+
+| File | Content | Provenance |
+|---|---|---|
+| `narrative_templates.json` | Sentence variants per kind: `sae_narrative`; `aesi_narrative`, which reuses the SAE sentences through `sentences_from`; and `visit_brief`. Also holds fragments; plain labels for con-med verbs, trend words, clock kinds and statuses, and CM field names; section titles; date and list formats; and the `validation` patterns (`forbidden_patterns` and `qualifiers`) that `validate_written` applies to any writer's output | Interim. Narrative order follows ICH E2A. Reporting sentences carry a `protocol_ref` to EMPOWER-Lung 1 R2810-ONC-1624 Amd 9 (§9.4.2 p. 91, §9.4.3 p. 92, §7.7 and §7.7.1–7.7.2 p. 69). The seriousness and causality qualifier cites §9.3.2 p. 90 and §9.3.4 pp. 90–91. Owned by `interim_rules.narrative` (`NARRATIVE_TABLE_NAMES`). |
+| `time_model.json` | Minutes per unit for `AE` (1.0), `CM` (0.75), `VS` (0.1), `SAE_FORM` (1.5), `NARRATIVE_PARAGRAPH` (10) and `BRIEF_SECTION` (5), each with `basis` (`source` or `assumption`) and `derivation`; category `aliases`; `countable_fields` per domain (CM follows §7.7 p. 69); `anchor_rate`; `weekly_baseline` (12–15 h per study per week); `disclaimer` = `"estimate"` | VS rate: MSK + IgniteData time-and-motion study (3023 data points in 5 data-manager hours, 0.099 min per field). The other rates are stated multiples of it or plain assumptions. Weekly figure: Clinical Trial Vanguard (16 Sep 2026), citing Mednet; it is context only and never used in the arithmetic. Owned by `interim_rules.time_saved` (`TIME_MODEL_TABLE_NAMES`). |
+| `plain_language.json` | `fields` (a plain label per SDTM or `INTERIM_*` variable); `rules` (a sentence template plus an input-free fallback for every catalog rule id, including `protocol.*`, `aesi.clock_started` and `aesi.clock_not_restarted`); `tiers`; `grades`; `clock_kinds`; `evidence_kinds`; `domains`; `input_aliases`; `render_as` | Interim, written for non-clinicians. Grade words follow the CTCAE v5.0 general descriptions; the clock kinds cite protocol §9.4.2 p. 91 and §9.4.3 p. 92. Owned by `interim_rules.plain_language` (`PLAIN_LANGUAGE_TABLE_NAMES`). |
+
+To change wording or a rate, edit the table; the code only fills slots and does arithmetic. Add a
+`source` or `derivation` for any new number. `tests/test_narrative.py`, `tests/test_time_saved.py`
+and `tests/test_plain_language.py` load the shipped tables and also check that malformed copies
+fail loudly.

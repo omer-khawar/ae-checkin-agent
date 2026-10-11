@@ -100,3 +100,31 @@ def test_non_editable_install_ships_and_finds_the_tables(tmp_path: Path) -> None
     assert Path(report["data_dir"]).resolve() == (target / "interim_rules" / "data").resolve()
     assert report["n_items"] == 10 and report["n_catalog"] > 40
     assert report["tier"] == 1 and report["json_ok"] is True
+
+
+def test_package_root_exports_the_r31_interface() -> None:
+    import interim_rules
+    from interim_rules import (
+        ProtocolAssessment,
+        ProtocolConMedFlag,
+        ProtocolContext,
+        ProtocolRef,
+        WrittenText,
+        estimate,
+        narrative,
+        protocol,
+        time_saved,
+        validate_written,
+        write,
+    )
+
+    assert ProtocolContext is protocol.ProtocolContext
+    assert ProtocolAssessment is protocol.ProtocolAssessment
+    assert ProtocolConMedFlag is protocol.ProtocolConMedFlag
+    assert ProtocolRef.__name__ == "ProtocolRef"
+    assert write is narrative.write and validate_written is narrative.validate_written
+    assert WrittenText is narrative.WrittenText and estimate is time_saved.estimate
+    assert set(interim_rules.__all__) >= {
+        "ProtocolAssessment", "ProtocolConMedFlag", "ProtocolContext", "ProtocolRef",
+        "WrittenText", "estimate", "validate_written", "write",
+    }  # fmt: skip

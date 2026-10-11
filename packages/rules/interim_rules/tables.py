@@ -24,7 +24,7 @@ from functools import cache, lru_cache
 from pathlib import Path
 from typing import Any, cast
 
-from .models import ATTRIBUTES, Attribute
+from .models import ATTRIBUTES, Attribute, ProtocolLevel, ProtocolRef
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _CANDIDATE_DATA_DIRS: tuple[Path, ...] = (_PACKAGE_DIR.parent / "data", _PACKAGE_DIR / "data")
@@ -45,6 +45,8 @@ TABLE_NAMES: tuple[str, ...] = (
     "dedup",
     "conmed_matching",
     "rules_catalog",
+    "protocol_rules",
+    "irae_mapping",
 )
 """Every table this package owns (``personas.json`` is owned by the eval harness)."""
 
@@ -816,4 +818,358 @@ def rules_catalog() -> Mapping[str, CatalogEntry]:
         if rule.id in out:
             raise TableError(f"{where}: duplicate rule id {rule.id!r}")
         out[rule.id] = rule
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# protocol_rules.json / irae_mapping.json (CONTRACTS.md R3.1)
+# --------------------------------------------------------------------------- #
+
+PROTOCOL_LEVELS: tuple[ProtocolLevel, ...] = ("prohibited", "discouraged", "permitted")
+"""Con-med protocol levels, most restrictive first."""
+
+IRAE_CATEGORIES: tuple[str, ...] = (
+    "pneumonitis",
+    "colitis",
+    "dermatologic",
+    "endocrine",
+    "musculoskeletal",
+    "mucosal",
+    "none",
+)
+"""The irAE categories ``irae_mapping.json`` may use (CONTRACTS.md R3.1)."""
+
+PROTOCOL_CONTEXT_KEYS: tuple[str, ...] = ("prior_pi3k_inhibitor",)
+"""Context flags an AESI criterion may require (``requires_context``)."""
+
+
+def _protocol_ref(value: object, where: str) -> ProtocolRef:
+    raw = _as_dict(value, where)
+    section = _as_str(raw.get("section"), f"{where}.section").strip()
+    if not section:
+        raise TableError(f"{where}.section: must not be empty")
+    page = _as_int(raw.get("printed_page"), f"{where}.printed_page")
+    if page < 1:
+        raise TableError(f"{where}.printed_page: must be >= 1")
+    return ProtocolRef(section=section, printed_page=page)
+
+
+def _lower_names(value: object, where: str) -> tuple[str, ...]:
+    out: list[str] = []
+    for idx, raw in enumerate(_as_list(value, where)):
+        name = _as_str(raw, f"{where}[{idx}]").strip()
+        if not name or name != name.lower():
+            raise TableError(f"{where}[{idx}]: names must be non-empty and lowercase")
+        out.append(name)
+    return tuple(out)
+
+
+def _opt_str(value: object, where: str) -> str | None:
+    return None if value is None else _as_str(value, where)
+
+
+def _nonempty(value: object, where: str) -> str:
+    text = _as_str(value, where).strip()
+    if not text:
+        raise TableError(f"{where}: must not be empty")
+    return text
+
+
+@dataclass(frozen=True)
+class ProtocolQuote:
+    """A protocol sentence (verbatim) with its citation."""
+
+    protocol_ref: ProtocolRef
+    quote: str
+
+
+@dataclass(frozen=True)
+class AesiCriterion:
+    """One AESI criterion of protocol §9.4.3 (p. 92)."""
+
+    id: str
+    quote: str
+    min_grade: int
+    applies_to: str
+    requires_context: str | None
+    detectable_from_kiosk: bool
+
+
+@dataclass(frozen=True)
+class AesiRules:
+    reporting_hours: float
+    label: str
+    reference: ProtocolQuote
+    criteria: tuple[AesiCriterion, ...]
+
+
+@dataclass(frozen=True)
+class ProtocolDrug:
+    """One drug (or category) the protocol classifies; every name is lowercase."""
+
+    level: ProtocolLevel
+    drug: str
+    aliases: tuple[str, ...]
+    match_terms: tuple[str, ...]
+    protocol_ref: ProtocolRef
+    quote: str
+    exception_text: str | None
+    further_exceptions_text: str | None
+    condition: str | None
+    systemic_only: bool
+    is_category: bool
+    """A class or procedure (investigational agents, palliative radiation), not a generic name."""
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """The generic name plus every alias (what a medlist match or a word may equal)."""
+        return (self.drug, *self.aliases)
+
+
+@dataclass(frozen=True)
+class CmRequiredField:
+    field: str
+    protocol_term: str
+    plain_label: str
+
+
+@dataclass(frozen=True)
+class ProtocolRules:
+    protocol_id: str
+    amendment: str
+    nct_id: str
+    excerpt_file: str
+    sae_reporting_hours: float
+    sae_reporting: ProtocolQuote
+    ae_reporting_window_days: int
+    ae_reporting_window: ProtocolQuote
+    aesi: AesiRules
+    drugs: tuple[ProtocolDrug, ...]
+    """Every classified drug: prohibited first, then discouraged, then permitted."""
+    prohibited_tier_floor: int
+    prohibited_reason: str
+    non_systemic_qualifiers: tuple[str, ...]
+    cm_required_fields: tuple[str, ...]
+    cm_required_detail: tuple[CmRequiredField, ...]
+    cm_required_reference: ProtocolQuote
+
+    def by_level(self, level: ProtocolLevel) -> tuple[ProtocolDrug, ...]:
+        return tuple(d for d in self.drugs if d.level == level)
+
+
+def _protocol_quote(value: object, where: str) -> ProtocolQuote:
+    raw = _as_dict(value, where)
+    return ProtocolQuote(
+        _protocol_ref(raw.get("protocol_ref"), f"{where}.protocol_ref"),
+        _nonempty(raw.get("quote"), f"{where}.quote"),
+    )
+
+
+def _protocol_drug(level: ProtocolLevel, raw: object, where: str) -> ProtocolDrug:
+    entry = _as_dict(raw, where)
+    drug = ProtocolDrug(
+        level=level,
+        drug=_lower_names([entry.get("drug")], f"{where}.drug")[0],
+        aliases=_lower_names(entry.get("aliases", []), f"{where}.aliases"),
+        match_terms=_lower_names(entry.get("match_terms", []), f"{where}.match_terms"),
+        protocol_ref=_protocol_ref(entry.get("protocol_ref"), f"{where}.protocol_ref"),
+        quote=_nonempty(entry.get("quote"), f"{where}.quote"),
+        exception_text=_opt_str(entry.get("exception_text"), f"{where}.exception_text"),
+        further_exceptions_text=_opt_str(
+            entry.get("further_exceptions_text"), f"{where}.further_exceptions_text"
+        ),
+        condition=_opt_str(entry.get("condition"), f"{where}.condition"),
+        systemic_only=_as_bool(entry.get("systemic_only", False), f"{where}.systemic_only"),
+        is_category=_as_bool(entry.get("is_category", False), f"{where}.is_category"),
+    )
+    if level == "discouraged" and drug.exception_text is None:
+        raise TableError(f"{where}: a discouraged drug needs the protocol's exception_text")
+    return drug
+
+
+def _protocol_drugs(conmeds: dict[str, Any]) -> tuple[ProtocolDrug, ...]:
+    drugs: list[ProtocolDrug] = []
+    seen: dict[str, str] = {}
+    for level in PROTOCOL_LEVELS:
+        where_level = f"protocol_rules.conmeds.{level}"
+        for idx, raw in enumerate(_as_list(conmeds.get(level), where_level)):
+            where = f"{where_level}[{idx}]"
+            drug = _protocol_drug(level, raw, where)
+            for name in (*drug.names, *drug.match_terms):
+                if name in seen:
+                    raise TableError(f"{where}: name {name!r} already classified as {seen[name]}")
+                seen[name] = f"{level}:{drug.drug}"
+            drugs.append(drug)
+    return tuple(drugs)
+
+
+def _aesi_rules(value: object) -> AesiRules:
+    aesi_raw = _as_dict(value, "protocol_rules.aesi")
+    criteria: list[AesiCriterion] = []
+    ids: set[str] = set()
+    for idx, raw in enumerate(_as_list(aesi_raw.get("criteria"), "protocol_rules.aesi.criteria")):
+        where = f"protocol_rules.aesi.criteria[{idx}]"
+        entry = _as_dict(raw, where)
+        requires = entry.get("requires_context")
+        if requires is not None and requires not in PROTOCOL_CONTEXT_KEYS:
+            raise TableError(f"{where}.requires_context: unknown context {requires!r}")
+        min_grade = _as_int(entry.get("min_grade"), f"{where}.min_grade")
+        if not 1 <= min_grade <= 5:
+            raise TableError(f"{where}.min_grade: must be within 1..5")
+        criterion = AesiCriterion(
+            id=_nonempty(entry.get("id"), f"{where}.id"),
+            quote=_nonempty(entry.get("quote"), f"{where}.quote"),
+            min_grade=min_grade,
+            applies_to=_nonempty(entry.get("applies_to"), f"{where}.applies_to"),
+            requires_context=None if requires is None else str(requires),
+            detectable_from_kiosk=_as_bool(
+                entry.get("detectable_from_kiosk"), f"{where}.detectable_from_kiosk"
+            ),
+        )
+        if criterion.id in ids:
+            raise TableError(f"{where}: duplicate criterion id {criterion.id!r}")
+        ids.add(criterion.id)
+        criteria.append(criterion)
+    hours = _as_number(aesi_raw.get("reporting_hours"), "protocol_rules.aesi.reporting_hours")
+    if hours <= 0:
+        raise TableError("protocol_rules.aesi.reporting_hours: must be positive")
+    return AesiRules(
+        reporting_hours=hours,
+        label=_nonempty(aesi_raw.get("label"), "protocol_rules.aesi.label"),
+        reference=_protocol_quote(aesi_raw, "protocol_rules.aesi"),
+        criteria=tuple(criteria),
+    )
+
+
+def _cm_required(table: dict[str, Any]) -> tuple[tuple[str, ...], tuple[CmRequiredField, ...]]:
+    where = "protocol_rules.cm_required_fields_detail"
+    detail = _as_dict(table.get("cm_required_fields_detail"), where)
+    required = tuple(
+        _nonempty(f, "protocol_rules.cm_required_fields")
+        for f in _as_list(table.get("cm_required_fields"), "protocol_rules.cm_required_fields")
+    )
+    fields: list[CmRequiredField] = []
+    for idx, raw in enumerate(_as_list(detail.get("fields"), f"{where}.fields")):
+        row = _as_dict(raw, f"{where}.fields[{idx}]")
+        fields.append(
+            CmRequiredField(
+                field=_nonempty(row.get("field"), f"{where}.fields[{idx}].field"),
+                protocol_term=_nonempty(
+                    row.get("protocol_term"), f"{where}.fields[{idx}].protocol_term"
+                ),
+                plain_label=_nonempty(row.get("plain_label"), f"{where}.fields[{idx}].plain_label"),
+            )
+        )
+    if tuple(f.field for f in fields) != required:
+        raise TableError(f"{where}.fields must list cm_required_fields in the same order")
+    return required, tuple(fields)
+
+
+@lru_cache(maxsize=1)
+def protocol_rules() -> ProtocolRules:
+    """The EMPOWER-Lung 1 protocol rules: AESI criteria, con-med levels, CM required fields."""
+    table = load_table("protocol_rules")
+    meta = _as_dict(table.get("protocol"), "protocol_rules.protocol")
+    conmeds = _as_dict(table.get("conmeds"), "protocol_rules.conmeds")
+    qualifiers = _as_dict(
+        conmeds.get("non_systemic_qualifiers"), "protocol_rules.conmeds.non_systemic_qualifiers"
+    )
+    floor = _as_int(
+        conmeds.get("prohibited_tier_floor"), "protocol_rules.conmeds.prohibited_tier_floor"
+    )
+    if not 0 <= floor <= 3:
+        raise TableError("protocol_rules.conmeds.prohibited_tier_floor: must be within 0..3")
+    window_days = _as_int(
+        table.get("ae_reporting_window_days_after_last_dose"),
+        "protocol_rules.ae_reporting_window_days_after_last_dose",
+    )
+    if window_days < 0:
+        raise TableError("protocol_rules.ae_reporting_window_days_after_last_dose: must be >= 0")
+    sae_hours = _as_number(table.get("sae_reporting_hours"), "protocol_rules.sae_reporting_hours")
+    if sae_hours <= 0:
+        raise TableError("protocol_rules.sae_reporting_hours: must be positive")
+    required, detail = _cm_required(table)
+    return ProtocolRules(
+        protocol_id=_nonempty(meta.get("protocol_id"), "protocol_rules.protocol.protocol_id"),
+        amendment=_nonempty(meta.get("amendment"), "protocol_rules.protocol.amendment"),
+        nct_id=_nonempty(meta.get("nct_id"), "protocol_rules.protocol.nct_id"),
+        excerpt_file=_nonempty(meta.get("excerpt_file"), "protocol_rules.protocol.excerpt_file"),
+        sae_reporting_hours=sae_hours,
+        sae_reporting=_protocol_quote(table.get("sae_reporting"), "protocol_rules.sae_reporting"),
+        ae_reporting_window_days=window_days,
+        ae_reporting_window=_protocol_quote(
+            table.get("ae_reporting_window"), "protocol_rules.ae_reporting_window"
+        ),
+        aesi=_aesi_rules(table.get("aesi")),
+        drugs=_protocol_drugs(conmeds),
+        prohibited_tier_floor=floor,
+        prohibited_reason=_nonempty(
+            conmeds.get("prohibited_reason"), "protocol_rules.conmeds.prohibited_reason"
+        ),
+        non_systemic_qualifiers=_lower_names(
+            qualifiers.get("words"), "protocol_rules.conmeds.non_systemic_qualifiers.words"
+        ),
+        cm_required_fields=required,
+        cm_required_detail=detail,
+        cm_required_reference=_protocol_quote(
+            table.get("cm_required_fields_detail"), "protocol_rules.cm_required_fields_detail"
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class IraeRow:
+    """One kiosk item's potentially-immune-related flag and irAE category."""
+
+    item_id: str
+    potentially_immune_related: bool
+    irae_category: str
+    protocol_ref: ProtocolRef | None
+    rationale: str
+
+
+def _irae_row(raw: object, where: str) -> IraeRow:
+    entry = _as_dict(raw, where)
+    category = _as_str(entry.get("irae_category"), f"{where}.irae_category")
+    if category not in IRAE_CATEGORIES:
+        raise TableError(f"{where}.irae_category: unknown category {category!r}")
+    ref = entry.get("protocol_ref")
+    row = IraeRow(
+        item_id=_nonempty(entry.get("item_id"), f"{where}.item_id"),
+        potentially_immune_related=_as_bool(
+            entry.get("potentially_immune_related"), f"{where}.potentially_immune_related"
+        ),
+        irae_category=category,
+        protocol_ref=None if ref is None else _protocol_ref(ref, f"{where}.protocol_ref"),
+        rationale=_nonempty(entry.get("rationale"), f"{where}.rationale"),
+    )
+    if row.potentially_immune_related and (row.irae_category == "none" or row.protocol_ref is None):
+        raise TableError(
+            f"{where}: a potentially immune-related item needs an irae_category and a protocol_ref"
+        )
+    return row
+
+
+@lru_cache(maxsize=1)
+def irae_mapping() -> Mapping[str, IraeRow]:
+    """Potentially-immune-related flag and category per kiosk item (exactly the shipped items)."""
+    table = load_table("irae_mapping")
+    categories = tuple(
+        _as_str(c, "irae_mapping.categories")
+        for c in _as_list(table.get("categories"), "irae_mapping.categories")
+    )
+    if set(categories) != set(IRAE_CATEGORIES):
+        raise TableError(f"irae_mapping.categories: expected {sorted(IRAE_CATEGORIES)}")
+    out: dict[str, IraeRow] = {}
+    for idx, raw in enumerate(_as_list(table.get("items"), "irae_mapping.items")):
+        row = _irae_row(raw, f"irae_mapping.items[{idx}]")
+        if row.item_id in out:
+            raise TableError(f"irae_mapping.items[{idx}]: duplicate item {row.item_id!r}")
+        out[row.item_id] = row
+    shipped = {item.id for item in items()}
+    if set(out) != shipped:
+        raise TableError(
+            "irae_mapping.items must cover exactly the shipped items; "
+            f"missing {sorted(shipped - set(out))}, unknown {sorted(set(out) - shipped)}"
+        )
     return out
